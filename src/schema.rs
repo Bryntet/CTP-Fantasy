@@ -21,6 +21,8 @@ diesel::table! {
 diesel::table! {
     tournaments (tournament_id) {
         tournament_id -> Int4,
+        running -> Bool,
+        finished -> Bool,
     }
 }
 

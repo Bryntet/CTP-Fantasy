@@ -13,42 +13,33 @@ pub fn establish_connection() -> PgConnection {
 
 pub mod models;
 pub mod schema;
-use models::{ Player };
 pub mod pdga_handling; 
+use models::{ Player, User, SQLStuff};
 
 
 #[tokio::main]
 async fn main() {
-    use crate::schema::players::dsl::*;
-    use std::{thread, time};
     let conn = &mut establish_connection();
     
-    let non_avatars = get_players_without_avatar(conn);
+    // for i in 64500..=65000 {
+    //     get_players_from_tournament(conn, i);
+    //     println!("Added round: {}", i);
+    // }
+    
+    let my_user = User::from_id(1, conn).unwrap();
+    
+    println!("{:?}", my_user.get_players(conn));
+}
 
 
-    for i in 64500..=65000 {
-        let tour_players = pdga_handling::get_tournament(i, "MPO", 1);
-        
-        for player in tour_players.await.unwrap_or(vec![]) {
-            if !player.exists(conn) {
-                player.insert_into_sql(conn);
-            } 
-        }
-        println!("Added round: {}", i);
+async fn get_players_from_tournament(conn: &mut PgConnection, i: i32) {
+    let tour_players = pdga_handling::get_tournament(i, "MPO", 1);
+    for player in tour_players.await.unwrap_or(vec![]) {
+        if !player.exists(conn) {
+            player.insert_into_sql(conn);
+        } 
     }
 }
-
-
-fn get_players_without_avatar(conn: &mut PgConnection) -> Vec<i32> {
-    use crate::schema::players::dsl::*;
-    players
-        .filter(avatar.is_null())
-        .select(pdga_number)
-        .load(conn)
-        .expect("Error loading posts")
-}
-
-
 
 
 
