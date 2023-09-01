@@ -32,7 +32,7 @@ impl TempPlayer {
             first_name: self.first_name.clone(),
             last_name: Some(self.last_name.clone()),
             rating: self.rating,
-            avatar: Some("https://www.pdga.com".to_string() + &self.avatar_url.clone().unwrap_or_default()),
+            avatar: self.avatar_url.as_ref().map(|url| "https://www.pdga.com".to_string() + url)
         }
     }
 }

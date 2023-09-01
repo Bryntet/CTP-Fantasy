@@ -15,6 +15,9 @@ pub struct Player {
 
 impl Player {
     pub fn insert_into_sql(&self, conn: &mut PgConnection) {
+        if self.pdga_number == 0 {
+            return;
+        }
         use crate::schema::players::dsl::*;
         diesel::insert_into(players)
             .values(self)
