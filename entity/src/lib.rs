@@ -2,6 +2,8 @@
 
 pub mod prelude;
 
+pub mod fantasy_pick;
+pub mod fantasy_scores;
 pub mod fantasy_tournament;
 pub mod player;
 pub mod player_division;

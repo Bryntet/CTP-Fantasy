@@ -27,16 +27,14 @@ pub(crate) enum PlayerDivision {
     Division,
 }
 
-
 #[derive(Iden, EnumIter, Deserialize)]
 pub(crate) enum Division {
     Table,
     #[iden = "Mpo"]
     Mpo,
     #[iden = "Fpo"]
-    Fpo
+    Fpo,
 }
-
 
 #[derive(DeriveIden)]
 pub(crate) enum Tournament {
@@ -70,5 +68,22 @@ pub(crate) enum FantasyTournament {
     Id,
     Owner,
     MaxPicksPerUser,
+}
 
+#[derive(DeriveIden)]
+pub(crate) enum FantasyPick {
+    Table,
+    Id,
+    User,
+    Player,
+    FantasyTournamentId,
+}
+#[derive(DeriveIden)]
+pub(crate) enum FantasyScores {
+    Table,
+    Id,
+    User,
+    Score,
+    Ranking,
+    FantasyTournamentId,
 }

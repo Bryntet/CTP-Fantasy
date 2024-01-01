@@ -1,12 +1,15 @@
-use diesel::IntoSql;
 use diesel::row::NamedRow;
+use diesel::IntoSql;
 use entity::*;
 use itertools::Itertools;
 use sea_orm::ActiveValue::{NotSet, Set, Unchanged};
-use sea_orm::{ActiveModelTrait, Database, DatabaseBackend, DatabaseConnection, DbBackend, DbErr, EntityOrSelect, EntityTrait, InsertResult, IntoActiveModel, QueryTrait, SelectColumns, TransactionTrait};
+use sea_orm::{
+    ActiveModelTrait, Database, DatabaseBackend, DatabaseConnection, DbBackend, DbErr,
+    EntityOrSelect, EntityTrait, InsertResult, IntoActiveModel, QueryTrait, SelectColumns,
+    TransactionTrait,
+};
 use serde_derive::Deserialize;
 use serde_json::Value;
-
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "PascalCase")]
@@ -17,7 +20,7 @@ struct ApiPlayer {
     pub last_name: String,
     pub rating: Option<i32>,
     pub avatar: Option<String>,
-    pub division: ApiDivision
+    pub division: ApiDivision,
 }
 
 impl ApiPlayer {
@@ -33,7 +36,11 @@ impl ApiPlayer {
     }
 
     fn to_division(&self) -> player_division::ActiveModel {
-        player_division::Model{player_pdga_number: self.pdga_number, division: self.division.to_division()}.into_active_model()
+        player_division::Model {
+            player_pdga_number: self.pdga_number,
+            division: self.division.to_division(),
+        }
+        .into_active_model()
     }
 }
 
@@ -47,8 +54,6 @@ struct Data {
     scores: Vec<ApiPlayer>,
 }
 
-
-
 #[derive(Debug, Deserialize, Clone)]
 enum ApiDivision {
     MPO,
@@ -60,17 +65,12 @@ impl ApiDivision {
         use sea_orm_active_enums::Division::*;
         match self {
             Self::FPO => Fpo,
-            Self::MPO => Mpo
+            Self::MPO => Mpo,
         }
-
     }
 }
 
-async fn get_pdga_things(
-    tour_id: i32,
-    div_name: &str,
-    round_id: i32,
-) {
+async fn get_pdga_things(tour_id: i32, div_name: &str, round_id: i32) {
     // Define a struct to mirror the JSON structure
     let db = Database::connect(std::env::var("DATABASE_URL").expect("DATABASE_URL not set"))
         .await
@@ -82,22 +82,16 @@ async fn get_pdga_things(
     // Directly deserialize the JSON response into the ApiResponse struct
     let response: ApiResponse = reqwest::get(&get_url).await.unwrap().json().await.unwrap();
 
-
     for player in response.data.scores.clone() {
         let res = add_player(&db, player).await;
         dbg!(res);
     }
-
 }
 
 async fn add_player(db: &DatabaseConnection, player: ApiPlayer) -> Result<(), DbErr> {
     let txn = db.begin().await?;
 
-    if let Err(e) = {
-        player.to_division()
-            .insert(&txn)
-            .await
-    } {
+    if let Err(e) = { player.to_division().insert(&txn).await } {
         dbg!(e);
     }
     player.into_active_model().insert(&txn).await?;

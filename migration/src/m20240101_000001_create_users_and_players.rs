@@ -28,12 +28,14 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        manager.create_type(
-            Type::create()
-                .as_enum(Division::Table)
-                .values(Division::iter().skip(1))
-                .to_owned()
-        ).await?;
+        manager
+            .create_type(
+                Type::create()
+                    .as_enum(Division::Table)
+                    .values(Division::iter().skip(1))
+                    .to_owned(),
+            )
+            .await?;
 
         manager
             .create_table(
