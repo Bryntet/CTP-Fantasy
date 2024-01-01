@@ -10,6 +10,7 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     pub owner: i32,
+    pub max_picks_per_user: i32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

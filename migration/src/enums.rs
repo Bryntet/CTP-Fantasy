@@ -69,4 +69,6 @@ pub(crate) enum FantasyTournament {
     Table,
     Id,
     Owner,
+    MaxPicksPerUser,
+
 }

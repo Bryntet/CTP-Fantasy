@@ -98,9 +98,11 @@ impl MigrationTrait for Migration {
                         ForeignKey::create()
                             .from(FantasyTournament::Table, FantasyTournament::Owner)
                             .to(User::Table, User::Id)
-                            .on_delete(ForeignKeyAction::Cascade),
+                            .on_delete(ForeignKeyAction::Cascade)
                     )
+                    .col(ColumnDef::new(FantasyTournament::MaxPicksPerUser).integer().not_null().default(10))
                     .to_owned(),
+
             )
             .await?;
         Ok(())

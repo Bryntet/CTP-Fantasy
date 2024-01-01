@@ -6,9 +6,9 @@ use serde::Deserialize;
 #[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize)]
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "division")]
 pub enum Division {
-    #[sea_orm(string_value = "fpo")]
+    #[sea_orm(string_value = "Fpo")]
     Fpo,
-    #[sea_orm(string_value = "mpo")]
+    #[sea_orm(string_value = "Mpo")]
     Mpo,
 }
 #[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize)]
