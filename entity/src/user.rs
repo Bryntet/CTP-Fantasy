@@ -41,3 +41,13 @@ impl Related<super::fantasy_tournament::Entity> for Entity {
 }
 
 impl ActiveModelBehavior for ActiveModel {}
+
+#[derive(Copy, Clone, Debug, EnumIter, DeriveRelatedEntity)]
+pub enum RelatedEntity {
+    #[sea_orm(entity = "super::fantasy_pick::Entity")]
+    FantasyPick,
+    #[sea_orm(entity = "super::fantasy_scores::Entity")]
+    FantasyScores,
+    #[sea_orm(entity = "super::fantasy_tournament::Entity")]
+    FantasyTournament,
+}

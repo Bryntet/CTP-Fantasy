@@ -1,6 +1,6 @@
 use crate::enums::*;
-use sea_orm_migration::prelude::*;
 use crate::{drop_table, drop_type};
+use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -30,13 +30,24 @@ impl MigrationTrait for Migration {
                             .from(FantasyPick::Table, FantasyPick::Player)
                             .to(Player::Table, Player::PDGANumber),
                     )
-                    .col(ColumnDef::new(FantasyPick::FantasyTournamentId).integer().not_null())
+                    .col(
+                        ColumnDef::new(FantasyPick::FantasyTournamentId)
+                            .integer()
+                            .not_null(),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .from(FantasyPick::Table, FantasyPick::FantasyTournamentId)
                             .to(Tournament::Table, Tournament::Id),
                     )
-                    .index(Index::create().name("fantasy_pick_user_player").col(FantasyPick::User).col(FantasyPick::Player).col(FantasyPick::FantasyTournamentId).unique())
+                    .index(
+                        Index::create()
+                            .name("fantasy_pick_user_player")
+                            .col(FantasyPick::User)
+                            .col(FantasyPick::Player)
+                            .col(FantasyPick::FantasyTournamentId)
+                            .unique(),
+                    )
                     .to_owned(),
             )
             .await?;
@@ -56,17 +67,28 @@ impl MigrationTrait for Migration {
                             .from(FantasyScores::Table, FantasyScores::User)
                             .to(User::Table, User::Id),
                     )
-                    .col(ColumnDef::new(FantasyScores::FantasyTournamentId).integer().not_null())
+                    .col(
+                        ColumnDef::new(FantasyScores::FantasyTournamentId)
+                            .integer()
+                            .not_null(),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .from(FantasyScores::Table, FantasyScores::FantasyTournamentId)
                             .to(Tournament::Table, Tournament::Id),
                     )
                     .col(ColumnDef::new(FantasyScores::Score).integer().not_null())
-                    .index(Index::create().name("fantasy_scores_user_tournament").col(FantasyScores::User).col(FantasyScores::FantasyTournamentId).unique())
+                    .index(
+                        Index::create()
+                            .name("fantasy_scores_user_tournament")
+                            .col(FantasyScores::User)
+                            .col(FantasyScores::FantasyTournamentId)
+                            .unique(),
+                    )
                     .col(ColumnDef::new(FantasyScores::Ranking).integer().not_null())
                     .to_owned(),
-            ).await?;
+            )
+            .await?;
         Ok(())
     }
 

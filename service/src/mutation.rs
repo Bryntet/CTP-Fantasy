@@ -3,7 +3,9 @@ use entity::*;
 use fantasy_tournament::Entity as FantasyTournament;
 use sea_orm::ActiveValue::*;
 use sea_orm::{DatabaseConnection, EntityTrait};
+use serde::Deserialize;
 
+#[derive(Deserialize)]
 pub struct CreateTournamentInput {
     pub owner: i32,
     pub max_picks_per_user: Option<i32>,
@@ -50,8 +52,6 @@ impl CreatePickInput {
         Ok(())
     }
 }
-
-
 
 pub struct CreateUserScoreInput {
     pub user: i32,

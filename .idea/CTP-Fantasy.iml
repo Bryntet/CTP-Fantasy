@@ -5,6 +5,10 @@
       <sourceFolder url="file://$MODULE_DIR$/entity/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/migration/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/rocket/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/service/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/service/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/api/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

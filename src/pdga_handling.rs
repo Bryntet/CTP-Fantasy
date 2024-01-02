@@ -1,5 +1,7 @@
+use std::time::Duration;
 use diesel::row::NamedRow;
 use diesel::IntoSql;
+use dotenvy::dotenv;
 use entity::*;
 use itertools::Itertools;
 use sea_orm::ActiveValue::{NotSet, Set, Unchanged};
@@ -19,6 +21,7 @@ struct ApiPlayer {
     pub first_name: String,
     pub last_name: String,
     pub rating: Option<i32>,
+    #[serde(rename="AvatarURL")]
     pub avatar: Option<String>,
     pub division: ApiDivision,
 }
@@ -70,29 +73,42 @@ impl ApiDivision {
     }
 }
 
-async fn get_pdga_things(tour_id: i32, div_name: &str, round_id: i32) {
+async fn fetch_people_from_pdga(tour_id: i32, div_name: &str, round_id: i32) -> Result<(), reqwest::Error> {
     // Define a struct to mirror the JSON structure
+    dotenv().ok();
     let db = Database::connect(std::env::var("DATABASE_URL").expect("DATABASE_URL not set"))
         .await
         .unwrap();
 
     let get_url = format!("https://www.pdga.com/apps/tournament/live-api/live_results_fetch_round.php?TournID={}&Division={}&Round={}", tour_id, div_name, round_id);
-    dbg!(&get_url);
+    //dbg!(&get_url);
 
     // Directly deserialize the JSON response into the ApiResponse struct
-    let response: ApiResponse = reqwest::get(&get_url).await.unwrap().json().await.unwrap();
-
+    let response: ApiResponse = reqwest::get(&get_url).await.unwrap().json().await?;
     for player in response.data.scores.clone() {
-        let res = add_player(&db, player).await;
-        dbg!(res);
+        //dbg!(res);
+        add_player(&db, player).await;
+    }
+    Ok(())
+}
+
+pub async fn fetch_lots_of_people() {
+    for i in 65206..=66206 {
+        for div in ["MPO", "FPO"] {
+            if let Err(e) = fetch_people_from_pdga(i, div,1).await { dbg!(e); }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            dbg!(i, div);
+        }
     }
 }
+
+
 
 async fn add_player(db: &DatabaseConnection, player: ApiPlayer) -> Result<(), DbErr> {
     let txn = db.begin().await?;
 
     if let Err(e) = { player.to_division().insert(&txn).await } {
-        dbg!(e);
+        //dbg!(e);
     }
     player.into_active_model().insert(&txn).await?;
     let res = txn.commit().await;
@@ -104,6 +120,5 @@ async fn add_player(db: &DatabaseConnection, player: ApiPlayer) -> Result<(), Db
 #[test]
 fn test_get_pdga_things() {
     let rt = tokio::runtime::Runtime::new().unwrap();
-    let x = rt.block_on(get_pdga_things(65206, "MPO", 1));
-    dbg!(x);
+    rt.block_on(fetch_people_from_pdga(65206, "MPO", 1));
 }
