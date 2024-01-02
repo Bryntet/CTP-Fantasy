@@ -37,14 +37,14 @@ pub(crate) enum Division {
 }
 
 #[derive(DeriveIden)]
-pub(crate) enum Tournament {
+pub(crate) enum Competition {
     Table,
     Id,
     Status,
 }
 
 #[derive(Iden, EnumIter)]
-pub(crate) enum TournamentStatus {
+pub(crate) enum CompetitionStatus {
     Table,
     #[iden = "NotStarted"]
     NotStarted,
@@ -55,11 +55,11 @@ pub(crate) enum TournamentStatus {
 }
 
 #[derive(DeriveIden)]
-pub(crate) enum PlayerInTournament {
+pub(crate) enum PlayerInCompetition {
     Table,
     Id,
     PDGANumber,
-    TournamentId,
+    CompetitionId,
 }
 
 #[derive(DeriveIden)]

@@ -17,6 +17,14 @@ pub struct Model {
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(
+        belongs_to = "super::competition::Entity",
+        from = "Column::FantasyTournamentId",
+        to = "super::competition::Column::Id",
+        on_update = "NoAction",
+        on_delete = "NoAction"
+    )]
+    Competition,
+    #[sea_orm(
         belongs_to = "super::player::Entity",
         from = "Column::Player",
         to = "super::player::Column::PdgaNumber",
@@ -24,14 +32,6 @@ pub enum Relation {
         on_delete = "NoAction"
     )]
     Player,
-    #[sea_orm(
-        belongs_to = "super::tournament::Entity",
-        from = "Column::FantasyTournamentId",
-        to = "super::tournament::Column::Id",
-        on_update = "NoAction",
-        on_delete = "NoAction"
-    )]
-    Tournament,
     #[sea_orm(
         belongs_to = "super::user::Entity",
         from = "Column::User",
@@ -42,15 +42,15 @@ pub enum Relation {
     User,
 }
 
-impl Related<super::player::Entity> for Entity {
+impl Related<super::competition::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::Player.def()
+        Relation::Competition.def()
     }
 }
 
-impl Related<super::tournament::Entity> for Entity {
+impl Related<super::player::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::Tournament.def()
+        Relation::Player.def()
     }
 }
 
@@ -61,13 +61,3 @@ impl Related<super::user::Entity> for Entity {
 }
 
 impl ActiveModelBehavior for ActiveModel {}
-
-#[derive(Copy, Clone, Debug, EnumIter, DeriveRelatedEntity)]
-pub enum RelatedEntity {
-    #[sea_orm(entity = "super::player::Entity")]
-    Player,
-    #[sea_orm(entity = "super::tournament::Entity")]
-    Tournament,
-    #[sea_orm(entity = "super::user::Entity")]
-    User,
-}

@@ -38,7 +38,7 @@ impl MigrationTrait for Migration {
                     .foreign_key(
                         ForeignKey::create()
                             .from(FantasyPick::Table, FantasyPick::FantasyTournamentId)
-                            .to(Tournament::Table, Tournament::Id),
+                            .to(Competition::Table, Competition::Id),
                     )
                     .index(
                         Index::create()
@@ -75,7 +75,7 @@ impl MigrationTrait for Migration {
                     .foreign_key(
                         ForeignKey::create()
                             .from(FantasyScores::Table, FantasyScores::FantasyTournamentId)
-                            .to(Tournament::Table, Tournament::Id),
+                            .to(Competition::Table, Competition::Id),
                     )
                     .col(ColumnDef::new(FantasyScores::Score).integer().not_null())
                     .index(

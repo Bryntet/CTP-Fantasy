@@ -2,12 +2,12 @@
 
 pub mod prelude;
 
+pub mod competition;
 pub mod fantasy_pick;
 pub mod fantasy_scores;
 pub mod fantasy_tournament;
 pub mod player;
 pub mod player_division;
-pub mod player_in_tournament;
+pub mod player_in_competition;
 pub mod sea_orm_active_enums;
-pub mod tournament;
 pub mod user;

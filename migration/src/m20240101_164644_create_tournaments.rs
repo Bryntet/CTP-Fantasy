@@ -15,19 +15,19 @@ impl MigrationTrait for Migration {
         manager
             .create_type(
                 Type::create()
-                    .as_enum(TournamentStatus::Table)
-                    .values(TournamentStatus::iter().skip(1))
+                    .as_enum(CompetitionStatus::Table)
+                    .values(CompetitionStatus::iter().skip(1))
                     .to_owned(),
             )
             .await?;
         manager
             .create_table(
                 Table::create()
-                    .table(Tournament::Table)
-                    .col(ColumnDef::new(Tournament::Id).integer().primary_key())
+                    .table(Competition::Table)
+                    .col(ColumnDef::new(Competition::Id).integer().primary_key())
                     .col(
-                        ColumnDef::new(Tournament::Status)
-                            .custom(TournamentStatus::Table)
+                        ColumnDef::new(Competition::Status)
+                            .custom(CompetitionStatus::Table)
                             .not_null(),
                     )
                     .to_owned(),
@@ -36,43 +36,43 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    .table(PlayerInTournament::Table)
+                    .table(PlayerInCompetition::Table)
                     .if_not_exists()
                     .col(
-                        ColumnDef::new(PlayerInTournament::Id)
+                        ColumnDef::new(PlayerInCompetition::Id)
                             .integer()
                             .auto_increment()
                             .primary_key(),
                     )
                     .col(
-                        ColumnDef::new(PlayerInTournament::PDGANumber)
+                        ColumnDef::new(PlayerInCompetition::PDGANumber)
                             .integer()
                             .not_null(),
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .from(PlayerInTournament::Table, PlayerInTournament::PDGANumber)
+                            .from(PlayerInCompetition::Table, PlayerInCompetition::PDGANumber)
                             .to(Player::Table, Player::PDGANumber)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
                     .col(
-                        ColumnDef::new(PlayerInTournament::TournamentId)
+                        ColumnDef::new(PlayerInCompetition::CompetitionId)
                             .integer()
                             .not_null()
                             .auto_increment(),
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .from(PlayerInTournament::Table, PlayerInTournament::TournamentId)
-                            .to(Tournament::Table, Tournament::Id)
+                            .from(PlayerInCompetition::Table, PlayerInCompetition::CompetitionId)
+                            .to(Competition::Table, Competition::Id)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
                     // Add unique constraint
                     .index(
                         Index::create()
                             .name("unique_pdga_tournament_id")
-                            .col(PlayerInTournament::PDGANumber)
-                            .col(PlayerInTournament::TournamentId)
+                            .col(PlayerInCompetition::PDGANumber)
+                            .col(PlayerInCompetition::CompetitionId)
                             .unique(),
                     )
                     .to_owned(),
@@ -113,9 +113,9 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        drop_table!(PlayerInTournament, manager);
-        drop_table!(Tournament, manager);
-        drop_type!(TournamentStatus, manager);
+        drop_table!(PlayerInCompetition, manager);
+        drop_table!(Competition, manager);
+        drop_type!(CompetitionStatus, manager);
         drop_table!(FantasyTournament, manager);
         Ok(())
     }
