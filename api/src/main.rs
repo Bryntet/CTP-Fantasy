@@ -1,36 +1,37 @@
-mod utils;
 mod externally_update_internal;
-mod query;
 mod mutation;
+mod query;
+mod utils;
 
 use externally_update_internal as ext_to_int;
 
 use rocket_okapi::{openapi, openapi_get_routes};
 
-
-
 #[macro_use]
 extern crate rocket;
 
-use std::fmt::Debug;
 use dotenvy::dotenv;
 use rocket::response::Responder;
-use rocket_okapi::rapidoc::{GeneralConfig, HideShowConfig, make_rapidoc, RapiDocConfig};
+use rocket_okapi::rapidoc::{make_rapidoc, GeneralConfig, HideShowConfig, RapiDocConfig};
 use rocket_okapi::settings::UrlObject;
 use rocket_okapi::swagger_ui::{make_swagger_ui, SwaggerUIConfig};
 use service::*;
-
+use std::fmt::Debug;
 
 #[launch]
 async fn rocket() -> _ {
     dotenv().ok();
-    let db = sea_orm::Database::connect(std::env::var("DATABASE_URL").expect("DATABASE_URL not set"))
-        .await
-        .unwrap();
+    let db =
+        sea_orm::Database::connect(std::env::var("DATABASE_URL").expect("DATABASE_URL not set"))
+            .await
+            .unwrap();
     rocket::build()
         .manage(db)
         //.mount("/api", routes![mutation::create_tournament, ext_to_int::fetch_competition])
-        .mount("/", openapi_get_routes![mutation::create_tournament, ext_to_int::fetch_competition])
+        .mount(
+            "/",
+            openapi_get_routes![mutation::create_tournament, ext_to_int::fetch_competition, mutation::create_user],
+        )
         .mount(
             "/swagger-ui/",
             make_swagger_ui(&SwaggerUIConfig {
@@ -53,5 +54,4 @@ async fn rocket() -> _ {
                 ..Default::default()
             }),
         )
-
 }

@@ -8,3 +8,5 @@ pub use super::player::Entity as Player;
 pub use super::player_division::Entity as PlayerDivision;
 pub use super::player_in_competition::Entity as PlayerInCompetition;
 pub use super::user::Entity as User;
+pub use super::user_authentication::Entity as UserAuthentication;
+pub use super::user_cookies::Entity as UserCookies;

@@ -11,3 +11,5 @@ pub mod player_division;
 pub mod player_in_competition;
 pub mod sea_orm_active_enums;
 pub mod user;
+pub mod user_authentication;
+pub mod user_cookies;

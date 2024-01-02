@@ -1,4 +1,3 @@
-use std::time::Duration;
 use dotenvy::dotenv;
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
@@ -7,13 +6,12 @@ use sea_orm::{
     TransactionTrait,
 };
 use serde::Deserialize;
-
-
+use std::time::Duration;
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct CompetitionInfoInput {
     pub id: u32,
-    pub division: ApiDivision
+    pub division: ApiDivision,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -24,7 +22,7 @@ struct ApiPlayer {
     pub first_name: String,
     pub last_name: String,
     pub rating: Option<i32>,
-    #[serde(rename="AvatarURL")]
+    #[serde(rename = "AvatarURL")]
     pub avatar: Option<String>,
     pub division: ApiDivision,
 }
@@ -38,7 +36,7 @@ impl ApiPlayer {
             rating: self.rating,
             avatar: self.avatar,
         }
-            .into_active_model()
+        .into_active_model()
     }
 
     fn to_division(&self) -> entity::player_division::ActiveModel {
@@ -46,7 +44,7 @@ impl ApiPlayer {
             player_pdga_number: self.pdga_number,
             division: self.division.to_division(),
         }
-            .into_active_model()
+        .into_active_model()
     }
 }
 
@@ -76,7 +74,11 @@ impl ApiDivision {
     }
 }
 
-pub async fn fetch_people_from_competition(tour_id: u32, div_name: &str, round_id: i32) -> Result<(), reqwest::Error> {
+pub async fn fetch_people_from_competition(
+    tour_id: u32,
+    div_name: &str,
+    round_id: i32,
+) -> Result<(), reqwest::Error> {
     // Define a struct to mirror the JSON structure
     dotenv().ok();
     let db = Database::connect(std::env::var("DATABASE_URL").expect("DATABASE_URL not set"))
@@ -98,14 +100,14 @@ pub async fn fetch_people_from_competition(tour_id: u32, div_name: &str, round_i
 pub async fn fetch_lots_of_people() {
     for i in 65206..=66206 {
         for div in ["MPO", "FPO"] {
-            if let Err(e) = fetch_people_from_competition(i, div, 1).await { dbg!(e); }
+            if let Err(e) = fetch_people_from_competition(i, div, 1).await {
+                dbg!(e);
+            }
             tokio::time::sleep(Duration::from_millis(100)).await;
             dbg!(i, div);
         }
     }
 }
-
-
 
 async fn add_player(db: &DatabaseConnection, player: ApiPlayer) -> Result<(), DbErr> {
     let txn = db.begin().await?;

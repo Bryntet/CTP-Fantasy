@@ -63,7 +63,10 @@ impl MigrationTrait for Migration {
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .from(PlayerInCompetition::Table, PlayerInCompetition::CompetitionId)
+                            .from(
+                                PlayerInCompetition::Table,
+                                PlayerInCompetition::CompetitionId,
+                            )
                             .to(Competition::Table, Competition::Id)
                             .on_delete(ForeignKeyAction::Cascade),
                     )

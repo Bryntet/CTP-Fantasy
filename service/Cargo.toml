@@ -14,7 +14,7 @@ reqwest = { version = "0.11.23", features = ["serde_json", "json"] }
 dotenvy = "0.15"
 tokio = "1.35.1"
 rocket_okapi = "0.8.0-rc.3"
-
+bcrypt = "0.15.0"
 [dependencies.sea-orm]
 version = "0.12.10" # sea-orm version
 features = [

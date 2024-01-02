@@ -1,9 +1,9 @@
 mod mutation;
-mod query;
 mod pdga_handling;
+mod query;
 
 pub use mutation::*;
-pub use query::*;
 pub use pdga_handling::*;
+pub use query::*;
 
 pub use sea_orm;

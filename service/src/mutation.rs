@@ -4,6 +4,7 @@ use fantasy_tournament::Entity as FantasyTournament;
 use sea_orm::ActiveValue::*;
 use sea_orm::{DatabaseConnection, EntityTrait};
 use serde::Deserialize;
+use bcrypt::{DEFAULT_COST, hash};
 
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
@@ -76,6 +77,36 @@ impl CreateUserScoreInput {
         FantasyScores::insert(self.into_active_model())
             .exec(db)
             .await?;
+        Ok(())
+    }
+}
+
+#[derive(Deserialize, JsonSchema)]
+pub struct CreateUserInput {
+    pub username: String,
+    pub password: String,
+}
+
+impl CreateUserInput {
+    fn active_user(&self) -> user::ActiveModel {
+        user::ActiveModel {
+            id: NotSet,
+            name: Set(self.username.clone()),
+        }
+    }
+    fn active_authentication(&self, hashed_password: String, user_id: i32) -> user_authentication::ActiveModel {
+        user_authentication::ActiveModel {
+            id: NotSet,
+            user_id: Set(user_id),
+            hashed_password: Set(hashed_password),
+        }
+    }
+    pub async fn insert(self, db: &DatabaseConnection) -> Result<(), sea_orm::error::DbErr> {
+        let user = self.active_user();
+        let user_id = User::insert(user).exec(db).await?.last_insert_id;
+        let hashed_password = hash(&self.password, DEFAULT_COST).unwrap();
+        let authentication = self.active_authentication(hashed_password, user_id);
+        UserAuthentication::insert(authentication).exec(db).await?;
         Ok(())
     }
 }

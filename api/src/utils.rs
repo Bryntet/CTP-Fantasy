@@ -1,14 +1,14 @@
-use std::fmt::Debug;
 use rocket::http::Status;
-use rocket::{Request, response, Response};
 use rocket::response::Responder;
-use serde::{Serialize, Deserialize};
-use rocket_okapi::{openapi_get_routes, rapidoc::*, swagger_ui::*};
+use rocket::{response, Request, Response};
 use rocket_okapi::gen::OpenApiGenerator;
 use rocket_okapi::okapi::openapi3::Responses;
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::{JsonSchema, Map};
 use rocket_okapi::response::{OpenApiResponder, OpenApiResponderInner};
+use rocket_okapi::{openapi_get_routes, rapidoc::*, swagger_ui::*};
+use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
 
 #[derive(Serialize, Deserialize, JsonSchema)]
 pub(crate) enum Error {
@@ -16,11 +16,9 @@ pub(crate) enum Error {
     InvalidUserId,
     TournamentNameConflict,
     UnknownCompetition,
+    UsernameConflict,
     Other(String),
 }
-
-
-
 
 impl Error {
     pub(crate) fn to_rocket_status(&self) -> Status {
@@ -29,18 +27,22 @@ impl Error {
             Self::Other(e) => {
                 dbg!(e);
                 Status::InternalServerError
-            },
+            }
             Self::TooManyTournaments => Status::Forbidden,
             Self::TournamentNameConflict => Status::Conflict,
             Self::UnknownCompetition => Status::NotFound,
+            Self::UsernameConflict => Status::Conflict,
         }
     }
     pub(crate) fn to_err_message(&self) -> Option<String> {
         match self {
             Self::InvalidUserId => Some("Invalid User Id".to_string()),
-            Self::TooManyTournaments => Some("User has reached max amount of tournaments".to_string()),
+            Self::TooManyTournaments => {
+                Some("User has reached max amount of tournaments".to_string())
+            }
             Self::TournamentNameConflict => Some("Tournament name already used".to_string()),
             Self::UnknownCompetition => Some("Unknown competition".to_string()),
+            Self::UsernameConflict => Some("Username already taken".to_string()),
             Self::Other(_) => None,
         }
     }
@@ -71,7 +73,7 @@ impl OpenApiResponderInner for Error {
                 # [400 Bad Request](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/400)\n\
                 The request given is wrongly formatted or data asked could not be fulfilled. \
                 "
-                    .to_string(),
+                .to_string(),
                 ..Default::default()
             }),
         );
@@ -82,7 +84,7 @@ impl OpenApiResponderInner for Error {
                 # [404 Not Found](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/404)\n\
                 This response is given when you request a page that does not exists.\
                 "
-                    .to_string(),
+                .to_string(),
                 ..Default::default()
             }),
         );

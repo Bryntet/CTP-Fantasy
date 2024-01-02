@@ -87,3 +87,19 @@ pub(crate) enum FantasyScores {
     Ranking,
     FantasyTournamentId,
 }
+
+#[derive(DeriveIden)]
+pub(crate) enum UserCookies {
+    Table,
+    Id,
+    UserId,
+    Cookie,
+}
+
+#[derive(DeriveIden)]
+pub(crate) enum UserAuthentication {
+    Table,
+    Id,
+    UserId,
+    HashedPassword,
+}
