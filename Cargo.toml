@@ -8,11 +8,9 @@ edition = "2021"
 [dependencies]
 diesel = { version = "2.1.0", features = ["postgres"] }
 dotenvy = "0.15"
-reqwest = { version = "0.11.20", features = ["json"] }
-tokio = { version = "1.32.0", features = ["full"] }
+reqwest = { version = "0.11.20", features = ["json", "serde_json"] }
+tokio = { version = "1.35.1", features = ["full"] }
 serde = "1.0.186"
-serde_derive = "1.0.186"
-serde_json = "1.0.105"
 sea-orm = { version = "0.12", features = [ "sqlx-postgres", "runtime-tokio-rustls", "macros", "mock" ] }
 entity = { path = "./entity" }
 migration = { path = "./migration" }

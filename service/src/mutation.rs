@@ -5,7 +5,9 @@ use sea_orm::ActiveValue::*;
 use sea_orm::{DatabaseConnection, EntityTrait};
 use serde::Deserialize;
 
-#[derive(Deserialize)]
+use rocket_okapi::okapi::schemars;
+use rocket_okapi::okapi::schemars::JsonSchema;
+#[derive(Deserialize, JsonSchema)]
 pub struct CreateTournamentInput {
     pub owner: i32,
     pub max_picks_per_user: Option<i32>,

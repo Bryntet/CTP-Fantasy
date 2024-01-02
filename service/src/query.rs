@@ -2,6 +2,8 @@ use entity::prelude::*;
 use entity::*;
 use sea_orm::entity::prelude::*;
 use sea_orm::DatabaseConnection;
+use serde::Deserialize;
+use entity::sea_orm_active_enums::Division;
 
 pub async fn get_user_picks_for_tournament(
     db: &DatabaseConnection,
@@ -16,3 +18,4 @@ pub async fn get_user_picks_for_tournament(
 
     Ok(picks)
 }
+
