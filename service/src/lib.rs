@@ -1,6 +1,6 @@
-mod mutation;
+pub mod mutation;
 mod pdga_handling;
-mod query;
+pub mod query;
 
 pub use mutation::*;
 pub use pdga_handling::*;

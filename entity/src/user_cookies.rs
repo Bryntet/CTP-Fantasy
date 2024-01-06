@@ -7,10 +7,9 @@ use serde::Deserialize;
 #[sea_orm(table_name = "user_cookies")]
 #[serde(rename_all = "PascalCase")]
 pub struct Model {
-    #[sea_orm(primary_key)]
-    pub id: i32,
-    pub user_id: i32,
+    #[sea_orm(primary_key, auto_increment = false)]
     pub cookie: String,
+    pub user_id: i32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

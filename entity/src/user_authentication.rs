@@ -7,8 +7,7 @@ use serde::Deserialize;
 #[sea_orm(table_name = "user_authentication")]
 #[serde(rename_all = "PascalCase")]
 pub struct Model {
-    #[sea_orm(primary_key)]
-    pub id: i32,
+    #[sea_orm(primary_key, auto_increment = false)]
     pub user_id: i32,
     pub hashed_password: String,
 }

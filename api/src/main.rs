@@ -1,3 +1,5 @@
+mod authenticate;
+mod error;
 mod externally_update_internal;
 mod mutation;
 mod query;
@@ -30,7 +32,13 @@ async fn rocket() -> _ {
         //.mount("/api", routes![mutation::create_tournament, ext_to_int::fetch_competition])
         .mount(
             "/",
-            openapi_get_routes![mutation::create_tournament, ext_to_int::fetch_competition, mutation::create_user],
+            openapi_get_routes![
+                mutation::create_tournament,
+                ext_to_int::fetch_competition,
+                mutation::create_user,
+                query::login,
+                authenticate::cookie_auth,
+            ],
         )
         .mount(
             "/swagger-ui/",

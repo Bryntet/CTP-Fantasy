@@ -13,9 +13,9 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(UserCookies::Table)
                     .col(
-                        ColumnDef::new(UserCookies::Id)
-                            .integer()
-                            .auto_increment()
+                        ColumnDef::new(UserCookies::Cookie)
+                            .string()
+                            .not_null()
                             .primary_key(),
                     )
                     .col(ColumnDef::new(UserCookies::UserId).integer().not_null())
@@ -24,7 +24,6 @@ impl MigrationTrait for Migration {
                             .from(UserCookies::Table, UserCookies::UserId)
                             .to(User::Table, User::Id),
                     )
-                    .col(ColumnDef::new(UserCookies::Cookie).string().not_null())
                     .to_owned(),
             )
             .await?;
@@ -34,15 +33,10 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(UserAuthentication::Table)
                     .col(
-                        ColumnDef::new(UserAuthentication::Id)
-                            .integer()
-                            .auto_increment()
-                            .primary_key(),
-                    )
-                    .col(
                         ColumnDef::new(UserAuthentication::UserId)
                             .integer()
-                            .not_null(),
+                            .not_null()
+                            .primary_key(),
                     )
                     .foreign_key(
                         ForeignKey::create()

@@ -1,0 +1,7 @@
+POST http://localhost:8000/create-user
+Accept: text/plain
+
+{
+"username": "test"
+"password": "test"
+}

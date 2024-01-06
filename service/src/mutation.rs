@@ -1,32 +1,38 @@
+use bcrypt::{hash, DEFAULT_COST};
+use cookie::Cookie;
 use entity::prelude::*;
 use entity::*;
 use fantasy_tournament::Entity as FantasyTournament;
+use rand::distributions::Alphanumeric;
+use rand::Rng;
 use sea_orm::ActiveValue::*;
-use sea_orm::{DatabaseConnection, EntityTrait};
+use sea_orm::{DatabaseConnection, DbErr, EntityTrait, TransactionTrait};
 use serde::Deserialize;
-use bcrypt::{DEFAULT_COST, hash};
 
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
 #[derive(Deserialize, JsonSchema)]
 pub struct CreateTournamentInput {
-    pub owner: i32,
     pub max_picks_per_user: Option<i32>,
 }
 
 impl CreateTournamentInput {
-    pub fn into_active_model(self) -> fantasy_tournament::ActiveModel {
+    pub fn into_active_model(self, owner_id: i32) -> fantasy_tournament::ActiveModel {
         fantasy_tournament::ActiveModel {
             id: NotSet,
-            owner: Set(self.owner),
+            owner: Set(owner_id),
             max_picks_per_user: match self.max_picks_per_user {
                 Some(v) => Set(v),
                 None => NotSet,
             },
         }
     }
-    pub async fn insert(self, db: &DatabaseConnection) -> Result<(), sea_orm::error::DbErr> {
-        FantasyTournament::insert(self.into_active_model())
+    pub async fn insert(
+        self,
+        db: &DatabaseConnection,
+        owner_id: i32,
+    ) -> Result<(), sea_orm::error::DbErr> {
+        FantasyTournament::insert(self.into_active_model(owner_id))
             .exec(db)
             .await?;
         Ok(())
@@ -81,7 +87,7 @@ impl CreateUserScoreInput {
     }
 }
 
-#[derive(Deserialize, JsonSchema)]
+#[derive(Deserialize, JsonSchema, Debug)]
 pub struct CreateUserInput {
     pub username: String,
     pub password: String,
@@ -94,19 +100,51 @@ impl CreateUserInput {
             name: Set(self.username.clone()),
         }
     }
-    fn active_authentication(&self, hashed_password: String, user_id: i32) -> user_authentication::ActiveModel {
+    fn active_authentication(
+        &self,
+        hashed_password: String,
+        user_id: i32,
+    ) -> user_authentication::ActiveModel {
         user_authentication::ActiveModel {
-            id: NotSet,
             user_id: Set(user_id),
             hashed_password: Set(hashed_password),
         }
     }
-    pub async fn insert(self, db: &DatabaseConnection) -> Result<(), sea_orm::error::DbErr> {
+    pub async fn insert(self, db: &DatabaseConnection) -> Result<Cookie, sea_orm::error::DbErr> {
+        dbg!(&self);
+        let txn = db.begin().await?;
         let user = self.active_user();
-        let user_id = User::insert(user).exec(db).await?.last_insert_id;
+        let user_id = User::insert(user).exec(&txn).await?.last_insert_id;
         let hashed_password = hash(&self.password, DEFAULT_COST).unwrap();
         let authentication = self.active_authentication(hashed_password, user_id);
-        UserAuthentication::insert(authentication).exec(db).await?;
-        Ok(())
+        UserAuthentication::insert(authentication)
+            .exec(&txn)
+            .await?;
+        txn.commit().await?;
+        generate_cookie(db, user_id).await
     }
+}
+
+pub async fn generate_cookie(
+    db: &DatabaseConnection,
+    user_id: i32,
+) -> Result<Cookie<'static>, DbErr> {
+    let random_value: String = rand::thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(30)
+        .map(char::from)
+        .collect();
+
+    let cookie = Cookie::build(("auth", random_value.clone()))
+        .secure(true)
+        .build();
+
+    let user_cookie = user_cookies::ActiveModel {
+        user_id: Set(user_id),
+        cookie: Set(random_value),
+    };
+
+    UserCookies::insert(user_cookie).exec(db).await?;
+
+    Ok(cookie)
 }
