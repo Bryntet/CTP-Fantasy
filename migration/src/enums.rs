@@ -104,3 +104,23 @@ pub(crate) enum UserAuthentication {
     UserId,
     HashedPassword,
 }
+
+#[derive(Iden, EnumIter)]
+pub(crate) enum FantasyTournamentInvitationStatus {
+    Table,
+    #[iden = "Pending"]
+    Pending,
+    #[iden = "Accepted"]
+    Accepted,
+    #[iden = "Declined"]
+    Declined,
+}
+
+#[derive(DeriveIden)]
+pub(crate) enum UserInFantasyTournament {
+    Table,
+    Id,
+    UserId,
+    FantasyTournamentId,
+    InvitationStatus,
+}

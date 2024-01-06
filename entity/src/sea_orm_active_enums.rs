@@ -21,3 +21,17 @@ pub enum Division {
     #[sea_orm(string_value = "Mpo")]
     Mpo,
 }
+#[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize)]
+#[sea_orm(
+    rs_type = "String",
+    db_type = "Enum",
+    enum_name = "fantasy_tournament_invitation_status"
+)]
+pub enum FantasyTournamentInvitationStatus {
+    #[sea_orm(string_value = "Accepted")]
+    Accepted,
+    #[sea_orm(string_value = "Declined")]
+    Declined,
+    #[sea_orm(string_value = "Pending")]
+    Pending,
+}

@@ -1,5 +1,5 @@
 use bcrypt::{hash, DEFAULT_COST};
-use cookie::Cookie;
+use rocket::http::Cookie;
 use entity::prelude::*;
 use entity::*;
 use fantasy_tournament::Entity as FantasyTournament;
@@ -11,6 +11,8 @@ use serde::Deserialize;
 
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
+use entity::sea_orm_active_enums::FantasyTournamentInvitationStatus;
+
 #[derive(Deserialize, JsonSchema)]
 pub struct CreateTournamentInput {
     pub name: String,
@@ -34,9 +36,17 @@ impl CreateTournamentInput {
         db: &DatabaseConnection,
         owner_id: i32,
     ) -> Result<(), sea_orm::error::DbErr> {
-        FantasyTournament::insert(self.into_active_model(owner_id))
+        let tour = FantasyTournament::insert(self.into_active_model(owner_id))
             .exec(db)
             .await?;
+        UserInFantasyTournament::insert(
+            user_in_fantasy_tournament::ActiveModel {
+                id: NotSet,
+                user_id: Set(owner_id),
+                fantasy_tournament_id: Set(tour.last_insert_id),
+                invitation_status: Set(FantasyTournamentInvitationStatus::Accepted),
+            },
+        ).exec(db).await?;
         Ok(())
     }
 }
@@ -114,7 +124,7 @@ impl CreateUserInput {
             hashed_password: Set(hashed_password),
         }
     }
-    pub async fn insert(self, db: &DatabaseConnection) -> Result<Cookie, sea_orm::error::DbErr> {
+    pub async fn insert(self, db: &DatabaseConnection) -> Result<rocket::http::Cookie, sea_orm::error::DbErr> {
         let txn = db.begin().await?;
         let user = self.active_user();
         let user_id = User::insert(user).exec(&txn).await?.last_insert_id;
@@ -138,9 +148,9 @@ pub async fn generate_cookie(
         .map(char::from)
         .collect();
 
-    let cookie = Cookie::build(("auth", random_value.clone()))
+    let cookie = Cookie::build("auth", random_value.clone())
         .secure(true)
-        .build();
+        .finish();
 
     let user_cookie = user_cookies::ActiveModel {
         user_id: Set(user_id),

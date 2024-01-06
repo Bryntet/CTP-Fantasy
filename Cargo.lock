@@ -3029,6 +3029,7 @@ dependencies = [
  "itertools",
  "rand",
  "reqwest",
+ "rocket",
  "rocket_okapi",
  "sea-orm",
  "serde",

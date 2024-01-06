@@ -14,7 +14,6 @@ use error::Error;
 use rocket_okapi::openapi;
 use serde::Deserialize;
 
-
 use rocket::http::Cookie;
 use rocket::http::CookieJar;
 
@@ -84,14 +83,14 @@ pub(crate) async fn create_tournament(
 pub(crate) async fn create_user(
     user: Json<service::CreateUserInput>,
     db: &State<DatabaseConnection>,
-    cookies: &CookieJar<'_>
+    cookies: &CookieJar<'_>,
 ) -> Result<&'static str, Error> {
     let res = user.into_inner().insert(db.inner()).await;
     match res {
         Ok(e) => {
             cookies.add(Cookie::new("auth", e.to_string()));
             Ok("Successfully created user")
-        },
+        }
         Err(DbErr::Query(SqlxError(sqlx::Error::Database(error)))) => {
             let msg = error.message();
             if msg.contains("violates unique constraint") {
@@ -104,28 +103,26 @@ pub(crate) async fn create_user(
     }
 }
 
-
 #[derive(Deserialize, JsonSchema, Debug)]
 struct FantasyPick {
     slot: i32,
     pdga_number: i32,
-    fantasy_tournament_id: i32
+    fantasy_tournament_id: i32,
 }
 
 impl FantasyPick {
     async fn insert_or_change(&self, db: &DatabaseConnection, user_id: i32) -> Result<(), Error> {
-        use sea_orm::{NotSet, Set, QueryFilter, ColumnTrait};
         use entity::prelude::FantasyPick as FantasyPickEntity;
-
-
+        use sea_orm::{ColumnTrait, NotSet, QueryFilter, Set};
 
         let existing_pick = FantasyPickEntity::find()
             .filter(entity::fantasy_pick::Column::PickNumber.eq(self.slot))
             .filter(entity::fantasy_pick::Column::User.eq(user_id))
-            .filter(entity::fantasy_pick::Column::FantasyTournamentId.eq(self.fantasy_tournament_id))
+            .filter(
+                entity::fantasy_pick::Column::FantasyTournamentId.eq(self.fantasy_tournament_id),
+            )
             .one(db)
             .await?;
-
 
         if !service::player_exists(db, self.pdga_number).await {
             Err::<(), Error>(error::PlayerError::PlayerNotFound.into())?;
@@ -143,7 +140,11 @@ impl FantasyPick {
                     pick_number: Set(self.slot),
                     player: Set(self.pdga_number),
                     fantasy_tournament_id: Set(self.fantasy_tournament_id),
-                    division: Set(service::get_player_division(db, self.pdga_number).await?.first().unwrap().to_owned()),
+                    division: Set(service::get_player_division(db, self.pdga_number)
+                        .await?
+                        .first()
+                        .unwrap()
+                        .to_owned()),
                 };
                 new_pick.insert(db).await?;
             }
@@ -165,12 +166,12 @@ impl FantasyPick {
 /// # Returns
 ///
 /// A string indicating success
-#[openapi(tag="Fantasy Tournament")]
+#[openapi(tag = "Fantasy Tournament")]
 #[put("/fantasy-pick", format = "json", data = "<pick>")]
 pub async fn add_pick(
     user: authenticate::CookieAuth,
     db: &State<DatabaseConnection>,
-    pick: Json<FantasyPick>
+    pick: Json<FantasyPick>,
 ) -> Result<String, Error> {
     let user = user.to_user_model(db).await?;
     let pick = pick.into_inner();

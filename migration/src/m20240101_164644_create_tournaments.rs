@@ -92,11 +92,7 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(
-                        ColumnDef::new(FantasyTournament::Name)
-                            .string()
-                            .not_null()
-                    )
+                    .col(ColumnDef::new(FantasyTournament::Name).string().not_null())
                     .col(
                         ColumnDef::new(FantasyTournament::Owner)
                             .integer()

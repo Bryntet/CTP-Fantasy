@@ -20,8 +20,6 @@ pub enum Error {
     Other(String),
 }
 
-
-
 impl MyRocketError for Error {
     fn to_rocket_status(&self) -> Status {
         match self {
@@ -43,7 +41,7 @@ impl MyRocketError for Error {
             Self::CookieError(e) => e.to_err_message(),
             Self::UserError(e) => e.to_err_message(),
             Self::PlayerError(e) => e.to_err_message(),
-            Self::Other(_) => None,
+            Self::Other(e) => Some(e.to_string()),
         }
     }
 }
@@ -156,17 +154,17 @@ impl From<sea_orm::DbErr> for Error {
 }
 #[derive(Serialize, Deserialize, JsonSchema, Debug)]
 pub enum PlayerError {
-    PlayerNotFound
+    PlayerNotFound,
 }
 impl MyRocketError for PlayerError {
     fn to_rocket_status(&self) -> Status {
         match self {
-            Self::PlayerNotFound => Status::NotFound
+            Self::PlayerNotFound => Status::NotFound,
         }
     }
     fn to_err_message(&self) -> Option<String> {
         match self {
-            Self::PlayerNotFound => Some("Player not found".to_string())
+            Self::PlayerNotFound => Some("Player not found".to_string()),
         }
     }
 }
@@ -176,7 +174,6 @@ impl From<PlayerError> for Error {
         Self::PlayerError(e)
     }
 }
-
 
 pub struct ResultResponder(Result<(), Error>);
 

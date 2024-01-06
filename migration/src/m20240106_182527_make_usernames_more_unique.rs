@@ -9,7 +9,7 @@ impl MigrationTrait for Migration {
         let db = manager.get_connection();
 
         db.execute_unprepared(
-            "CREATE UNIQUE INDEX username_lower_unique ON \"user\" (LOWER(name));"
+            "CREATE UNIQUE INDEX username_lower_unique ON \"user\" (LOWER(name));",
         )
         .await?;
         Ok(())
@@ -18,9 +18,7 @@ impl MigrationTrait for Migration {
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
 
-        db.execute_unprepared(
-            "DROP INDEX username_lower_unique;"
-        )
+        db.execute_unprepared("DROP INDEX username_lower_unique;")
             .await?;
         Ok(())
     }

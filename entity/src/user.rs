@@ -25,6 +25,8 @@ pub enum Relation {
     UserAuthentication,
     #[sea_orm(has_many = "super::user_cookies::Entity")]
     UserCookies,
+    #[sea_orm(has_many = "super::user_in_fantasy_tournament::Entity")]
+    UserInFantasyTournament,
 }
 
 impl Related<super::fantasy_pick::Entity> for Entity {
@@ -54,6 +56,12 @@ impl Related<super::user_authentication::Entity> for Entity {
 impl Related<super::user_cookies::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::UserCookies.def()
+    }
+}
+
+impl Related<super::user_in_fantasy_tournament::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::UserInFantasyTournament.def()
     }
 }
 

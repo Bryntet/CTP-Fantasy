@@ -3,18 +3,21 @@ use rocket::serde::json::Json;
 use rocket_okapi::openapi;
 use service::{fetch_people_from_competition, CompetitionInfoInput};
 
-
 /// Fetches the players from a competition
-/// 
+///
 /// # Parameters
-/// 
+///
 /// - `competition` - The competition to fetch players from
-/// 
+///
 /// # Returns
-/// 
+///
 /// A status indicating success
 #[openapi(tag = "Competition")]
-#[post("/get-players-from-competition", format = "json", data = "<competition>")]
+#[post(
+    "/get-players-from-competition",
+    format = "json",
+    data = "<competition>"
+)]
 pub(crate) async fn fetch_competition(
     competition: Json<CompetitionInfoInput>,
 ) -> Result<Status, rocket::http::Status> {

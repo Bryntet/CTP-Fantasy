@@ -74,16 +74,45 @@ pub async fn authenticate(
     }
 }
 
-
 pub async fn player_exists(db: &DatabaseConnection, player_id: i32) -> bool {
     Player::find_by_id(player_id).one(db).await.is_ok()
 }
 
-pub async fn get_player_division(db: &DatabaseConnection, player_id: i32) -> Result<Vec<Division>, DbErr> {
-    let player_division = PlayerDivision::find_by_id(player_id)
+pub async fn get_player_division(
+    db: &DatabaseConnection,
+    player_id: i32,
+) -> Result<Vec<Division>, DbErr> {
+    let player_division = PlayerDivision::find_by_id(player_id).all(db).await?;
+
+    let divs = player_division
+        .iter()
+        .map(|pd| pd.clone().division)
+        .collect();
+    Ok(divs)
+}
+
+pub async fn get_fantasy_tournaments(
+    db: &DatabaseConnection,
+    user_id: i32,
+) -> Result<Vec<fantasy_tournament::Model>, DbErr> {
+    let tournaments = UserInFantasyTournament::find()
+        .filter(user_in_fantasy_tournament::Column::UserId.eq(user_id))
+        .filter(
+            user_in_fantasy_tournament::Column::InvitationStatus
+                .eq(sea_orm_active_enums::FantasyTournamentInvitationStatus::Accepted),
+        )
         .all(db)
         .await?;
 
-    let divs = player_division.iter().map(|pd| pd.clone().division).collect();
-    Ok(divs)
+    let mut out_things = Vec::new();
+    for tournament in tournaments {
+        if let Some(tournament) = FantasyTournament::find_by_id(tournament.fantasy_tournament_id)
+            .one(db)
+            .await? {
+            out_things.push(
+                tournament
+            );
+        }
+    }
+    Ok(out_things)
 }
