@@ -115,7 +115,6 @@ impl CreateUserInput {
         }
     }
     pub async fn insert(self, db: &DatabaseConnection) -> Result<Cookie, sea_orm::error::DbErr> {
-        dbg!(&self);
         let txn = db.begin().await?;
         let user = self.active_user();
         let user_id = User::insert(user).exec(&txn).await?.last_insert_id;

@@ -85,12 +85,12 @@ pub(crate) async fn create_user(
     user: Json<service::CreateUserInput>,
     db: &State<DatabaseConnection>,
     cookies: &CookieJar<'_>
-) -> Result<(), Error> {
+) -> Result<&'static str, Error> {
     let res = user.into_inner().insert(db.inner()).await;
     match res {
         Ok(e) => {
             cookies.add(Cookie::new("auth", e.to_string()));
-            Ok(())
+            Ok("Successfully created user")
         },
         Err(DbErr::Query(SqlxError(sqlx::Error::Database(error)))) => {
             let msg = error.message();
