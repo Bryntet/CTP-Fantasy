@@ -16,8 +16,11 @@ pub enum Error {
     UnknownCompetition,
     CookieError(CookieAuthError),
     UserError(UserError),
+    PlayerError(PlayerError),
     Other(String),
 }
+
+
 
 impl MyRocketError for Error {
     fn to_rocket_status(&self) -> Status {
@@ -30,6 +33,7 @@ impl MyRocketError for Error {
             Self::UnknownCompetition => Status::NotFound,
             Self::CookieError(e) => e.to_rocket_status(),
             Self::UserError(e) => e.to_rocket_status(),
+            Self::PlayerError(e) => e.to_rocket_status(),
         }
     }
     fn to_err_message(&self) -> Option<String> {
@@ -38,6 +42,7 @@ impl MyRocketError for Error {
             Self::UnknownCompetition => Some("Unknown competition".to_string()),
             Self::CookieError(e) => e.to_err_message(),
             Self::UserError(e) => e.to_err_message(),
+            Self::PlayerError(e) => e.to_err_message(),
             Self::Other(_) => None,
         }
     }
@@ -149,6 +154,29 @@ impl From<sea_orm::DbErr> for Error {
         Self::Other(e.to_string())
     }
 }
+#[derive(Serialize, Deserialize, JsonSchema, Debug)]
+pub enum PlayerError {
+    PlayerNotFound
+}
+impl MyRocketError for PlayerError {
+    fn to_rocket_status(&self) -> Status {
+        match self {
+            Self::PlayerNotFound => Status::NotFound
+        }
+    }
+    fn to_err_message(&self) -> Option<String> {
+        match self {
+            Self::PlayerNotFound => Some("Player not found".to_string())
+        }
+    }
+}
+
+impl From<PlayerError> for Error {
+    fn from(e: PlayerError) -> Self {
+        Self::PlayerError(e)
+    }
+}
+
 
 pub struct ResultResponder(Result<(), Error>);
 

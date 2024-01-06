@@ -19,6 +19,14 @@
       <scope name="Project Files" level="WARNING" enabled="true" />
       <scope name="Scratches and Consoles" level="WARNING" enabled="true" />
     </inspection_tool>
+    <inspection_tool class="IncorrectHttpHeaderInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="customHeaders">
+        <set>
+          <option value="&quot;username&quot;" />
+          <option value="&quot;password&quot;" />
+        </set>
+      </option>
+    </inspection_tool>
     <inspection_tool class="MissingFeatures" enabled="true" level="WARNING" enabled_by_default="true">
       <scope name="All Changed Files" level="WARNING" enabled="true" />
       <scope name="Open Files" level="WARNING" enabled="true" />

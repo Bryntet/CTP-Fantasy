@@ -66,6 +66,7 @@ pub(crate) enum PlayerInCompetition {
 pub(crate) enum FantasyTournament {
     Table,
     Id,
+    Name,
     Owner,
     MaxPicksPerUser,
 }
@@ -77,6 +78,8 @@ pub(crate) enum FantasyPick {
     User,
     Player,
     FantasyTournamentId,
+    PickNumber,
+    Division,
 }
 #[derive(DeriveIden)]
 pub(crate) enum FantasyScores {

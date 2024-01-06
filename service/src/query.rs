@@ -73,3 +73,17 @@ pub async fn authenticate(
         Ok(false)
     }
 }
+
+
+pub async fn player_exists(db: &DatabaseConnection, player_id: i32) -> bool {
+    Player::find_by_id(player_id).one(db).await.is_ok()
+}
+
+pub async fn get_player_division(db: &DatabaseConnection, player_id: i32) -> Result<Vec<Division>, DbErr> {
+    let player_division = PlayerDivision::find_by_id(player_id)
+        .all(db)
+        .await?;
+
+    let divs = player_division.iter().map(|pd| pd.clone().division).collect();
+    Ok(divs)
+}

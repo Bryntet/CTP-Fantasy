@@ -13,6 +13,7 @@ use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
 #[derive(Deserialize, JsonSchema)]
 pub struct CreateTournamentInput {
+    pub name: String,
     pub max_picks_per_user: Option<i32>,
 }
 
@@ -20,6 +21,7 @@ impl CreateTournamentInput {
     pub fn into_active_model(self, owner_id: i32) -> fantasy_tournament::ActiveModel {
         fantasy_tournament::ActiveModel {
             id: NotSet,
+            name: Set(self.name),
             owner: Set(owner_id),
             max_picks_per_user: match self.max_picks_per_user {
                 Some(v) => Set(v),
@@ -39,10 +41,11 @@ impl CreateTournamentInput {
     }
 }
 
-pub struct CreatePickInput {
+/*pub struct CreatePickInput {
     pub user: i32,
     pub player: i32,
     pub fantasy_tournament_id: i32,
+    pub
 }
 
 impl CreatePickInput {
@@ -52,6 +55,7 @@ impl CreatePickInput {
             user: Set(self.user),
             player: Set(self.player),
             fantasy_tournament_id: Set(self.fantasy_tournament_id),
+            create
         }
     }
     pub async fn insert(self, db: &DatabaseConnection) -> Result<(), sea_orm::error::DbErr> {
@@ -60,7 +64,7 @@ impl CreatePickInput {
             .await?;
         Ok(())
     }
-}
+}*/
 
 pub struct CreateUserScoreInput {
     pub user: i32,

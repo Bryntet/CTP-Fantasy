@@ -12,6 +12,18 @@ use sea_orm::QueryFilter;
 use sea_orm::RuntimeErr::SqlxError;
 use sea_orm::{DatabaseConnection, DbErr, EntityTrait};
 
+
+/// # Login
+///
+/// # Parameters
+///
+/// - `username` - The username of the user
+///
+/// - `password` - The password of the user
+///
+/// # Returns
+///
+/// A cookie indicating success
 #[openapi(tag = "User")]
 #[post("/login", format = "json", data = "<login_data>")]
 pub(crate) async fn login(

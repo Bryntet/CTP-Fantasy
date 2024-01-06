@@ -87,20 +87,3 @@ impl<'a> OpenApiFromRequest<'a> for CookieAuth {
         }))
     }
 }
-
-/// # Just Cookies (for just 1 route/endpoint)
-///
-/// (make sure this is only sent over HTTPS, don't want secrets to leak)
-///
-/// Note: Cookies will not work with the `Try` button because of
-/// [Technical limitations](https://developer.mozilla.org/en-US/docs/Glossary/Forbidden_header_name).
-#[openapi(tag = "User")]
-#[get("/cookie_auth")]
-pub fn cookie_auth(
-    user: CookieAuth,
-    db: &State<DatabaseConnection>,
-) -> Result<String, error::Error> {
-    let _seems_you_have_access = user;
-
-    Ok("You have access!".to_string())
-}

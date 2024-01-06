@@ -93,6 +93,11 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(
+                        ColumnDef::new(FantasyTournament::Name)
+                            .string()
+                            .not_null()
+                    )
+                    .col(
                         ColumnDef::new(FantasyTournament::Owner)
                             .integer()
                             .not_null(),

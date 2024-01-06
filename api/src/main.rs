@@ -29,29 +29,28 @@ async fn rocket() -> _ {
             .unwrap();
     rocket::build()
         .manage(db)
-        //.mount("/api", routes![mutation::create_tournament, ext_to_int::fetch_competition])
         .mount(
-            "/",
+            "/api",
             openapi_get_routes![
                 mutation::create_tournament,
                 ext_to_int::fetch_competition,
                 mutation::create_user,
                 query::login,
-                authenticate::cookie_auth,
+                mutation::add_pick
             ],
         )
         .mount(
-            "/swagger-ui/",
+            "/api/swagger",
             make_swagger_ui(&SwaggerUIConfig {
                 url: "../openapi.json".to_owned(),
                 ..Default::default()
             }),
         )
         .mount(
-            "/rapidoc/",
+            "/api/",
             make_rapidoc(&RapiDocConfig {
                 general: GeneralConfig {
-                    spec_urls: vec![UrlObject::new("General", "../openapi.json")],
+                    spec_urls: vec![UrlObject::new("General", "./openapi.json")],
                     ..Default::default()
                 },
                 hide_show: HideShowConfig {

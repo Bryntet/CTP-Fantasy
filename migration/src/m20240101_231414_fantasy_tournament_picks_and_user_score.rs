@@ -48,6 +48,21 @@ impl MigrationTrait for Migration {
                             .col(FantasyPick::FantasyTournamentId)
                             .unique(),
                     )
+                    .col(ColumnDef::new(FantasyPick::PickNumber).integer().not_null())
+                    .col(
+                        ColumnDef::new(FantasyPick::Division)
+                            .custom(Division::Table)
+                            .not_null(),
+                    )
+                    .index(
+                        Index::create()
+                            .name("fantasy_pick_user_tournament")
+                            .col(FantasyPick::User)
+                            .col(FantasyPick::FantasyTournamentId)
+                            .col(FantasyPick::PickNumber)
+                            .col(FantasyPick::Division)
+                            .unique(),
+                    )
                     .to_owned(),
             )
             .await?;
