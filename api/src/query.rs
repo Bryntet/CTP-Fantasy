@@ -1,5 +1,5 @@
 use rocket::http::{Cookie, CookieJar};
-use crate::error::Error;
+use crate::error::{Error, TournamentError, AuthError};
 use crate::error::UserError;
 use entity::prelude::User;
 use entity::user;
@@ -56,11 +56,11 @@ pub(crate) async fn login(
                     Ok("Successfully logged in".to_string())
                 }
                 Ok(None) => Err(UserError::InvalidUserId.into()),
-                Err(_) => Err(Error::Other("Failed to find user".to_string())),
+                Err(_) => Err(AuthError::Invalid.into()),
             }
         }
-        Ok(false) => Err(Error::Other("Invalid password".to_string())),
-        Err(_) => Err(Error::Other("Failed to authenticate".to_string())),
+        Ok(false) => Err(AuthError::WrongPassword.into()),
+        Err(_) => Err(AuthError::UnknownError.into()),
     }
 }
 
@@ -78,7 +78,7 @@ pub(crate) async fn see_tournaments(
         Ok(tournaments) => {
             Ok(Json(tournaments))
         },
-        Err(_) => Err(Error::Other("Failed to get tournaments".to_string())),
+        Err(_) => Err(TournamentError::NotFound.into()),
     }
 }
 
@@ -90,6 +90,22 @@ pub(crate) async fn see_participants(
 ) -> Result<Json<Vec<service::SimpleUser>>, Error> {
     match service::get_participants(db.inner(), id).await {
         Ok(participants) => Ok(Json(participants)),
-        Err(_) => Err(Error::Other("Failed to get participants".to_string())),
+        Err(_) => Err(UserError::InvalidUserId.into()),
+    }
+}
+
+
+
+#[openapi(tag = "Fantasy Tournament")]
+#[get("/fantasy-tournament/<tournament_id>/user_picks/<user_id>")]
+pub(crate) async fn get_user_picks(
+    db: &State<DatabaseConnection>,
+    requester: authenticate::CookieAuth,
+    tournament_id: i32,
+    user_id: i32,
+) -> Result<Json<service::SimpleFantasyPicks>, Error> {
+    match service::get_user_picks_in_tournament(db.inner(), requester.to_user_model(db.inner()).await?, user_id, tournament_id).await {
+        Ok(picks) => Ok(Json(picks)),
+        Err(_) => Err(UserError::InvalidUserId.into()),
     }
 }

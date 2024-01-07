@@ -15,19 +15,7 @@ use sea_orm::{DatabaseConnection, DbErr, EntityTrait};
 use serde::Deserialize;
 use entity::fantasy_tournament::Model;
 
-pub async fn get_user_picks_for_tournament(
-    db: &DatabaseConnection,
-    user_id: i32,
-    tournament_id: i32,
-) -> Result<Vec<fantasy_pick::Model>, DbErr> {
-    let picks = FantasyPick::find()
-        .filter(fantasy_pick::Column::User.eq(user_id))
-        .filter(fantasy_pick::Column::FantasyTournamentId.eq(tournament_id))
-        .all(db)
-        .await?;
 
-    Ok(picks)
-}
 
 #[derive(Deserialize, JsonSchema)]
 pub struct LoginInput {
@@ -209,4 +197,38 @@ pub async fn get_user_by_name(
         .filter(user::Column::Name.eq(username))
         .one(db)
         .await
+}
+#[derive(serde::Serialize, serde::Deserialize, JsonSchema, Debug)]
+struct SimpleFantasyPick {
+    slot: i32,
+    pdga_number: i32,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, JsonSchema, Debug)]
+pub struct SimpleFantasyPicks {
+    picks: Vec<SimpleFantasyPick>,
+    owner: bool,
+    fantasy_tournament_id: i32,
+}
+
+pub async fn get_user_picks_in_tournament(
+    db: &DatabaseConnection,
+    requester: user::Model,
+    user_id: i32,
+    tournament_id: i32,
+) -> Result<SimpleFantasyPicks, DbErr> {
+    let picks = FantasyPick::find()
+        .filter(fantasy_pick::Column::User.eq(user_id).and(fantasy_pick::Column::FantasyTournamentId.eq(tournament_id)))
+        .all(db)
+        .await?;
+    let owner = requester.id == user_id;
+
+    Ok(SimpleFantasyPicks {
+        picks: picks.iter().map(|p| SimpleFantasyPick {
+            slot: p.pick_number,
+            pdga_number: p.player,
+        }).collect(),
+        owner,
+        fantasy_tournament_id: tournament_id,
+    })
 }

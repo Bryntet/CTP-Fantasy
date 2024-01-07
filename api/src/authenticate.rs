@@ -22,7 +22,7 @@ use rocket_okapi::{
 use sea_orm::{DatabaseConnection, DbErr, EntityTrait};
 
 use crate::error;
-use error::CookieAuthError;
+use error::AuthError;
 
 pub struct CookieAuth(String);
 
@@ -31,17 +31,15 @@ impl CookieAuth {
         self,
         db: &DatabaseConnection,
     ) -> Result<entity::user::Model, error::Error> {
-        dbg!(&self.0);
         if let Ok(Some(x)) = entity::prelude::UserCookies::find_by_id(self.0)
             .one(db)
             .await
         {
-            dbg!(&x);
             if let Ok(Some(x)) = entity::prelude::User::find_by_id(x.user_id).one(db).await {
                 return Ok(x);
             }
         }
-        Err(CookieAuthError::Invalid.into())
+        Err(AuthError::Invalid.into())
     }
 }
 
@@ -50,7 +48,7 @@ impl CookieAuth {
 impl<'a> FromRequest<'a> for CookieAuth {
     type Error = error::Error;
     async fn from_request(
-        request: &'a request::Request<'_>,
+        request: &'a Request<'_>,
     ) -> request::Outcome<Self, Self::Error> {
         request
             .cookies()

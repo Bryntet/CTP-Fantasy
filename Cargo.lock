@@ -810,11 +810,13 @@ dependencies = [
 name = "ctp_fantasy"
 version = "0.1.0"
 dependencies = [
+ "api",
  "dotenvy",
  "entity",
  "itertools",
  "migration",
  "reqwest",
+ "rocket",
  "sea-orm",
  "serde",
  "tokio",

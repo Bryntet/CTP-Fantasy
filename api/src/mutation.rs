@@ -67,10 +67,10 @@ pub(crate) async fn create_tournament(
             } else if msg.contains("violates unique constraint") {
                 Err(UserError::UsernameConflict.into())
             } else {
-                Err(Error::Other("".to_string()))
+                Err(Error::UnknownError)
             }
         }
-        Err(e) => Err(Error::Other(e.to_string())),
+        Err(e) => Err(Error::UnknownError),
     }
 }
 /// # Create a user
@@ -98,10 +98,10 @@ pub(crate) async fn create_user(
             if msg.contains("violates unique constraint") {
                 Err(UserError::UsernameConflict.into())
             } else {
-                Err(Error::Other("".to_string()))
+                Err(Error::UnknownError)
             }
         }
-        Err(e) => Err(Error::Other(e.to_string())),
+        Err(e) => Err(Error::UnknownError),
     }
 }
 
@@ -169,18 +169,23 @@ impl FantasyPick {
 ///
 /// A string indicating success
 #[openapi(tag = "Fantasy Tournament")]
-#[put("/fantasy-pick", format = "json", data = "<pick>")]
+#[put("/fantasy-tournament/<fantasy_tournament_id>/pick/<slot>/player/<pdga_number>")]
 pub(crate) async fn add_pick(
     user: authenticate::CookieAuth,
     db: &State<DatabaseConnection>,
-    pick: Json<FantasyPick>,
+    fantasy_tournament_id: i32,
+    slot: i32,
+    pdga_number: i32,
 ) -> Result<String, Error> {
     let user = user.to_user_model(db).await?;
-    let pick = pick.into_inner();
+    let pick = FantasyPick {
+        slot,
+        pdga_number,
+        fantasy_tournament_id,
+    };
     pick.insert_or_change(db, user.id).await?;
     Ok("Successfully added pick".to_string())
 }
-
 
 #[openapi(tag = "Fantasy Tournament")]
 #[post("/fantasy-tournament/<fantasy_tournament_id>/invite/<invited_user>")]

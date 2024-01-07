@@ -14,24 +14,21 @@ use std::fmt::Debug;
 pub enum Error {
     TournamentError(TournamentError),
     UnknownCompetition,
-    CookieError(CookieAuthError),
+    CookieError(AuthError),
     UserError(UserError),
     PlayerError(PlayerError),
-    Other(String),
+    UnknownError,
 }
 
 impl MyRocketError for Error {
     fn to_rocket_status(&self) -> Status {
         match self {
-            Self::Other(e) => {
-                dbg!(e);
-                Status::InternalServerError
-            }
             Self::TournamentError(e) => e.to_rocket_status(),
             Self::UnknownCompetition => Status::NotFound,
             Self::CookieError(e) => e.to_rocket_status(),
             Self::UserError(e) => e.to_rocket_status(),
             Self::PlayerError(e) => e.to_rocket_status(),
+            Self::UnknownError => Status::InternalServerError,
         }
     }
     fn to_err_message(&self) -> Option<String> {
@@ -41,7 +38,7 @@ impl MyRocketError for Error {
             Self::CookieError(e) => e.to_err_message(),
             Self::UserError(e) => e.to_err_message(),
             Self::PlayerError(e) => e.to_err_message(),
-            Self::Other(e) => Some(e.to_string()),
+            Self::UnknownError => Some("Unknown error".to_string()),
         }
     }
 }
@@ -76,8 +73,8 @@ impl From<TournamentError> for Error {
     }
 }
 
-impl From<CookieAuthError> for Error {
-    fn from(e: CookieAuthError) -> Self {
+impl From<AuthError> for Error {
+    fn from(e: AuthError) -> Self {
         Self::CookieError(e)
     }
 }
@@ -104,16 +101,20 @@ impl MyRocketError for TournamentError {
 }
 
 #[derive(Debug, JsonSchema, Deserialize, Serialize)]
-pub enum CookieAuthError {
+pub enum AuthError {
     Missing,
     Invalid,
+    WrongPassword,
+    UnknownError
 }
 
-impl MyRocketError for CookieAuthError {
+impl MyRocketError for AuthError {
     fn to_rocket_status(&self) -> Status {
         match self {
             Self::Missing => Status::Unauthorized,
             Self::Invalid => Status::Forbidden,
+            Self::WrongPassword => Status::Forbidden,
+            Self::UnknownError => Status::InternalServerError
         }
     }
 
@@ -121,6 +122,8 @@ impl MyRocketError for CookieAuthError {
         match self {
             Self::Missing => Some("Missing auth cookie".to_string()),
             Self::Invalid => Some("Invalid auth cookie".to_string()),
+            Self::WrongPassword => Some("Wrong password".to_string()),
+            Self::UnknownError => Some("Unknown error".to_string())
         }
     }
 }
@@ -158,7 +161,8 @@ impl From<UserError> for Error {
 
 impl From<sea_orm::DbErr> for Error {
     fn from(e: sea_orm::DbErr) -> Self {
-        Self::Other(e.to_string())
+        dbg!(e);
+        Self::UnknownError
     }
 }
 #[derive(Serialize, Deserialize, JsonSchema, Debug)]
