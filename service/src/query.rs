@@ -202,6 +202,7 @@ pub async fn get_user_by_name(
 struct SimpleFantasyPick {
     slot: i32,
     pdga_number: i32,
+    name: String
 }
 
 #[derive(serde::Serialize, serde::Deserialize, JsonSchema, Debug)]
@@ -223,11 +224,23 @@ pub async fn get_user_picks_in_tournament(
         .await?;
     let owner = requester.id == user_id;
 
+
     Ok(SimpleFantasyPicks {
-        picks: picks.iter().map(|p| SimpleFantasyPick {
-            slot: p.pick_number,
-            pdga_number: p.player,
-        }).collect(),
+        picks: {
+            let mut out = Vec::new();
+            for p in &picks {
+                out.push(SimpleFantasyPick {
+                    slot: p.pick_number,
+                    pdga_number: p.player,
+                    name: if let Ok(Some(p))= p.find_related(Player).one(db).await {
+                        p.first_name + " " + &p.last_name
+                    } else {
+                        DbErr::RecordNotFound("Player not found".to_string()).to_string()
+                    }
+                })
+            }
+            out
+        },
         owner,
         fantasy_tournament_id: tournament_id,
     })
