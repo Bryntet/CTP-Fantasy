@@ -38,7 +38,7 @@ impl MigrationTrait for Migration {
                     .foreign_key(
                         ForeignKey::create()
                             .from(FantasyPick::Table, FantasyPick::FantasyTournamentId)
-                            .to(Competition::Table, Competition::Id),
+                            .to(FantasyTournament::Table, FantasyTournament::Id),
                     )
                     .index(
                         Index::create()

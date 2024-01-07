@@ -20,13 +20,13 @@ pub struct Model {
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(
-        belongs_to = "super::competition::Entity",
+        belongs_to = "super::fantasy_tournament::Entity",
         from = "Column::FantasyTournamentId",
-        to = "super::competition::Column::Id",
+        to = "super::fantasy_tournament::Column::Id",
         on_update = "NoAction",
         on_delete = "NoAction"
     )]
-    Competition,
+    FantasyTournament,
     #[sea_orm(
         belongs_to = "super::player::Entity",
         from = "Column::Player",
@@ -45,9 +45,9 @@ pub enum Relation {
     User,
 }
 
-impl Related<super::competition::Entity> for Entity {
+impl Related<super::fantasy_tournament::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::Competition.def()
+        Relation::FantasyTournament.def()
     }
 }
 
