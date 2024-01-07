@@ -42,8 +42,7 @@ impl MigrationTrait for Migration {
                     )
                     .index(
                         Index::create()
-                            .name("fantasy_pick_user_player")
-                            .col(FantasyPick::User)
+                            .name("fantasy_pick_player_tournament")
                             .col(FantasyPick::Player)
                             .col(FantasyPick::FantasyTournamentId)
                             .unique(),
