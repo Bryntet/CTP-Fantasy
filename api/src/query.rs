@@ -65,25 +65,31 @@ pub(crate) async fn login(
 }
 
 
-#[derive(serde::Serialize, serde::Deserialize, JsonSchema, Debug)]
-pub struct SimpleFantasyTournament {
-    id: i32,
-    name: String,
-}
+
 #[openapi(tag = "Fantasy Tournament")]
 #[get("/my-tournaments")]
 pub(crate) async fn see_tournaments(
     db: &State<DatabaseConnection>,
     user: authenticate::CookieAuth,
-) -> Result<Json<Vec<SimpleFantasyTournament>>, Error> {
+) -> Result<Json<Vec<service::SimpleFantasyTournament>>, Error> {
     let user_model = user.to_user_model(db.inner()).await?;
     match service::get_fantasy_tournaments(db.inner(), user_model.id).await {
 
         Ok(tournaments) => {
-            let tours = tournaments.iter().map(|x| SimpleFantasyTournament{id: x.id, name: x.name.to_string()}).collect();
-            dbg!(&tours);
-            Ok(Json(tours))
+            Ok(Json(tournaments))
         },
         Err(_) => Err(Error::Other("Failed to get tournaments".to_string())),
+    }
+}
+
+#[openapi(tag = "Fantasy Tournament")]
+#[get("/fantasy-tournament/<id>/participants")]
+pub(crate) async fn see_participants(
+    db: &State<DatabaseConnection>,
+    id: i32,
+) -> Result<Json<Vec<service::SimpleUser>>, Error> {
+    match service::get_participants(db.inner(), id).await {
+        Ok(participants) => Ok(Json(participants)),
+        Err(_) => Err(Error::Other("Failed to get participants".to_string())),
     }
 }

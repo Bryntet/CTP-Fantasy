@@ -13,6 +13,8 @@ use sea_orm::entity::prelude::*;
 use sea_orm::ActiveValue::*;
 use sea_orm::{DatabaseConnection, DbErr, EntityTrait};
 use serde::Deserialize;
+use entity::fantasy_tournament::Model;
+
 pub async fn get_user_picks_for_tournament(
     db: &DatabaseConnection,
     user_id: i32,
@@ -91,12 +93,80 @@ pub async fn get_player_division(
     Ok(divs)
 }
 
+
+#[derive(serde::Serialize, serde::Deserialize, JsonSchema, Debug)]
+pub enum InvitationStatus {
+    Accepted,
+    Pending,
+    Declined,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, JsonSchema, Debug)]
+pub struct SimpleFantasyTournament {
+    id: i32,
+    name: String,
+    user_is_owner: bool,
+    invitation_status: InvitationStatus,
+}
+
+impl From<sea_orm_active_enums::FantasyTournamentInvitationStatus>  for InvitationStatus {
+    fn from(status: sea_orm_active_enums::FantasyTournamentInvitationStatus) -> Self {
+        match status {
+            sea_orm_active_enums::FantasyTournamentInvitationStatus::Accepted => InvitationStatus::Accepted,
+            sea_orm_active_enums::FantasyTournamentInvitationStatus::Pending => InvitationStatus::Pending,
+            sea_orm_active_enums::FantasyTournamentInvitationStatus::Declined => InvitationStatus::Declined,
+        }
+    }
+}
 pub async fn get_fantasy_tournaments(
     db: &DatabaseConnection,
     user_id: i32,
-) -> Result<Vec<fantasy_tournament::Model>, DbErr> {
+) -> Result<Vec<SimpleFantasyTournament>, DbErr> {
     let tournaments = UserInFantasyTournament::find()
         .filter(user_in_fantasy_tournament::Column::UserId.eq(user_id))
+        .all(db)
+        .await?;
+
+    let mut out_things = Vec::new();
+    for user_in_tournament in tournaments {
+        if let Some(tournament) = FantasyTournament::find_by_id(user_in_tournament.fantasy_tournament_id)
+            .one(db)
+            .await? {
+            out_things.push(
+                SimpleFantasyTournament {
+                    id: tournament.id,
+                    name: tournament.name.to_string(),
+                    user_is_owner: tournament.owner == user_id,
+                    invitation_status: user_in_tournament.invitation_status.into(),
+                }
+            );
+        }
+    }
+    Ok(out_things)
+}
+
+
+pub async fn get_fantasy_tournament(
+    db: &DatabaseConnection,
+    tournament_id: i32,
+) -> Result<Option<Model>, DbErr> {
+    FantasyTournament::find_by_id(tournament_id).one(db).await
+}
+
+
+#[derive(serde::Serialize, serde::Deserialize, JsonSchema, Debug)]
+pub struct SimpleUser {
+    id: i32,
+    name: String,
+    score: i32
+}
+
+pub async fn get_participants(
+    db: &DatabaseConnection,
+    tournament_id: i32,
+) -> Result<Vec<SimpleUser>, DbErr> {
+    let participants = UserInFantasyTournament::find()
+        .filter(user_in_fantasy_tournament::Column::FantasyTournamentId.eq(tournament_id))
         .filter(
             user_in_fantasy_tournament::Column::InvitationStatus
                 .eq(sea_orm_active_enums::FantasyTournamentInvitationStatus::Accepted),
@@ -105,14 +175,38 @@ pub async fn get_fantasy_tournaments(
         .await?;
 
     let mut out_things = Vec::new();
-    for tournament in tournaments {
-        if let Some(tournament) = FantasyTournament::find_by_id(tournament.fantasy_tournament_id)
+    for participant in participants {
+        if let Some(participant) = participant.find_related(User)
             .one(db)
             .await? {
             out_things.push(
-                tournament
+                participant.find_related(FantasyScores)
+                    .filter(fantasy_scores::Column::FantasyTournamentId.eq(tournament_id))
+                    .one(db)
+                    .await?
+                    .map(|score| SimpleUser {
+                        id: participant.id,
+                        name: participant.name.to_string(),
+                        score: score.score,
+                    })
+                    .unwrap_or(SimpleUser {
+                        id: participant.id,
+                        name: participant.name.to_string(),
+                        score: 0,
+                    })
             );
         }
     }
+
     Ok(out_things)
+}
+
+pub async fn get_user_by_name(
+    db: &DatabaseConnection,
+    username: String,
+) -> Result<Option<user::Model>, DbErr> {
+    User::find()
+        .filter(user::Column::Name.eq(username))
+        .one(db)
+        .await
 }

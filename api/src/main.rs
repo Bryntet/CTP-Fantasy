@@ -38,6 +38,9 @@ async fn rocket() -> _ {
                 query::login,
                 mutation::add_pick,
                 query::see_tournaments,
+                query::see_participants,
+                mutation::invite_user,
+                mutation::answer_invite
             ],
         )
         .mount(

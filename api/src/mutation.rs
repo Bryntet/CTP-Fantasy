@@ -16,6 +16,8 @@ use serde::Deserialize;
 
 use rocket::http::Cookie;
 use rocket::http::CookieJar;
+use service::InviteError;
+use crate::error::TournamentError;
 
 /// # Create a fantasy tournament
 ///
@@ -168,7 +170,7 @@ impl FantasyPick {
 /// A string indicating success
 #[openapi(tag = "Fantasy Tournament")]
 #[put("/fantasy-pick", format = "json", data = "<pick>")]
-pub async fn add_pick(
+pub(crate) async fn add_pick(
     user: authenticate::CookieAuth,
     db: &State<DatabaseConnection>,
     pick: Json<FantasyPick>,
@@ -178,3 +180,43 @@ pub async fn add_pick(
     pick.insert_or_change(db, user.id).await?;
     Ok("Successfully added pick".to_string())
 }
+
+
+#[openapi(tag = "Fantasy Tournament")]
+#[post("/fantasy-tournament/<fantasy_tournament_id>/invite/<invited_user>")]
+pub(crate) async fn invite_user(
+    user: authenticate::CookieAuth,
+    db: &State<DatabaseConnection>,
+    fantasy_tournament_id: i32,
+    invited_user: String,
+) -> Result<String, Error> {
+    let user = user.to_user_model(db).await?;
+    match service::create_invite(db, user, invited_user, fantasy_tournament_id).await {
+        Ok(_) => Ok("Successfully invited user".to_string()),
+        Err(e) => match e {
+            InviteError::TournamentNotFound => Err(TournamentError::NotFound.into()),
+            InviteError::UserNotFound => Err(UserError::InvalidUserId.into()),
+            InviteError::NotOwner => Err(UserError::NotPermitted.into())
+        }
+    }
+}
+
+#[openapi(tag = "Fantasy Tournament")]
+#[post("/fantasy-tournament/<fantasy_tournament_id>/answer-invite/<response>")]
+pub(crate) async fn answer_invite(
+    user: authenticate::CookieAuth,
+    db: &State<DatabaseConnection>,
+    fantasy_tournament_id: i32,
+    response: bool,
+) -> Result<String, Error> {
+    let user = user.to_user_model(db).await?;
+    match service::answer_invite(db, user, fantasy_tournament_id, response).await {
+        Ok(_) => Ok("Successfully answered invite".to_string()),
+        Err(e) => match e {
+            InviteError::TournamentNotFound => Err(TournamentError::NotFound.into()),
+            InviteError::UserNotFound => Err(UserError::InvalidUserId.into()),
+            InviteError::NotOwner => Err(UserError::NotPermitted.into())
+        }
+    }
+}
+

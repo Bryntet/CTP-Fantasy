@@ -58,9 +58,11 @@ impl<'r> Responder<'r, 'static> for Error {
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug)]
-enum TournamentError {
+pub(crate) enum TournamentError {
     TooManyTournaments,
     TournamentNameConflict,
+    NotPermitted,
+    NotFound
 }
 
 trait MyRocketError {
@@ -85,6 +87,8 @@ impl MyRocketError for TournamentError {
         match self {
             Self::TooManyTournaments => Status::Forbidden,
             Self::TournamentNameConflict => Status::Conflict,
+            Self::NotPermitted => Status::Forbidden,
+            Self::NotFound => Status::NotFound
         }
     }
     fn to_err_message(&self) -> Option<String> {
@@ -93,6 +97,8 @@ impl MyRocketError for TournamentError {
                 Some("User has reached max amount of tournaments".to_string())
             }
             Self::TournamentNameConflict => Some("Tournament name already used".to_string()),
+            Self::NotPermitted => Some("You do not have permission to do this".to_string()),
+            Self::NotFound => Some("Tournament not found".to_string())
         }
     }
 }
@@ -123,6 +129,7 @@ impl MyRocketError for CookieAuthError {
 pub enum UserError {
     UsernameConflict,
     InvalidUserId,
+    NotPermitted,
 }
 
 impl MyRocketError for UserError {
@@ -130,13 +137,15 @@ impl MyRocketError for UserError {
         match self {
             Self::UsernameConflict => Status::Conflict,
             Self::InvalidUserId => Status::NotFound,
+            Self::NotPermitted => Status::Forbidden,
         }
     }
 
     fn to_err_message(&self) -> Option<String> {
         match self {
             Self::UsernameConflict => Some("Username already taken".to_string()),
-            Self::InvalidUserId => Some("Invalid user id".to_string()),
+            Self::InvalidUserId => Some("Invalid user".to_string()),
+            Self::NotPermitted => Some("You do not have permission to do this".to_string()),
         }
     }
 }

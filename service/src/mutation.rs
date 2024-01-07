@@ -6,12 +6,14 @@ use fantasy_tournament::Entity as FantasyTournament;
 use rand::distributions::Alphanumeric;
 use rand::Rng;
 use sea_orm::ActiveValue::*;
-use sea_orm::{DatabaseConnection, DbErr, EntityTrait, TransactionTrait};
+use sea_orm::{ActiveModelTrait, DatabaseConnection, DbErr, EntityTrait, IntoActiveModel, TransactionTrait};
 use serde::Deserialize;
 
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
+use sea_orm::sea_query::BinOper::In;
 use entity::sea_orm_active_enums::FantasyTournamentInvitationStatus;
+use sea_orm::{QueryFilter, ColumnTrait};
 
 #[derive(Deserialize, JsonSchema)]
 pub struct CreateTournamentInput {
@@ -161,3 +163,76 @@ pub async fn generate_cookie(
 
     Ok(cookie)
 }
+
+pub enum InviteError {
+    UserNotFound,
+    TournamentNotFound,
+    NotOwner,
+}
+pub async fn create_invite(
+    db: &DatabaseConnection,
+    sender: user::Model,
+    receiver_name: String,
+    fantasy_tournament_id: i32,
+) -> Result<(), InviteError> {
+
+
+
+
+    let tournament = if let Ok(Some(t))= crate::get_fantasy_tournament(db, fantasy_tournament_id).await {
+        t
+    } else {
+        return Err(InviteError::TournamentNotFound);
+    };
+
+    if tournament.owner != sender.id {
+        return Err(InviteError::NotOwner);
+    }
+    let invited_user = if let Ok(Some(u)) = crate::get_user_by_name(db, receiver_name).await {
+        u
+    } else {
+        return Err(InviteError::UserNotFound);
+    };
+    let invite = user_in_fantasy_tournament::ActiveModel {
+        id: NotSet,
+        fantasy_tournament_id: Set(fantasy_tournament_id),
+        user_id: Set(invited_user.id),
+        invitation_status: Set(FantasyTournamentInvitationStatus::Pending),
+    };
+
+    if (user_in_fantasy_tournament::Entity::insert(invite).exec(db).await).is_ok() {
+        Ok(())
+    } else {
+        Err(InviteError::UserNotFound)
+    }
+}
+pub async fn answer_invite(
+    db: &DatabaseConnection,
+    user: user::Model,
+    fantasy_tournament_id: i32,
+    invitation_status: bool
+) -> Result<(), InviteError> {
+    let mut invite = if let Ok(Some(i)) = UserInFantasyTournament::find().filter(
+        user_in_fantasy_tournament::Column::FantasyTournamentId
+            .eq(fantasy_tournament_id)
+            .and(user_in_fantasy_tournament::Column::UserId.eq(user.id)),
+    ).one(db).await {
+        i.into_active_model()
+    } else {
+        return Err(InviteError::UserNotFound);
+    };
+    invite.invitation_status = Set(if invitation_status {
+        FantasyTournamentInvitationStatus::Accepted
+    } else {
+        FantasyTournamentInvitationStatus::Declined
+    });
+
+    if invite.save(db).await.is_ok() {
+        Ok(())
+    } else {
+        Err(InviteError::UserNotFound)
+    }
+}
+
+
+
