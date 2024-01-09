@@ -11,7 +11,6 @@ pub struct Model {
     pub pdga_number: i32,
     pub first_name: String,
     pub last_name: String,
-    pub rating: Option<i32>,
     pub avatar: Option<String>,
 }
 
@@ -29,6 +28,8 @@ pub enum Relation {
     PlayerDivision,
     #[sea_orm(has_many = "super::player_in_competition::Entity")]
     PlayerInCompetition,
+    #[sea_orm(has_many = "super::player_round_score::Entity")]
+    PlayerRoundScore,
 }
 
 impl Related<super::fantasy_pick::Entity> for Entity {
@@ -46,6 +47,12 @@ impl Related<super::player_division::Entity> for Entity {
 impl Related<super::player_in_competition::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::PlayerInCompetition.def()
+    }
+}
+
+impl Related<super::player_round_score::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::PlayerRoundScore.def()
     }
 }
 

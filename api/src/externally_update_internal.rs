@@ -20,7 +20,7 @@ use service::{fetch_people_from_competition, CompetitionInfoInput};
 )]
 pub(crate) async fn fetch_competition(
     competition: Json<CompetitionInfoInput>,
-) -> Result<Status, rocket::http::Status> {
+) -> Result<&'static str, rocket::http::Status> {
     use entity::sea_orm_active_enums::Division;
     let comp = competition.into_inner();
     println!(
@@ -35,5 +35,5 @@ pub(crate) async fn fetch_competition(
     fetch_people_from_competition(comp.id, &div_string, 1)
         .await
         .unwrap();
-    Ok(Status::Ok)
+    Ok("Success")
 }

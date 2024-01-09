@@ -122,6 +122,15 @@ async fn add_player(db: &DatabaseConnection, player: ApiPlayer) -> Result<(), Db
     }
     Ok(())
 }
+
+
+
+
+
+
+
+
+
 #[test]
 fn test_get_pdga_things() {
     let rt = tokio::runtime::Runtime::new().unwrap();

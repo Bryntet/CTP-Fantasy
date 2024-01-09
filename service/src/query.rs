@@ -245,3 +245,4 @@ pub async fn get_user_picks_in_tournament(
         fantasy_tournament_id: tournament_id,
     })
 }
+

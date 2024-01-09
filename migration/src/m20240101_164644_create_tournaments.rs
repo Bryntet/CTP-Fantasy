@@ -30,20 +30,52 @@ impl MigrationTrait for Migration {
                             .custom(CompetitionStatus::Table)
                             .not_null(),
                     )
+                    .col(ColumnDef::new(Competition::Rounds).integer().not_null())
                     .to_owned(),
             )
             .await?;
+
+        manager.create_table(
+            Table::create()
+                .table(PlayerRoundScore::Table)
+                .col(ColumnDef::new(PlayerRoundScore::PDGANumber).integer().not_null())
+                .foreign_key(
+                    ForeignKey::create()
+                        .from(PlayerRoundScore::Table, PlayerRoundScore::PDGANumber)
+                        .to(Player::Table, Player::PDGANumber)
+                        .on_delete(ForeignKeyAction::Cascade),
+                )
+                .col(ColumnDef::new(PlayerRoundScore::CompetitionId).integer().not_null())
+                .foreign_key(
+                    ForeignKey::create()
+                        .from(PlayerRoundScore::Table, PlayerRoundScore::CompetitionId)
+                        .to(Competition::Table, Competition::Id)
+                        .on_delete(ForeignKeyAction::Cascade),
+                )
+                .col(ColumnDef::new(PlayerRoundScore::Round).integer().not_null())
+                .col(ColumnDef::new(PlayerRoundScore::Score).integer().not_null())
+                .index(
+                    Index::create()
+                        .name("unique_pdga_tournament_round")
+                        .col(PlayerRoundScore::PDGANumber)
+                        .col(PlayerRoundScore::CompetitionId)
+                        .col(PlayerRoundScore::Round)
+                        .unique(),
+                )
+                .index(
+                    Index::create()
+                        .name("unique_tournament_round_score")
+                        .col(PlayerRoundScore::CompetitionId)
+                        .col(PlayerRoundScore::PDGANumber)
+                        .unique(),)
+                .to_owned(),
+        ).await?;
+
         manager
             .create_table(
                 Table::create()
                     .table(PlayerInCompetition::Table)
                     .if_not_exists()
-                    .col(
-                        ColumnDef::new(PlayerInCompetition::Id)
-                            .integer()
-                            .auto_increment()
-                            .primary_key(),
-                    )
                     .col(
                         ColumnDef::new(PlayerInCompetition::PDGANumber)
                             .integer()
@@ -59,7 +91,6 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(PlayerInCompetition::CompetitionId)
                             .integer()
                             .not_null()
-                            .auto_increment(),
                     )
                     .foreign_key(
                         ForeignKey::create()
@@ -78,9 +109,21 @@ impl MigrationTrait for Migration {
                             .col(PlayerInCompetition::CompetitionId)
                             .unique(),
                     )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_player_in_competition_player_round_score")
+                            .from(
+                                PlayerInCompetition::Table,
+                                (PlayerInCompetition::CompetitionId, PlayerInCompetition::PDGANumber),
+                            )
+                            .to(PlayerRoundScore::Table, (PlayerInCompetition::CompetitionId,PlayerInCompetition::PDGANumber))
+                            .on_delete(ForeignKeyAction::Cascade)
+                    )
                     .to_owned(),
             )
             .await?;
+
+
         manager
             .create_table(
                 Table::create()
@@ -113,14 +156,44 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
+
+
+        manager.create_table(
+            Table::create()
+                .table(CompetitionInFantasyTournament::Table)
+                .col(ColumnDef::new(CompetitionInFantasyTournament::CompetitionId).integer().not_null())
+                .foreign_key(
+                    ForeignKey::create()
+                        .from(CompetitionInFantasyTournament::Table, CompetitionInFantasyTournament::CompetitionId)
+                        .to(Competition::Table, Competition::Id)
+                        .on_delete(ForeignKeyAction::Cascade),
+                )
+                .col(ColumnDef::new(CompetitionInFantasyTournament::FantasyTournamentId).integer().not_null())
+                .foreign_key(
+                    ForeignKey::create()
+                        .from(CompetitionInFantasyTournament::Table, CompetitionInFantasyTournament::FantasyTournamentId)
+                        .to(FantasyTournament::Table, FantasyTournament::Id)
+                        .on_delete(ForeignKeyAction::Cascade),
+                )
+                .index(
+                    Index::create()
+                        .name("unique_competition_tournament")
+                        .col(CompetitionInFantasyTournament::CompetitionId)
+                        .col(CompetitionInFantasyTournament::FantasyTournamentId)
+                        .unique(),
+                )
+                .to_owned(),
+        ).await?;
         Ok(())
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         drop_table!(PlayerInCompetition, manager);
+        drop_table!(PlayerRoundScore, manager);
         drop_table!(Competition, manager);
         drop_type!(CompetitionStatus, manager);
         drop_table!(FantasyTournament, manager);
+        drop_table!(CompetitionInFantasyTournament, manager);
         Ok(())
     }
 }

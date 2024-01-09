@@ -86,12 +86,11 @@ pub(crate) async fn create_user(
     user: Json<service::CreateUserInput>,
     db: &State<DatabaseConnection>,
     cookies: &CookieJar<'_>,
-) -> Result<&'static str, Error> {
-    let res = user.into_inner().insert(db.inner()).await;
+) -> Result<String, Error> {
+    let res = user.0.insert(db, cookies).await;
     match res {
-        Ok(e) => {
-            cookies.add(Cookie::new("auth", e.to_string()));
-            Ok("Successfully created user")
+        Ok(c) => {
+            Ok("Successfully created user".to_string())
         }
         Err(DbErr::Query(SqlxError(sqlx::Error::Database(error)))) => {
             let msg = error.message();
@@ -101,9 +100,11 @@ pub(crate) async fn create_user(
                 Err(Error::UnknownError)
             }
         }
-        Err(e) => Err(Error::UnknownError),
+        Err(_) => Err(Error::UnknownError),
     }
 }
+
+
 
 #[derive(Deserialize, JsonSchema, Debug)]
 struct FantasyPick {

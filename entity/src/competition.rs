@@ -11,14 +11,25 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: i32,
     pub status: CompetitionStatus,
+    pub rounds: i32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
+    #[sea_orm(has_many = "super::competition_in_fantasy_tournament::Entity")]
+    CompetitionInFantasyTournament,
     #[sea_orm(has_many = "super::fantasy_scores::Entity")]
     FantasyScores,
     #[sea_orm(has_many = "super::player_in_competition::Entity")]
     PlayerInCompetition,
+    #[sea_orm(has_many = "super::player_round_score::Entity")]
+    PlayerRoundScore,
+}
+
+impl Related<super::competition_in_fantasy_tournament::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::CompetitionInFantasyTournament.def()
+    }
 }
 
 impl Related<super::fantasy_scores::Entity> for Entity {
@@ -30,6 +41,12 @@ impl Related<super::fantasy_scores::Entity> for Entity {
 impl Related<super::player_in_competition::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::PlayerInCompetition.def()
+    }
+}
+
+impl Related<super::player_round_score::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::PlayerRoundScore.def()
     }
 }
 

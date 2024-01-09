@@ -1,10 +1,11 @@
 use bcrypt::{hash, DEFAULT_COST};
-use rocket::http::Cookie;
+use rocket::http::{Cookie, CookieJar};
 use entity::prelude::*;
 use entity::*;
 use fantasy_tournament::Entity as FantasyTournament;
 use rand::distributions::Alphanumeric;
 use rand::Rng;
+use rocket::State;
 use sea_orm::ActiveValue::*;
 use sea_orm::{ActiveModelTrait, DatabaseConnection, DbErr, EntityTrait, IntoActiveModel, TransactionTrait};
 use serde::Deserialize;
@@ -103,7 +104,7 @@ impl CreateUserScoreInput {
     }
 }
 
-#[derive(Deserialize, JsonSchema, Debug)]
+#[derive(Deserialize, JsonSchema, Debug, Clone)]
 pub struct CreateUserInput {
     pub username: String,
     pub password: String,
@@ -126,7 +127,7 @@ impl CreateUserInput {
             hashed_password: Set(hashed_password),
         }
     }
-    pub async fn insert(self, db: &DatabaseConnection) -> Result<rocket::http::Cookie, sea_orm::error::DbErr> {
+    pub async fn insert<'a>(&'a self, db: &'a DatabaseConnection, cookies: &CookieJar<'_>) -> Result<(), sea_orm::error::DbErr> {
         let txn = db.begin().await?;
         let user = self.active_user();
         let user_id = User::insert(user).exec(&txn).await?.last_insert_id;
@@ -136,32 +137,35 @@ impl CreateUserInput {
             .exec(&txn)
             .await?;
         txn.commit().await?;
-        generate_cookie(db, user_id).await
+        generate_cookie(db, user_id, cookies).await
     }
 }
+
 
 pub async fn generate_cookie(
     db: &DatabaseConnection,
     user_id: i32,
-) -> Result<Cookie<'static>, DbErr> {
+    cookies: &CookieJar<'_>
+) -> Result<(), DbErr> {
     let random_value: String = rand::thread_rng()
         .sample_iter(&Alphanumeric)
         .take(30)
         .map(char::from)
         .collect();
 
-    let cookie = Cookie::build("auth", random_value.clone())
-        .secure(true)
-        .finish();
 
     let user_cookie = user_cookies::ActiveModel {
         user_id: Set(user_id),
-        cookie: Set(random_value),
+        cookie: Set(random_value.clone()),
     };
-
     UserCookies::insert(user_cookie).exec(db).await?;
 
-    Ok(cookie)
+    let cookie: Cookie<'static> = Cookie::build("auth".to_string(), random_value.clone())
+        .secure(true)
+        .finish();
+
+    cookies.add(cookie);
+    Ok(())
 }
 
 pub enum InviteError {

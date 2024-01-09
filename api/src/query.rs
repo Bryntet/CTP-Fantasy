@@ -50,9 +50,7 @@ pub(crate) async fn login(
                 .await;
             match user {
                 Ok(Some(user)) => {
-                    let cookie_result =
-                        service::mutation::generate_cookie(db.inner(), user.id).await;
-                    cookies.add(cookie_result?);
+                    service::generate_cookie(db.inner(), user.id, cookies).await?;
                     Ok("Successfully logged in".to_string())
                 }
                 Ok(None) => Err(UserError::InvalidUserId.into()),

@@ -4,11 +4,13 @@ use sea_orm::entity::prelude::*;
 use serde::Deserialize;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Deserialize)]
-#[sea_orm(table_name = "player_in_competition")]
+#[sea_orm(table_name = "player_round_score")]
 #[serde(rename_all = "PascalCase")]
 pub struct Model {
     pub pdga_number: i32,
     pub competition_id: i32,
+    pub round: i32,
+    pub score: i32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -29,14 +31,8 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     Player,
-    #[sea_orm(
-        belongs_to = "super::player_round_score::Entity",
-        from = "(Column::CompetitionId, Column::CompetitionId, Column::PdgaNumber, Column::PdgaNumber)",
-        to = "(super::player_round_score::Column::PdgaNumber, super::player_round_score::Column::CompetitionId, super::player_round_score::Column::PdgaNumber, super::player_round_score::Column::CompetitionId)",
-        on_update = "NoAction",
-        on_delete = "Cascade"
-    )]
-    PlayerRoundScore,
+    #[sea_orm(has_many = "super::player_in_competition::Entity")]
+    PlayerInCompetition,
 }
 
 impl Related<super::competition::Entity> for Entity {
@@ -51,9 +47,9 @@ impl Related<super::player::Entity> for Entity {
     }
 }
 
-impl Related<super::player_round_score::Entity> for Entity {
+impl Related<super::player_in_competition::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::PlayerRoundScore.def()
+        Relation::PlayerInCompetition.def()
     }
 }
 
