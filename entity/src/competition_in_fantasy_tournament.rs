@@ -7,6 +7,8 @@ use serde::Deserialize;
 #[sea_orm(table_name = "competition_in_fantasy_tournament")]
 #[serde(rename_all = "PascalCase")]
 pub struct Model {
+    #[sea_orm(primary_key, auto_increment = false)]
+    pub id: i32,
     pub competition_id: i32,
     pub fantasy_tournament_id: i32,
 }

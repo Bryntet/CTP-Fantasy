@@ -13,11 +13,11 @@ use sea_orm::entity::prelude::*;
 use sea_orm::ActiveValue::*;
 use sea_orm::{DatabaseConnection, DbErr, EntityTrait};
 use serde::Deserialize;
-use entity::fantasy_tournament::Model;
+use entity::fantasy_tournament::Model as FantasyTournamentModel;
 
 
 
-#[derive(Deserialize, JsonSchema)]
+#[derive(Deserialize, JsonSchema, Debug)]
 pub struct LoginInput {
     pub username: String,
     pub password: String,
@@ -93,7 +93,7 @@ pub enum InvitationStatus {
 pub struct SimpleFantasyTournament {
     id: i32,
     name: String,
-    user_is_owner: bool,
+    pub(crate) owner_id: i32,
     invitation_status: InvitationStatus,
 }
 
@@ -124,8 +124,8 @@ pub async fn get_fantasy_tournaments(
                 SimpleFantasyTournament {
                     id: tournament.id,
                     name: tournament.name.to_string(),
-                    user_is_owner: tournament.owner == user_id,
                     invitation_status: user_in_tournament.invitation_status.into(),
+                    owner_id: tournament.owner,
                 }
             );
         }
@@ -137,8 +137,20 @@ pub async fn get_fantasy_tournaments(
 pub async fn get_fantasy_tournament(
     db: &DatabaseConnection,
     tournament_id: i32,
-) -> Result<Option<Model>, DbErr> {
-    FantasyTournament::find_by_id(tournament_id).one(db).await
+) -> Result<Option<SimpleFantasyTournament>, DbErr> {
+    let t = FantasyTournament::find_by_id(tournament_id).one(db).await?;
+
+    if let Some(t) = t {
+        Ok(Some(SimpleFantasyTournament {
+            id: t.id,
+            name: t.name.to_string(),
+            invitation_status: InvitationStatus::Accepted,
+            owner_id: t.owner,
+        }))
+    } else {
+        Ok(None)
+    }
+
 }
 
 

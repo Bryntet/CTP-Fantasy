@@ -33,7 +33,6 @@ impl ApiPlayer {
             pdga_number: self.pdga_number,
             first_name: self.first_name,
             last_name: self.last_name,
-            rating: self.rating,
             avatar: self.avatar.map(|s| "https://www.pdga.com".to_string() + &s),
         }
         .into_active_model()

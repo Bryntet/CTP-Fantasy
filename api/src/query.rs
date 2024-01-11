@@ -1,3 +1,4 @@
+use sea_orm::DatabaseConnection;
 use rocket::http::{Cookie, CookieJar};
 use crate::error::{Error, TournamentError, AuthError};
 use crate::error::UserError;
@@ -8,60 +9,11 @@ use rocket::serde::json::serde_json::json;
 use rocket::serde::json::Json;
 use rocket::State;
 use rocket_okapi::{openapi};
-use sea_orm::ColumnTrait;
-use sea_orm::QueryFilter;
-use sea_orm::RuntimeErr::SqlxError;
-use sea_orm::{DatabaseConnection, DbErr, EntityTrait};
+
 use crate::authenticate;
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
-
-/// # Login
-///
-/// # Parameters
-///
-/// - `username` - The username of the user
-///
-/// - `password` - The password of the user
-///
-/// # Returns
-///
-/// A cookie indicating success
-#[openapi(tag = "User")]
-#[post("/login", format = "json", data = "<login_data>")]
-pub(crate) async fn login(
-    login_data: Json<service::LoginInput>,
-    db: &State<DatabaseConnection>,
-    cookies: &CookieJar<'_>,
-) -> Result<String, Error> {
-    let login_data = login_data.into_inner();
-    let auth_result = service::query::authenticate(
-        db.inner(),
-        login_data.username.clone(),
-        service::query::Auth::Password(login_data.password),
-    )
-    .await;
-
-    match auth_result {
-        Ok(true) => {
-            let user = User::find()
-                .filter(user::Column::Name.eq(login_data.username))
-                .one(db.inner())
-                .await;
-            match user {
-                Ok(Some(user)) => {
-                    service::generate_cookie(db.inner(), user.id, cookies).await?;
-                    Ok("Successfully logged in".to_string())
-                }
-                Ok(None) => Err(UserError::InvalidUserId.into()),
-                Err(_) => Err(AuthError::Invalid.into()),
-            }
-        }
-        Ok(false) => Err(AuthError::WrongPassword.into()),
-        Err(_) => Err(AuthError::UnknownError.into()),
-    }
-}
-
+use service::SimpleFantasyTournament;
 
 
 #[openapi(tag = "Fantasy Tournament")]
@@ -69,13 +21,27 @@ pub(crate) async fn login(
 pub(crate) async fn see_tournaments(
     db: &State<DatabaseConnection>,
     user: authenticate::CookieAuth,
-) -> Result<Json<Vec<service::SimpleFantasyTournament>>, Error> {
+) -> Result<Json<Vec<SimpleFantasyTournament>>, Error> {
     let user_model = user.to_user_model(db.inner()).await?;
     match service::get_fantasy_tournaments(db.inner(), user_model.id).await {
 
         Ok(tournaments) => {
             Ok(Json(tournaments))
         },
+        Err(_) => Err(TournamentError::NotFound.into()),
+    }
+}
+
+
+#[openapi(tag = "Fantasy Tournament")]
+#[get("/fantasy-tournament/<id>")]
+pub(crate) async fn get_tournament(
+    db: &State<DatabaseConnection>,
+    id: i32,
+) -> Result<Json<SimpleFantasyTournament>, Error> {
+    match service::get_fantasy_tournament(db.inner(), id).await {
+        Ok(Some(tournament)) => Ok(Json(tournament)),
+        Ok(None) => Err(TournamentError::NotFound.into()),
         Err(_) => Err(TournamentError::NotFound.into()),
     }
 }
@@ -105,5 +71,21 @@ pub(crate) async fn get_user_picks(
     match service::get_user_picks_in_tournament(db.inner(), requester.to_user_model(db.inner()).await?, user_id, tournament_id).await {
         Ok(picks) => Ok(Json(picks)),
         Err(_) => Err(UserError::InvalidUserId.into()),
+    }
+}
+
+
+#[openapi(tag = "User")]
+#[get("/my-id")]
+pub(crate) async fn get_my_id(
+    db: &State<DatabaseConnection>,
+    user: authenticate::CookieAuth,
+) -> Result<Json<i32>, Error> {
+    let user_model = user.get_user(db.inner()).await?;
+    if let Some(user_model) = user_model {
+        dbg!(Json(&user_model.id));
+        Ok(Json(user_model.id))
+    } else {
+        Err(UserError::InvalidUserId.into())
     }
 }

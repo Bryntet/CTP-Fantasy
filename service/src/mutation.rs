@@ -162,6 +162,7 @@ pub async fn generate_cookie(
 
     let cookie: Cookie<'static> = Cookie::build("auth".to_string(), random_value.clone())
         .secure(true)
+        .same_site(rocket::http::SameSite::None)
         .finish();
 
     cookies.add(cookie);
@@ -183,7 +184,7 @@ pub async fn create_invite(
 
 
 
-    let tournament = if let Ok(Some(t))= crate::get_fantasy_tournament(db, fantasy_tournament_id).await {
+    let tournament = if let Ok(Some(t))= FantasyTournament::find_by_id(fantasy_tournament_id).one(db).await {
         t
     } else {
         return Err(InviteError::TournamentNotFound);

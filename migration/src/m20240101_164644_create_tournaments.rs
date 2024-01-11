@@ -38,6 +38,7 @@ impl MigrationTrait for Migration {
         manager.create_table(
             Table::create()
                 .table(PlayerRoundScore::Table)
+                .col(ColumnDef::new(PlayerRoundScore::Id).integer().not_null().primary_key())
                 .col(ColumnDef::new(PlayerRoundScore::PDGANumber).integer().not_null())
                 .foreign_key(
                     ForeignKey::create()
@@ -76,6 +77,7 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(PlayerInCompetition::Table)
                     .if_not_exists()
+                    .col(ColumnDef::new(PlayerInCompetition::Id).integer().not_null().primary_key())
                     .col(
                         ColumnDef::new(PlayerInCompetition::PDGANumber)
                             .integer()
@@ -161,6 +163,7 @@ impl MigrationTrait for Migration {
         manager.create_table(
             Table::create()
                 .table(CompetitionInFantasyTournament::Table)
+                .col(ColumnDef::new(CompetitionInFantasyTournament::Id).integer().not_null().primary_key())
                 .col(ColumnDef::new(CompetitionInFantasyTournament::CompetitionId).integer().not_null())
                 .foreign_key(
                     ForeignKey::create()

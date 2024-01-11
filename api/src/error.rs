@@ -112,7 +112,7 @@ impl MyRocketError for AuthError {
     fn to_rocket_status(&self) -> Status {
         match self {
             Self::Missing => Status::Unauthorized,
-            Self::Invalid => Status::Forbidden,
+            Self::Invalid => Status::Unauthorized,
             Self::WrongPassword => Status::Forbidden,
             Self::UnknownError => Status::InternalServerError
         }

@@ -58,6 +58,7 @@ pub(crate) enum CompetitionStatus {
 #[derive(DeriveIden)]
 pub(crate) enum PlayerInCompetition {
     Table,
+    Id,
     PDGANumber,
     CompetitionId,
 }
@@ -65,6 +66,7 @@ pub(crate) enum PlayerInCompetition {
 #[derive(DeriveIden)]
 pub(crate) enum PlayerRoundScore {
     Table,
+    Id,
     PDGANumber,
     CompetitionId,
     Round,
@@ -74,6 +76,7 @@ pub(crate) enum PlayerRoundScore {
 #[derive(DeriveIden)]
 pub(crate) enum CompetitionInFantasyTournament {
     Table,
+    Id,
     CompetitionId,
     FantasyTournamentId,
 }

@@ -1,19 +1,7 @@
-# curl -X 'POST'
-#  'http://127.0.0.1:8000/refresh-competition'
-#  -H 'accept: */*'
-#  -H 'Content-Type: application/json'
-#  -d '{
-#  "id": 65560,
-#  "division": "MPO"
-#}'
-POST http://127.0.0.1:8000/api/get-players-from-competition
-accept: */*
-Content-Type: application/json
 
-{
-  "id": 65206,
-  "division": "MPO"
-}
+
+
+
 
 ###
 

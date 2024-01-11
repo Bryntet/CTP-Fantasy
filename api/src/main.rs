@@ -9,6 +9,8 @@ use externally_update_internal as ext_to_int;
 
 use rocket_okapi::{openapi, openapi_get_routes};
 
+
+
 #[macro_use]
 extern crate rocket;
 
@@ -27,6 +29,9 @@ async fn rocket() -> _ {
         sea_orm::Database::connect(std::env::var("DATABASE_URL").expect("DATABASE_URL not set"))
             .await
             .unwrap();
+
+
+
     rocket::build()
         .manage(db)
         .mount(
@@ -35,13 +40,18 @@ async fn rocket() -> _ {
                 mutation::create_tournament,
                 ext_to_int::fetch_competition,
                 mutation::create_user,
-                query::login,
+                authenticate::login,
                 mutation::add_pick,
                 query::see_tournaments,
                 query::see_participants,
                 mutation::invite_user,
                 mutation::answer_invite,
-                query::get_user_picks
+                query::get_user_picks,
+                authenticate::check_cookie,
+                authenticate::logout,
+                query::get_my_id,
+                query::get_tournament,
+
             ],
         )
         .mount(
