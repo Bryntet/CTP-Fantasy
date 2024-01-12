@@ -2,19 +2,8 @@ use itertools::Itertools;
 use entity::prelude::*;
 use entity::*;
 use fantasy_tournament::Entity as FantasyTournament;
-use rand::distributions::Alphanumeric;
-use rand::Rng;
-use rocket::futures::FutureExt;
-use rocket::State;
-use sea_orm::ActiveValue::*;
-use sea_orm::{ActiveModelTrait, DatabaseConnection, DbErr, EntityTrait, IntoActiveModel, ModelTrait, TransactionTrait};
-use serde::Deserialize;
+use sea_orm::{DatabaseConnection, DbErr, EntityTrait, ModelTrait, TransactionTrait};
 
-use rocket_okapi::okapi::schemars;
-use rocket_okapi::okapi::schemars::JsonSchema;
-use sea_orm::sea_query::BinOper::In;
-use entity::sea_orm_active_enums::FantasyTournamentInvitationStatus;
-use sea_orm::{QueryFilter, ColumnTrait};
 
 
 

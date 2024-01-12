@@ -1,18 +1,11 @@
 use sea_orm::DatabaseConnection;
-use rocket::http::{Cookie, CookieJar};
-use crate::error::{Error, TournamentError, AuthError};
+use crate::error::{Error, TournamentError};
 use crate::error::UserError;
-use entity::prelude::User;
-use entity::user;
-use rocket::http::private::cookie;
-use rocket::serde::json::serde_json::json;
 use rocket::serde::json::Json;
 use rocket::State;
 use rocket_okapi::{openapi};
 
 use crate::authenticate;
-use rocket_okapi::okapi::schemars;
-use rocket_okapi::okapi::schemars::JsonSchema;
 use service::SimpleFantasyTournament;
 
 

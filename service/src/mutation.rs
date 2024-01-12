@@ -5,14 +5,12 @@ use entity::*;
 use fantasy_tournament::Entity as FantasyTournament;
 use rand::distributions::Alphanumeric;
 use rand::Rng;
-use rocket::State;
 use sea_orm::ActiveValue::*;
 use sea_orm::{ActiveModelTrait, DatabaseConnection, DbErr, EntityTrait, IntoActiveModel, TransactionTrait};
 use serde::Deserialize;
 
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
-use sea_orm::sea_query::BinOper::In;
 use entity::sea_orm_active_enums::FantasyTournamentInvitationStatus;
 use sea_orm::{QueryFilter, ColumnTrait};
 
@@ -174,6 +172,8 @@ pub enum InviteError {
     TournamentNotFound,
     NotOwner,
 }
+
+
 pub async fn create_invite(
     db: &DatabaseConnection,
     sender: user::Model,

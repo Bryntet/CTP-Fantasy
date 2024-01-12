@@ -5,8 +5,7 @@ use rocket_okapi::gen::OpenApiGenerator;
 use rocket_okapi::okapi::openapi3::Responses;
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::{JsonSchema, Map};
-use rocket_okapi::response::{OpenApiResponder, OpenApiResponderInner};
-use rocket_okapi::{openapi_get_routes, rapidoc::*, swagger_ui::*};
+use rocket_okapi::response::{OpenApiResponderInner};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
@@ -182,6 +181,18 @@ impl MyRocketError for PlayerError {
     }
 }
 
+
+use service::InviteError;
+impl Into<Error> for InviteError {
+    fn into(self) -> Error {
+        match self {
+            Self::TournamentNotFound => Error::TournamentError(TournamentError::NotFound),
+            Self::UserNotFound => Error::UserError(UserError::InvalidUserId),
+            Self::NotOwner => Error::TournamentError(TournamentError::NotPermitted),
+        }
+    }
+}
+
 impl From<PlayerError> for Error {
     fn from(e: PlayerError) -> Self {
         Self::PlayerError(e)
@@ -191,7 +202,7 @@ impl From<PlayerError> for Error {
 pub struct ResultResponder(Result<(), Error>);
 
 impl OpenApiResponderInner for Error {
-    fn responses(gen: &mut OpenApiGenerator) -> rocket_okapi::Result<Responses> {
+    fn responses(_: &mut OpenApiGenerator) -> rocket_okapi::Result<Responses> {
         use rocket_okapi::okapi::openapi3::{RefOr, Response as OpenApiResponse};
 
         let mut responses = Map::new();

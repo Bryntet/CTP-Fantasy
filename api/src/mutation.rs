@@ -70,7 +70,10 @@ pub(crate) async fn create_tournament(
                 Err(Error::UnknownError)
             }
         }
-        Err(e) => Err(Error::UnknownError),
+        Err(e) => {
+            dbg!(e);
+            Err(Error::UnknownError)
+        },
     }
 }
 /// # Create a user
@@ -89,7 +92,7 @@ pub(crate) async fn create_user(
 ) -> Result<String, Error> {
     let res = user.0.insert(db, cookies).await;
     match res {
-        Ok(c) => {
+        Ok(()) => {
             Ok("Successfully created user".to_string())
         }
         Err(DbErr::Query(SqlxError(sqlx::Error::Database(error)))) => {
@@ -199,11 +202,7 @@ pub(crate) async fn invite_user(
     let user = user.to_user_model(db).await?;
     match service::create_invite(db, user, invited_user, fantasy_tournament_id).await {
         Ok(_) => Ok("Successfully invited user".to_string()),
-        Err(e) => match e {
-            InviteError::TournamentNotFound => Err(TournamentError::NotFound.into()),
-            InviteError::UserNotFound => Err(UserError::InvalidUserId.into()),
-            InviteError::NotOwner => Err(UserError::NotPermitted.into())
-        }
+        Err(e) => Err(e.into())
     }
 }
 
@@ -217,12 +216,8 @@ pub(crate) async fn answer_invite(
 ) -> Result<String, Error> {
     let user = user.to_user_model(db).await?;
     match service::answer_invite(db, user, fantasy_tournament_id, response).await {
-        Ok(_) => Ok("Successfully answered invite".to_string()),
-        Err(e) => match e {
-            InviteError::TournamentNotFound => Err(TournamentError::NotFound.into()),
-            InviteError::UserNotFound => Err(UserError::InvalidUserId.into()),
-            InviteError::NotOwner => Err(UserError::NotPermitted.into())
-        }
+        Ok(()) => Ok("Successfully answered invite".to_string()),
+        Err(e) => Err(e.into())
     }
 }
 

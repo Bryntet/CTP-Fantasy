@@ -1,19 +1,12 @@
 use bcrypt::verify;
-use cookie::Cookie;
-use entity::prelude::*;
 use entity::prelude::*;
 use entity::sea_orm_active_enums::Division;
 use entity::*;
-use entity::*;
-use rand::distributions::Alphanumeric;
-use rand::Rng;
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
 use sea_orm::entity::prelude::*;
-use sea_orm::ActiveValue::*;
 use sea_orm::{DatabaseConnection, DbErr, EntityTrait};
 use serde::Deserialize;
-use entity::fantasy_tournament::Model as FantasyTournamentModel;
 
 
 

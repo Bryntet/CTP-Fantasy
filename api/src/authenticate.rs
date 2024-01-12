@@ -1,23 +1,18 @@
 //! ------ Just Cookies (for just 1 route/endpoint) ------
 
-use rocket::http::{CookieJar, Status};
+use rocket::http::{CookieJar, };
 use rocket::outcome::IntoOutcome;
-use rocket::response::Responder;
 use rocket::serde::json::Json;
 use rocket::{
     get,
     request::{self, FromRequest},
-    response, Request, Response, State,
+    Request, State,
 };
-use rocket_okapi::okapi::openapi3::{Object, Parameter, ParameterValue, Responses};
-use rocket_okapi::okapi::schemars;
-use rocket_okapi::okapi::schemars::{JsonSchema, Map};
-use rocket_okapi::response::OpenApiResponderInner;
+use rocket_okapi::okapi::openapi3::{Object, Parameter, ParameterValue, };
 use rocket_okapi::{
     gen::OpenApiGenerator,
     openapi,
     request::{OpenApiFromRequest, RequestHeaderInput},
-    OpenApiError,
 };
 use sea_orm::{DatabaseConnection, DbErr, EntityTrait, ModelTrait, TransactionTrait};
 use entity::prelude::{User};
@@ -142,11 +137,11 @@ impl<'a> OpenApiFromRequest<'a> for CookieAuth {
 
 #[openapi(tag = "User")]
 #[get("/check-cookie")]
-pub(crate) async fn check_cookie(
+pub async fn check_cookie(
     db: &State<DatabaseConnection>,
     user: CookieAuth,
 ) -> Result<&'static str, Error> {
-    let a = user.to_user_model(db.inner()).await?;
+    user.to_user_model(db.inner()).await?;
     Ok("Cookie is valid")
 }
 

@@ -2,7 +2,7 @@ use dotenvy::dotenv;
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
 use sea_orm::{
-    ActiveModelTrait, Database, DatabaseConnection, DbErr, EntityTrait, IntoActiveModel,
+    ActiveModelTrait, Database, DatabaseConnection, DbErr, IntoActiveModel,
     TransactionTrait,
 };
 use serde::Deserialize;
@@ -21,7 +21,6 @@ struct ApiPlayer {
     pub pdga_number: i32,
     pub first_name: String,
     pub last_name: String,
-    pub rating: Option<i32>,
     #[serde(rename = "AvatarURL")]
     pub avatar: Option<String>,
     pub division: ApiDivision,
@@ -112,7 +111,7 @@ async fn add_player(db: &DatabaseConnection, player: ApiPlayer) -> Result<(), Db
     let txn = db.begin().await?;
 
     if let Err(e) = { player.to_division().insert(&txn).await } {
-        //dbg!(e);
+        dbg!(e);
     }
     player.into_active_model().insert(&txn).await?;
     let res = txn.commit().await;

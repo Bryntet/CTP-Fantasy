@@ -1,4 +1,3 @@
-use rocket::http::Status;
 use rocket::serde::json::Json;
 use rocket_okapi::openapi;
 use service::{fetch_people_from_competition, CompetitionInfoInput};
