@@ -1,6 +1,8 @@
 //! ------ Just Cookies (for just 1 route/endpoint) ------
 
-use rocket::http::{CookieJar, };
+use entity::prelude::User;
+use entity::{user, user_cookies};
+use rocket::http::CookieJar;
 use rocket::outcome::IntoOutcome;
 use rocket::serde::json::Json;
 use rocket::{
@@ -8,43 +10,45 @@ use rocket::{
     request::{self, FromRequest},
     Request, State,
 };
-use rocket_okapi::okapi::openapi3::{Object, Parameter, ParameterValue, };
+use rocket_okapi::okapi::openapi3::{Object, Parameter, ParameterValue};
 use rocket_okapi::{
     gen::OpenApiGenerator,
     openapi,
     request::{OpenApiFromRequest, RequestHeaderInput},
 };
 use sea_orm::{DatabaseConnection, DbErr, EntityTrait, ModelTrait, TransactionTrait};
-use entity::prelude::{User};
-use entity::{user,user_cookies};
 
 use crate::error;
-use error::AuthError;
 use crate::error::{Error, UserError};
+use error::AuthError;
 use sea_orm::ColumnTrait;
 use sea_orm::QueryFilter;
-use user_cookies::Model as CookieModel;
 use user::Model as UserModel;
+use user_cookies::Model as CookieModel;
 pub struct CookieAuth(String);
 
 impl CookieAuth {
-
     async fn get_cookie(&self, db: &DatabaseConnection) -> Result<Option<CookieModel>, DbErr> {
-        entity::prelude::UserCookies::find_by_id(self.0.to_owned()).one(db).await
+        entity::prelude::UserCookies::find_by_id(self.0.to_owned())
+            .one(db)
+            .await
     }
 
-    pub(crate) async fn get_user(&self, db: &DatabaseConnection) -> Result<Option<UserModel>, Error> {
+    pub(crate) async fn get_user(
+        &self,
+        db: &DatabaseConnection,
+    ) -> Result<Option<UserModel>, Error> {
         let cookie = self.get_cookie(db).await?;
         if let Some(cookie) = cookie {
-            return User::find_by_id(cookie.user_id).one(db).await.map_err(|_| UserError::InvalidUserId.into());
+            return User::find_by_id(cookie.user_id)
+                .one(db)
+                .await
+                .map_err(|_| UserError::InvalidUserId.into());
         }
         Err(AuthError::Invalid.into())
     }
 
-    pub async fn to_user_model(
-        &self,
-        db: &DatabaseConnection,
-    ) -> Result<UserModel, Error> {
+    pub async fn to_user_model(&self, db: &DatabaseConnection) -> Result<UserModel, Error> {
         if let Ok(Some(user)) = self.get_user(db).await {
             return Ok(user);
         }
@@ -60,8 +64,7 @@ impl CookieAuth {
         db: &DatabaseConnection,
         cookies: &CookieJar<'_>,
     ) -> Result<&'static str, Error> {
-        if let Ok(Some(cookie)) = self.get_cookie(db).await
-        {
+        if let Ok(Some(cookie)) = self.get_cookie(db).await {
             cookie.delete(db).await?;
             Self::remove_from_jar(cookies);
         }
@@ -73,9 +76,7 @@ impl CookieAuth {
         db: &DatabaseConnection,
         cookies: &CookieJar<'_>,
     ) -> Result<&'static str, Error> {
-
-        if let Ok(Some(user)) = self.get_user(db).await
-        {
+        if let Ok(Some(user)) = self.get_user(db).await {
             let txn = db.begin().await?;
             for cookie in user.find_related(user_cookies::Entity).all(&txn).await? {
                 cookie.delete(&txn).await?;
@@ -86,17 +87,13 @@ impl CookieAuth {
 
         Ok("Successfully logged out")
     }
-
-
 }
 
 // Implement the actual checks for the authentication
 #[rocket::async_trait]
 impl<'a> FromRequest<'a> for CookieAuth {
     type Error = AuthError;
-    async fn from_request(
-        request: &'a Request<'_>,
-    ) -> request::Outcome<Self, Self::Error> {
+    async fn from_request(request: &'a Request<'_>) -> request::Outcome<Self, Self::Error> {
         request
             .cookies()
             .get("auth")
@@ -133,8 +130,6 @@ impl<'a> OpenApiFromRequest<'a> for CookieAuth {
     }
 }
 
-
-
 #[openapi(tag = "User")]
 #[get("/check-cookie")]
 pub async fn check_cookie(
@@ -144,7 +139,6 @@ pub async fn check_cookie(
     user.to_user_model(db.inner()).await?;
     Ok("Cookie is valid")
 }
-
 
 /// # Login
 ///
@@ -170,7 +164,7 @@ pub(crate) async fn login(
         login_data.username.clone(),
         service::query::Auth::Password(login_data.password),
     )
-        .await;
+    .await;
 
     match auth_result {
         Ok(true) => {
@@ -192,7 +186,6 @@ pub(crate) async fn login(
     }
 }
 
-
 #[openapi(tag = "User")]
 #[post("/logout")]
 pub(crate) async fn logout(
@@ -204,7 +197,6 @@ pub(crate) async fn logout(
 
     Ok("Successfully logged out")
 }
-
 
 #[openapi(tag = "User")]
 #[post("/logout-all")]

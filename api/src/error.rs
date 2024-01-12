@@ -5,7 +5,7 @@ use rocket_okapi::gen::OpenApiGenerator;
 use rocket_okapi::okapi::openapi3::Responses;
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::{JsonSchema, Map};
-use rocket_okapi::response::{OpenApiResponderInner};
+use rocket_okapi::response::OpenApiResponderInner;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
@@ -58,7 +58,7 @@ pub(crate) enum TournamentError {
     TooManyTournaments,
     TournamentNameConflict,
     NotPermitted,
-    NotFound
+    NotFound,
 }
 
 trait MyRocketError {
@@ -84,7 +84,7 @@ impl MyRocketError for TournamentError {
             Self::TooManyTournaments => Status::Forbidden,
             Self::TournamentNameConflict => Status::Conflict,
             Self::NotPermitted => Status::Forbidden,
-            Self::NotFound => Status::NotFound
+            Self::NotFound => Status::NotFound,
         }
     }
     fn to_err_message(&self) -> Option<String> {
@@ -94,7 +94,7 @@ impl MyRocketError for TournamentError {
             }
             Self::TournamentNameConflict => Some("Tournament name already used".to_string()),
             Self::NotPermitted => Some("You do not have permission to do this".to_string()),
-            Self::NotFound => Some("Tournament not found".to_string())
+            Self::NotFound => Some("Tournament not found".to_string()),
         }
     }
 }
@@ -104,7 +104,7 @@ pub enum AuthError {
     Missing,
     Invalid,
     WrongPassword,
-    UnknownError
+    UnknownError,
 }
 
 impl MyRocketError for AuthError {
@@ -113,7 +113,7 @@ impl MyRocketError for AuthError {
             Self::Missing => Status::Unauthorized,
             Self::Invalid => Status::Unauthorized,
             Self::WrongPassword => Status::Forbidden,
-            Self::UnknownError => Status::InternalServerError
+            Self::UnknownError => Status::InternalServerError,
         }
     }
 
@@ -122,7 +122,7 @@ impl MyRocketError for AuthError {
             Self::Missing => Some("Missing auth cookie".to_string()),
             Self::Invalid => Some("Invalid auth cookie".to_string()),
             Self::WrongPassword => Some("Wrong password".to_string()),
-            Self::UnknownError => Some("Unknown error".to_string())
+            Self::UnknownError => Some("Unknown error".to_string()),
         }
     }
 }
@@ -180,7 +180,6 @@ impl MyRocketError for PlayerError {
         }
     }
 }
-
 
 use service::InviteError;
 impl Into<Error> for InviteError {

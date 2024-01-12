@@ -7,23 +7,20 @@ mod utils;
 
 use externally_update_internal as ext_to_int;
 
-use rocket_okapi::{openapi_get_routes};
-
-
+use rocket_okapi::openapi_get_routes;
 
 #[macro_use]
 extern crate rocket;
 
+use authenticate::*;
 use dotenvy::dotenv;
+use ext_to_int::*;
+use mutation::*;
+use query::*;
 use rocket_okapi::rapidoc::{make_rapidoc, GeneralConfig, HideShowConfig, RapiDocConfig};
 use rocket_okapi::settings::UrlObject;
 use rocket_okapi::swagger_ui::{make_swagger_ui, SwaggerUIConfig};
 use service::*;
-use mutation::*;
-use query::*;
-use authenticate::*;
-use ext_to_int::*;
-
 
 #[launch]
 async fn rocket() -> _ {
@@ -32,8 +29,6 @@ async fn rocket() -> _ {
         sea_orm::Database::connect(std::env::var("DATABASE_URL").expect("DATABASE_URL not set"))
             .await
             .unwrap();
-
-
 
     rocket::build()
         .manage(db)
@@ -55,7 +50,6 @@ async fn rocket() -> _ {
                 get_my_id,
                 get_tournament,
                 logout_all
-
             ],
         )
         .mount(

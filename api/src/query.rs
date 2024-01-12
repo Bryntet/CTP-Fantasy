@@ -1,13 +1,12 @@
-use sea_orm::DatabaseConnection;
-use crate::error::{Error, TournamentError};
 use crate::error::UserError;
+use crate::error::{Error, TournamentError};
 use rocket::serde::json::Json;
 use rocket::State;
-use rocket_okapi::{openapi};
+use rocket_okapi::openapi;
+use sea_orm::DatabaseConnection;
 
 use crate::authenticate;
 use service::SimpleFantasyTournament;
-
 
 #[openapi(tag = "Fantasy Tournament")]
 #[get("/my-tournaments")]
@@ -17,14 +16,10 @@ pub(crate) async fn see_tournaments(
 ) -> Result<Json<Vec<SimpleFantasyTournament>>, Error> {
     let user_model = user.to_user_model(db.inner()).await?;
     match service::get_fantasy_tournaments(db.inner(), user_model.id).await {
-
-        Ok(tournaments) => {
-            Ok(Json(tournaments))
-        },
+        Ok(tournaments) => Ok(Json(tournaments)),
         Err(_) => Err(TournamentError::NotFound.into()),
     }
 }
-
 
 #[openapi(tag = "Fantasy Tournament")]
 #[get("/fantasy-tournament/<id>")]
@@ -51,8 +46,6 @@ pub(crate) async fn see_participants(
     }
 }
 
-
-
 #[openapi(tag = "Fantasy Tournament")]
 #[get("/fantasy-tournament/<tournament_id>/user_picks/<user_id>")]
 pub(crate) async fn get_user_picks(
@@ -61,12 +54,18 @@ pub(crate) async fn get_user_picks(
     tournament_id: i32,
     user_id: i32,
 ) -> Result<Json<service::SimpleFantasyPicks>, Error> {
-    match service::get_user_picks_in_tournament(db.inner(), requester.to_user_model(db.inner()).await?, user_id, tournament_id).await {
+    match service::get_user_picks_in_tournament(
+        db.inner(),
+        requester.to_user_model(db.inner()).await?,
+        user_id,
+        tournament_id,
+    )
+    .await
+    {
         Ok(picks) => Ok(Json(picks)),
         Err(_) => Err(UserError::InvalidUserId.into()),
     }
 }
-
 
 #[openapi(tag = "User")]
 #[get("/my-id")]

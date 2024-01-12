@@ -14,10 +14,10 @@ use error::Error;
 use rocket_okapi::openapi;
 use serde::Deserialize;
 
+use crate::error::TournamentError;
 use rocket::http::Cookie;
 use rocket::http::CookieJar;
 use service::InviteError;
-use crate::error::TournamentError;
 
 /// # Create a fantasy tournament
 ///
@@ -73,7 +73,7 @@ pub(crate) async fn create_tournament(
         Err(e) => {
             dbg!(e);
             Err(Error::UnknownError)
-        },
+        }
     }
 }
 /// # Create a user
@@ -92,9 +92,7 @@ pub(crate) async fn create_user(
 ) -> Result<String, Error> {
     let res = user.0.insert(db, cookies).await;
     match res {
-        Ok(()) => {
-            Ok("Successfully created user".to_string())
-        }
+        Ok(()) => Ok("Successfully created user".to_string()),
         Err(DbErr::Query(SqlxError(sqlx::Error::Database(error)))) => {
             let msg = error.message();
             if msg.contains("violates unique constraint") {
@@ -106,8 +104,6 @@ pub(crate) async fn create_user(
         Err(_) => Err(Error::UnknownError),
     }
 }
-
-
 
 #[derive(Deserialize, JsonSchema, Debug)]
 struct FantasyPick {
@@ -202,7 +198,7 @@ pub(crate) async fn invite_user(
     let user = user.to_user_model(db).await?;
     match service::create_invite(db, user, invited_user, fantasy_tournament_id).await {
         Ok(_) => Ok("Successfully invited user".to_string()),
-        Err(e) => Err(e.into())
+        Err(e) => Err(e.into()),
     }
 }
 
@@ -217,7 +213,6 @@ pub(crate) async fn answer_invite(
     let user = user.to_user_model(db).await?;
     match service::answer_invite(db, user, fantasy_tournament_id, response).await {
         Ok(()) => Ok("Successfully answered invite".to_string()),
-        Err(e) => Err(e.into())
+        Err(e) => Err(e.into()),
     }
 }
-
