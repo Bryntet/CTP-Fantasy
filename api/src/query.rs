@@ -38,7 +38,7 @@ pub(crate) async fn get_tournament(
 pub(crate) async fn see_participants(
     db: &State<DatabaseConnection>,
     id: i32,
-) -> Result<Json<Vec<service::User>>, GenericError> {
+) -> Result<Json<Vec<service::dto::User>>, GenericError> {
     match service::get_participants(db.inner(), id).await {
         Ok(participants) => Ok(Json(participants)),
         Err(_) => Err(UserError::InvalidUserId("Unknown user").into()),

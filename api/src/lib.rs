@@ -14,6 +14,7 @@ extern crate rocket;
 use authenticate::*;
 use dotenvy::dotenv;
 use rocket::{Build, Rocket};
+use rocket::fs::FileServer;
 use ext_to_int::*;
 use mutation::*;
 use query::*;
@@ -71,4 +72,5 @@ pub async fn launch() -> Rocket<Build> {
                 ..Default::default()
             }),
         )
+        .mount("/", FileServer::from("/home/brynte/IdeaProjects/rusty_chains/build/web"))
 }

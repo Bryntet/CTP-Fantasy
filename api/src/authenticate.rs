@@ -56,7 +56,7 @@ impl CookieAuth {
     }
 
     fn remove_from_jar(cookies: &CookieJar<'_>) {
-        cookies.remove(rocket::http::Cookie::named("auth"));
+        cookies.remove("auth");
     }
 
     pub async fn remove_cookie(
@@ -172,7 +172,7 @@ pub async fn check_cookie(
 #[openapi(tag = "User")]
 #[post("/login", format = "json", data = "<login_data>")]
 pub(crate) async fn login(
-    login_data: Json<service::LoginInput>,
+    login_data: Json<service::dto::LoginInput>,
     db: &State<DatabaseConnection>,
     cookies: &CookieJar<'_>,
 ) -> Result<String, GenericError> {

@@ -1,4 +1,4 @@
-use sea_orm::{EnumIter, Iterable};
+use sea_orm::{EnumIter,};
 use sea_orm_migration::prelude::*;
 use serde::Deserialize;
 
@@ -16,7 +16,6 @@ pub(crate) enum Player {
     FirstName,
     LastName,
     Avatar,
-    Division,
 }
 
 #[derive(DeriveIden)]

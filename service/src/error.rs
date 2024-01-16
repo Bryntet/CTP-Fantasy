@@ -1,5 +1,4 @@
 use rocket::response::Responder;
-use rocket::{response};
 use rocket_okapi::gen::OpenApiGenerator;
 use rocket_okapi::okapi::openapi3::Responses;
 use rocket_okapi::okapi::schemars;

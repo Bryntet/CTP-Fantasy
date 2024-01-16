@@ -1,5 +1,5 @@
 use crate::extension::postgres::Type;
-use sea_orm::{EnumIter, Iterable};
+use sea_orm::{Iterable};
 
 use crate::enums::*;
 use crate::macros::*;

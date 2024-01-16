@@ -3,8 +3,6 @@ mod query;
 use entity::*;
 use rocket::serde::{Deserialize, Serialize};
 use rocket_okapi::okapi::schemars::{self, JsonSchema};
-use sea_orm::{ActiveModelTrait, DatabaseConnection,EntityTrait};
-use crate::error::{GenericError, PlayerError};
 
 
 #[derive(Deserialize, JsonSchema)]
@@ -49,3 +47,10 @@ pub struct User {
     pub name: String,
     pub score: i32
 }
+
+#[derive(Deserialize, JsonSchema, Debug)]
+pub struct LoginInput {
+    pub username: String,
+    pub password: String,
+}
+

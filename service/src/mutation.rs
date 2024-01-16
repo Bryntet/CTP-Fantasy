@@ -1,4 +1,3 @@
-use bcrypt::{hash, DEFAULT_COST};
 use rocket::http::{Cookie, CookieJar};
 use entity::prelude::*;
 use entity::*;
@@ -6,16 +5,11 @@ use fantasy_tournament::Entity as FantasyTournament;
 use rand::distributions::Alphanumeric;
 use rand::Rng;
 use sea_orm::ActiveValue::*;
-use sea_orm::{ActiveModelTrait, DatabaseConnection, DbErr, EntityTrait, IntoActiveModel, TransactionTrait};
-use serde::Deserialize;
-
-use rocket_okapi::okapi::schemars;
-use rocket_okapi::okapi::schemars::JsonSchema;
+use sea_orm::{ActiveModelTrait, DatabaseConnection, DbErr, EntityTrait, IntoActiveModel};
 use entity::sea_orm_active_enums::FantasyTournamentInvitationStatus;
 use sea_orm::{QueryFilter, ColumnTrait};
-use crate::get_player_division;
 
-use crate::error::{GenericError, InviteError, PlayerError};
+use crate::error::{InviteError};
 
 
 
@@ -55,7 +49,7 @@ pub async fn create_invite(
     fantasy_tournament_id: i32,
 ) -> Result<(), InviteError> {
 
-    
+
     let tournament = if let Ok(Some(t))= FantasyTournament::find_by_id(fantasy_tournament_id).one(db).await {
         t
     } else {

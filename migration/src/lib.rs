@@ -3,7 +3,7 @@ mod enums;
 mod m20240101_000001_create_users_and_players;
 mod m20240101_164644_create_tournaments;
 mod m20240101_231414_fantasy_tournament_picks_and_user_score;
-mod m20240102_175842_Add_authentication;
+mod m20240102_175842_add_authentication;
 mod m20240106_182527_make_usernames_more_unique;
 mod m20240106_191136_users_in_fantasy_tournament;
 mod macros;
@@ -17,7 +17,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240101_000001_create_users_and_players::Migration),
             Box::new(m20240101_164644_create_tournaments::Migration),
             Box::new(m20240101_231414_fantasy_tournament_picks_and_user_score::Migration),
-            Box::new(m20240102_175842_Add_authentication::Migration),
+            Box::new(m20240102_175842_add_authentication::Migration),
             Box::new(m20240106_182527_make_usernames_more_unique::Migration),
             Box::new(m20240106_191136_users_in_fantasy_tournament::Migration),
         ]

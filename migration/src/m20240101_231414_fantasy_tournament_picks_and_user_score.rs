@@ -1,5 +1,5 @@
 use crate::enums::*;
-use crate::{drop_table, drop_type};
+use crate::{drop_table};
 use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
@@ -111,12 +111,4 @@ impl MigrationTrait for Migration {
         drop_table!(FantasyScores, manager);
         Ok(())
     }
-}
-
-#[derive(DeriveIden)]
-enum Post {
-    Table,
-    Id,
-    Title,
-    Text,
 }

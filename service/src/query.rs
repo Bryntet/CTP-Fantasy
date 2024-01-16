@@ -6,16 +6,12 @@ use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
 use sea_orm::entity::prelude::*;
 use sea_orm::{DatabaseConnection, DbErr, EntityTrait};
-use serde::Deserialize;
 use crate::dto;
 use dto::InvitationStatus;
 
 
-#[derive(Deserialize, JsonSchema, Debug)]
-pub struct LoginInput {
-    pub username: String,
-    pub password: String,
-}
+
+
 
 pub enum Auth {
     Password(String),

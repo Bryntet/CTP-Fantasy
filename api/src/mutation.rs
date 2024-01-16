@@ -1,24 +1,21 @@
 use rocket::serde::json::Json;
 use rocket::State;
 
-use rocket_okapi::okapi::schemars;
-use rocket_okapi::okapi::schemars::JsonSchema;
 use sea_orm::RuntimeErr::SqlxError;
-use sea_orm::{ActiveModelTrait, DatabaseConnection, DbErr, EntityTrait};
+use sea_orm::{DatabaseConnection, DbErr, };
 
 use crate::authenticate;
 use crate::error;
 use crate::error::{TournamentError, UserError};
 use error::GenericError;
 use rocket_okapi::openapi;
-use serde::Deserialize;
 
 use rocket::http::CookieJar;
 use sea_orm::TransactionTrait;
 
 
 use service::dto::FantasyPick;
-use service::UserLogin;
+use service::dto::UserLogin;
 
 /// # Create a fantasy tournament
 ///
@@ -46,9 +43,9 @@ use service::UserLogin;
 ///
 /// - `Error::CookieAuthError` - The cookie is invalid
 #[openapi(tag = "Fantasy Tournament")]
-#[post("/create-fantasy-tournament", format = "json", data = "<tournament>")]
+#[post("/fantasy-tournament", format = "json", data = "<tournament>")]
 pub(crate) async fn create_tournament(
-    tournament: Json<service::CreateTournament>,
+    tournament: Json<service::dto::CreateTournament>,
     db: &State<DatabaseConnection>,
     user: authenticate::CookieAuth,
 ) -> Result<(), GenericError> {
@@ -152,7 +149,6 @@ pub(crate) async fn add_picks(user: authenticate::CookieAuth, db: &State<Databas
 
     Ok("Successfully added picks".to_string())
 }
-
 
 #[openapi(tag = "Fantasy Tournament")]
 #[post("/fantasy-tournament/<fantasy_tournament_id>/invite/<invited_user>")]

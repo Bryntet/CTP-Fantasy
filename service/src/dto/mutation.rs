@@ -17,7 +17,7 @@ use super::*;
 impl FantasyPick {
     pub async fn insert_or_change(&self, db: &DatabaseConnection, user_id: i32) -> Result<(), GenericError> {
         use entity::prelude::FantasyPick as FantasyPickEntity;
-        use sea_orm::{ColumnTrait, NotSet, QueryFilter, Set};
+        use sea_orm::{ColumnTrait, QueryFilter, Set};
 
         let existing_pick = FantasyPickEntity::find()
             .filter(fantasy_pick::Column::PickNumber.eq(self.slot).and(fantasy_pick::Column::FantasyTournamentId.eq(self.fantasy_tournament_id)).and(fantasy_pick::Column::User.eq(user_id)))
