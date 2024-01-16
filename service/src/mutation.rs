@@ -15,130 +15,8 @@ use entity::sea_orm_active_enums::FantasyTournamentInvitationStatus;
 use sea_orm::{QueryFilter, ColumnTrait};
 use crate::get_player_division;
 
-#[derive(Deserialize, JsonSchema)]
-pub struct CreateTournamentInput {
-    pub name: String,
-    pub max_picks_per_user: Option<i32>,
-}
+use crate::error::{GenericError, InviteError, PlayerError};
 
-impl CreateTournamentInput {
-    pub fn into_active_model(self, owner_id: i32) -> fantasy_tournament::ActiveModel {
-        fantasy_tournament::ActiveModel {
-            id: NotSet,
-            name: Set(self.name),
-            owner: Set(owner_id),
-            max_picks_per_user: match self.max_picks_per_user {
-                Some(v) => Set(v),
-                None => NotSet,
-            },
-        }
-    }
-    pub async fn insert(
-        self,
-        db: &DatabaseConnection,
-        owner_id: i32,
-    ) -> Result<(), sea_orm::error::DbErr> {
-        let tour = FantasyTournament::insert(self.into_active_model(owner_id))
-            .exec(db)
-            .await?;
-        UserInFantasyTournament::insert(
-            user_in_fantasy_tournament::ActiveModel {
-                id: NotSet,
-                user_id: Set(owner_id),
-                fantasy_tournament_id: Set(tour.last_insert_id),
-                invitation_status: Set(FantasyTournamentInvitationStatus::Accepted),
-            },
-        ).exec(db).await?;
-        Ok(())
-    }
-}
-
-/*pub struct CreatePickInput {
-    pub user: i32,
-    pub player: i32,
-    pub fantasy_tournament_id: i32,
-    pub
-}
-
-impl CreatePickInput {
-    pub fn into_active_model(self) -> fantasy_pick::ActiveModel {
-        fantasy_pick::ActiveModel {
-            id: NotSet,
-            user: Set(self.user),
-            player: Set(self.player),
-            fantasy_tournament_id: Set(self.fantasy_tournament_id),
-            create
-        }
-    }
-    pub async fn insert(self, db: &DatabaseConnection) -> Result<(), sea_orm::error::DbErr> {
-        FantasyPick::insert(self.into_active_model())
-            .exec(db)
-            .await?;
-        Ok(())
-    }
-}*/
-
-pub struct CreateUserScoreInput {
-    pub user: i32,
-    pub score: i32,
-    pub ranking: i32,
-    pub fantasy_tournament_id: i32,
-}
-
-impl CreateUserScoreInput {
-    pub fn into_active_model(self) -> fantasy_scores::ActiveModel {
-        fantasy_scores::ActiveModel {
-            id: NotSet,
-            user: Set(self.user),
-            score: Set(self.score),
-            ranking: Set(self.ranking),
-            fantasy_tournament_id: Set(self.fantasy_tournament_id),
-        }
-    }
-    pub async fn insert(self, db: &DatabaseConnection) -> Result<(), sea_orm::error::DbErr> {
-        FantasyScores::insert(self.into_active_model())
-            .exec(db)
-            .await?;
-        Ok(())
-    }
-}
-
-#[derive(Deserialize, JsonSchema, Debug, Clone)]
-pub struct CreateUserInput {
-    pub username: String,
-    pub password: String,
-}
-
-impl CreateUserInput {
-    fn active_user(&self) -> user::ActiveModel {
-        user::ActiveModel {
-            id: NotSet,
-            name: Set(self.username.clone()),
-        }
-    }
-    fn active_authentication(
-        &self,
-        hashed_password: String,
-        user_id: i32,
-    ) -> user_authentication::ActiveModel {
-        user_authentication::ActiveModel {
-            user_id: Set(user_id),
-            hashed_password: Set(hashed_password),
-        }
-    }
-    pub async fn insert<'a>(&'a self, db: &'a DatabaseConnection, cookies: &CookieJar<'_>) -> Result<(), sea_orm::error::DbErr> {
-        let txn = db.begin().await?;
-        let user = self.active_user();
-        let user_id = User::insert(user).exec(&txn).await?.last_insert_id;
-        let hashed_password = hash(&self.password, DEFAULT_COST).unwrap();
-        let authentication = self.active_authentication(hashed_password, user_id);
-        UserAuthentication::insert(authentication)
-            .exec(&txn)
-            .await?;
-        txn.commit().await?;
-        generate_cookie(db, user_id, cookies).await
-    }
-}
 
 
 pub async fn generate_cookie(
@@ -161,18 +39,13 @@ pub async fn generate_cookie(
 
     let cookie: Cookie<'static> = Cookie::build(("auth".to_string(), random_value.clone()))
         .secure(true)
-        .same_site(rocket::http::SameSite::None)
-        .finish();
+        .same_site(rocket::http::SameSite::None).build();
 
     cookies.add(cookie);
     Ok(())
 }
 
-pub enum InviteError {
-    UserNotFound,
-    TournamentNotFound,
-    NotOwner,
-}
+
 
 
 pub async fn create_invite(
@@ -182,9 +55,7 @@ pub async fn create_invite(
     fantasy_tournament_id: i32,
 ) -> Result<(), InviteError> {
 
-
-
-
+    
     let tournament = if let Ok(Some(t))= FantasyTournament::find_by_id(fantasy_tournament_id).one(db).await {
         t
     } else {

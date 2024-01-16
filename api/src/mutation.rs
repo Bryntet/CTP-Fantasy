@@ -17,7 +17,9 @@ use rocket::http::CookieJar;
 use sea_orm::TransactionTrait;
 
 
-use dto::objects::FantasyPick;
+use service::dto::FantasyPick;
+use service::UserLogin;
+
 /// # Create a fantasy tournament
 ///
 /// # Parameters
@@ -46,7 +48,7 @@ use dto::objects::FantasyPick;
 #[openapi(tag = "Fantasy Tournament")]
 #[post("/create-fantasy-tournament", format = "json", data = "<tournament>")]
 pub(crate) async fn create_tournament(
-    tournament: Json<service::CreateTournamentInput>,
+    tournament: Json<service::CreateTournament>,
     db: &State<DatabaseConnection>,
     user: authenticate::CookieAuth,
 ) -> Result<(), GenericError> {
@@ -85,7 +87,7 @@ pub(crate) async fn create_tournament(
 #[openapi(tag = "User")]
 #[post("/create-user", format = "json", data = "<user>")]
 pub(crate) async fn create_user(
-    user: Json<service::CreateUserInput>,
+    user: Json<UserLogin>,
     db: &State<DatabaseConnection>,
     cookies: &CookieJar<'_>,
 ) -> Result<String, GenericError> {
@@ -168,15 +170,15 @@ pub(crate) async fn invite_user(
 }
 
 #[openapi(tag = "Fantasy Tournament")]
-#[post("/fantasy-tournament/<fantasy_tournament_id>/answer-invite/<response>")]
+#[post("/fantasy-tournament/<fantasy_tournament_id>/answer-invite/<accepted>")]
 pub(crate) async fn answer_invite(
     user: authenticate::CookieAuth,
     db: &State<DatabaseConnection>,
     fantasy_tournament_id: i32,
-    response: bool,
+    accepted: bool,
 ) -> Result<String, GenericError> {
     let user = user.to_user_model(db).await?;
-    match service::answer_invite(db, user, fantasy_tournament_id, response).await {
+    match service::answer_invite(db, user, fantasy_tournament_id, accepted).await {
         Ok(()) => Ok("Successfully answered invite".to_string()),
         Err(e) => Err(e.into()),
     }

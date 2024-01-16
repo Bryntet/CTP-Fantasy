@@ -5,8 +5,10 @@ use rocket_okapi::okapi::openapi3::Responses;
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::{JsonSchema, Map};
 use rocket_okapi::response::OpenApiResponderInner;
-use serde::{Deserialize, Serialize};
+use rocket::serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+
+
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Responder)]
 pub enum GenericError {
@@ -22,7 +24,7 @@ pub enum GenericError {
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Responder)]
-pub(crate) enum TournamentError {
+pub enum TournamentError {
     #[response(status = 403)]
     TooManyTournaments(&'static str),
     #[response(status = 409)]
@@ -92,7 +94,13 @@ pub enum PlayerError {
     PlayerNotFound(&'static str),
 }
 
-use service::InviteError;
+
+pub enum InviteError {
+    TournamentNotFound,
+    UserNotFound,
+    NotOwner,
+}
+
 impl From<InviteError> for GenericError {
     fn from(e: InviteError) -> Self {
         use InviteError::*;

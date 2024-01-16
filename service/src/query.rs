@@ -7,7 +7,8 @@ use rocket_okapi::okapi::schemars::JsonSchema;
 use sea_orm::entity::prelude::*;
 use sea_orm::{DatabaseConnection, DbErr, EntityTrait};
 use serde::Deserialize;
-
+use crate::dto;
+use dto::InvitationStatus;
 
 
 #[derive(Deserialize, JsonSchema, Debug)]
@@ -75,12 +76,7 @@ pub async fn get_player_division(
 }
 
 
-#[derive(serde::Serialize, serde::Deserialize, JsonSchema, Debug)]
-pub enum InvitationStatus {
-    Accepted,
-    Pending,
-    Declined,
-}
+
 
 #[derive(serde::Serialize, serde::Deserialize, JsonSchema, Debug)]
 pub struct SimpleFantasyTournament {
@@ -147,17 +143,12 @@ pub async fn get_fantasy_tournament(
 }
 
 
-#[derive(serde::Serialize, serde::Deserialize, JsonSchema, Debug)]
-pub struct SimpleUser {
-    id: i32,
-    name: String,
-    score: i32
-}
+
 
 pub async fn get_participants(
     db: &DatabaseConnection,
     tournament_id: i32,
-) -> Result<Vec<SimpleUser>, DbErr> {
+) -> Result<Vec<dto::User>, DbErr> {
     let participants = UserInFantasyTournament::find()
         .filter(user_in_fantasy_tournament::Column::FantasyTournamentId.eq(tournament_id))
         .filter(
@@ -177,12 +168,12 @@ pub async fn get_participants(
                     .filter(fantasy_scores::Column::FantasyTournamentId.eq(tournament_id))
                     .one(db)
                     .await?
-                    .map(|score| SimpleUser {
+                    .map(|score| dto::User {
                         id: participant.id,
                         name: participant.name.to_string(),
                         score: score.score,
                     })
-                    .unwrap_or(SimpleUser {
+                    .unwrap_or(dto::User {
                         id: participant.id,
                         name: participant.name.to_string(),
                         score: 0,

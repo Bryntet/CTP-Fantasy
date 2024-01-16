@@ -1,7 +1,7 @@
 
 use entity::prelude::User;
 use entity::{user, user_cookies};
-use rocket::http::CookieJar;
+use rocket::http::{CookieJar, Status};
 use rocket::outcome::IntoOutcome;
 use rocket::serde::json::Json;
 use rocket::{
@@ -115,7 +115,7 @@ impl<'a> FromRequest<'a> for CookieAuth {
             .get("auth")
             .and_then(|cookie| cookie.value().parse().ok())
             .map(CookieAuth)
-            .or_forward(())
+            .or_forward(Status::Unauthorized)
     }
 }
 

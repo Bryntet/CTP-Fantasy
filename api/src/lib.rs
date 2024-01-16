@@ -1,5 +1,4 @@
 mod authenticate;
-mod error;
 mod externally_update_internal;
 mod mutation;
 mod query;
