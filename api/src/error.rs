@@ -1,6 +1,5 @@
-use rocket::http::Status;
 use rocket::response::Responder;
-use rocket::{response, Request, Response};
+use rocket::{response};
 use rocket_okapi::gen::OpenApiGenerator;
 use rocket_okapi::okapi::openapi3::Responses;
 use rocket_okapi::okapi::schemars;
@@ -9,198 +8,106 @@ use rocket_okapi::response::OpenApiResponderInner;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
-#[derive(Serialize, Deserialize, JsonSchema, Debug)]
-pub enum Error {
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Responder)]
+pub enum GenericError {
+    #[response(status = 404)]
+    UnknownCompetition(&'static str),
+    #[response(status = 500)]
+    UnknownError(&'static str),
     TournamentError(TournamentError),
-    UnknownCompetition,
-    CookieError(AuthError),
     UserError(UserError),
     PlayerError(PlayerError),
-    UnknownError,
+    CookieError(AuthError),
+    AuthError(AuthError),
 }
 
-impl MyRocketError for Error {
-    fn to_rocket_status(&self) -> Status {
-        match self {
-            Self::TournamentError(e) => e.to_rocket_status(),
-            Self::UnknownCompetition => Status::NotFound,
-            Self::CookieError(e) => e.to_rocket_status(),
-            Self::UserError(e) => e.to_rocket_status(),
-            Self::PlayerError(e) => e.to_rocket_status(),
-            Self::UnknownError => Status::InternalServerError,
-        }
-    }
-    fn to_err_message(&self) -> Option<String> {
-        match self {
-            Self::TournamentError(e) => e.to_err_message(),
-            Self::UnknownCompetition => Some("Unknown competition".to_string()),
-            Self::CookieError(e) => e.to_err_message(),
-            Self::UserError(e) => e.to_err_message(),
-            Self::PlayerError(e) => e.to_err_message(),
-            Self::UnknownError => Some("Unknown error".to_string()),
-        }
-    }
-}
-
-impl<'r> Responder<'r, 'static> for Error {
-    fn respond_to(self, _: &'r Request<'_>) -> response::Result<'static> {
-        let mut builder = Response::build();
-        builder.status(self.to_rocket_status());
-        if let Some(msg) = self.to_err_message() {
-            builder.sized_body(msg.len(), std::io::Cursor::new(msg));
-        }
-        builder.ok()
-    }
-}
-
-#[derive(Serialize, Deserialize, JsonSchema, Debug)]
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Responder)]
 pub(crate) enum TournamentError {
-    TooManyTournaments,
-    TournamentNameConflict,
-    NotPermitted,
-    NotFound,
+    #[response(status = 403)]
+    TooManyTournaments(&'static str),
+    #[response(status = 409)]
+    TournamentNameConflict(&'static str),
+    #[response(status = 403)]
+    NotPermitted(&'static str),
+    #[response(status = 404)]
+    NotFound(&'static str),
 }
 
-trait MyRocketError {
-    fn to_rocket_status(&self) -> Status;
-    fn to_err_message(&self) -> Option<String>;
-}
-
-impl From<TournamentError> for Error {
+impl From<TournamentError> for GenericError {
     fn from(e: TournamentError) -> Self {
         Self::TournamentError(e)
     }
 }
 
-impl From<AuthError> for Error {
+impl From<AuthError> for GenericError {
     fn from(e: AuthError) -> Self {
         Self::CookieError(e)
     }
 }
-
-impl MyRocketError for TournamentError {
-    fn to_rocket_status(&self) -> Status {
-        match self {
-            Self::TooManyTournaments => Status::Forbidden,
-            Self::TournamentNameConflict => Status::Conflict,
-            Self::NotPermitted => Status::Forbidden,
-            Self::NotFound => Status::NotFound,
-        }
-    }
-    fn to_err_message(&self) -> Option<String> {
-        match self {
-            Self::TooManyTournaments => {
-                Some("User has reached max amount of tournaments".to_string())
-            }
-            Self::TournamentNameConflict => Some("Tournament name already used".to_string()),
-            Self::NotPermitted => Some("You do not have permission to do this".to_string()),
-            Self::NotFound => Some("Tournament not found".to_string()),
-        }
-    }
-}
-
-#[derive(Debug, JsonSchema, Deserialize, Serialize)]
-pub enum AuthError {
-    Missing,
-    Invalid,
-    WrongPassword,
-    UnknownError,
-}
-
-impl MyRocketError for AuthError {
-    fn to_rocket_status(&self) -> Status {
-        match self {
-            Self::Missing => Status::Unauthorized,
-            Self::Invalid => Status::Unauthorized,
-            Self::WrongPassword => Status::Forbidden,
-            Self::UnknownError => Status::InternalServerError,
-        }
-    }
-
-    fn to_err_message(&self) -> Option<String> {
-        match self {
-            Self::Missing => Some("Missing auth cookie".to_string()),
-            Self::Invalid => Some("Invalid auth cookie".to_string()),
-            Self::WrongPassword => Some("Wrong password".to_string()),
-            Self::UnknownError => Some("Unknown error".to_string()),
-        }
-    }
-}
-
-#[derive(Debug, JsonSchema, Deserialize, Serialize)]
-pub enum UserError {
-    UsernameConflict,
-    InvalidUserId,
-    NotPermitted,
-}
-
-impl MyRocketError for UserError {
-    fn to_rocket_status(&self) -> Status {
-        match self {
-            Self::UsernameConflict => Status::Conflict,
-            Self::InvalidUserId => Status::NotFound,
-            Self::NotPermitted => Status::Forbidden,
-        }
-    }
-
-    fn to_err_message(&self) -> Option<String> {
-        match self {
-            Self::UsernameConflict => Some("Username already taken".to_string()),
-            Self::InvalidUserId => Some("Invalid user".to_string()),
-            Self::NotPermitted => Some("You do not have permission to do this".to_string()),
-        }
-    }
-}
-
-impl From<UserError> for Error {
+impl From<UserError> for GenericError {
     fn from(e: UserError) -> Self {
         Self::UserError(e)
     }
 }
-
-impl From<sea_orm::DbErr> for Error {
-    fn from(e: sea_orm::DbErr) -> Self {
-        dbg!(e);
-        Self::UnknownError
-    }
-}
-#[derive(Serialize, Deserialize, JsonSchema, Debug)]
-pub enum PlayerError {
-    PlayerNotFound,
-}
-impl MyRocketError for PlayerError {
-    fn to_rocket_status(&self) -> Status {
-        match self {
-            Self::PlayerNotFound => Status::NotFound,
-        }
-    }
-    fn to_err_message(&self) -> Option<String> {
-        match self {
-            Self::PlayerNotFound => Some("Player not found".to_string()),
-        }
-    }
-}
-
-use service::InviteError;
-impl Into<Error> for InviteError {
-    fn into(self) -> Error {
-        match self {
-            Self::TournamentNotFound => Error::TournamentError(TournamentError::NotFound),
-            Self::UserNotFound => Error::UserError(UserError::InvalidUserId),
-            Self::NotOwner => Error::TournamentError(TournamentError::NotPermitted),
-        }
-    }
-}
-
-impl From<PlayerError> for Error {
+impl From<PlayerError> for GenericError {
     fn from(e: PlayerError) -> Self {
         Self::PlayerError(e)
     }
 }
 
-pub struct ResultResponder(Result<(), Error>);
 
-impl OpenApiResponderInner for Error {
+#[derive(Debug, JsonSchema, Deserialize, Serialize, Responder)]
+pub enum AuthError {
+    #[response(status = 401)]
+    Missing(&'static str),
+    #[response(status = 403)]
+    Invalid(&'static str),
+    #[response(status = 403)]
+    WrongPassword(&'static str),
+    #[response(status = 403)]
+    UnknownError(&'static str),
+}
+
+
+
+#[derive(Debug, JsonSchema, Deserialize, Serialize, Responder)]
+pub enum UserError {
+    #[response(status = 409)]
+    UsernameConflict(&'static str),
+    #[response(status = 404)]
+    InvalidUserId(&'static str),
+    #[response(status = 403)]
+    NotPermitted(&'static str),
+}
+
+impl From<sea_orm::DbErr> for GenericError {
+    fn from(e: sea_orm::DbErr) -> Self {
+        dbg!(e);
+        Self::UnknownError("Unknown error")
+    }
+}
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Responder)]
+pub enum PlayerError {
+    #[response(status = 404)]
+    PlayerNotFound(&'static str),
+}
+
+use service::InviteError;
+impl From<InviteError> for GenericError {
+    fn from(e: InviteError) -> Self {
+        use InviteError::*;
+        match e {
+            TournamentNotFound => GenericError::TournamentError(TournamentError::NotFound("Tournament not found")),
+            UserNotFound => GenericError::UserError(UserError::InvalidUserId("User not found")),
+            NotOwner => GenericError::TournamentError(TournamentError::NotPermitted("You are not the owner of this tournament")),
+        }
+    }
+}
+
+
+pub struct ResultResponder(Result<(), GenericError>);
+
+impl OpenApiResponderInner for GenericError {
     fn responses(_: &mut OpenApiGenerator) -> rocket_okapi::Result<Responses> {
         use rocket_okapi::okapi::openapi3::{RefOr, Response as OpenApiResponse};
 

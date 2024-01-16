@@ -15,8 +15,8 @@ entity = { path = "./entity" }
 migration = { path = "./migration" }
 itertools = "0.12.0"
 api = { path = "./api" }
-rocket = "0.5.0-rc.3"
+rocket = "0.5.0"
 
 
 [workspace]
-members = [".", "entity", "migration", "service", "api"]
+members = [".", "entity", "migration", "service", "api", "dto"]

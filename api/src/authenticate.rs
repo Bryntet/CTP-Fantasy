@@ -1,4 +1,3 @@
-//! ------ Just Cookies (for just 1 route/endpoint) ------
 
 use entity::prelude::User;
 use entity::{user, user_cookies};
@@ -19,7 +18,7 @@ use rocket_okapi::{
 use sea_orm::{DatabaseConnection, DbErr, EntityTrait, ModelTrait, TransactionTrait};
 
 use crate::error;
-use crate::error::{Error, UserError};
+use crate::error::{GenericError, UserError};
 use error::AuthError;
 use sea_orm::ColumnTrait;
 use sea_orm::QueryFilter;
@@ -37,22 +36,23 @@ impl CookieAuth {
     pub(crate) async fn get_user(
         &self,
         db: &DatabaseConnection,
-    ) -> Result<Option<UserModel>, Error> {
+    ) -> Result<Option<UserModel>, GenericError> {
         let cookie = self.get_cookie(db).await?;
         if let Some(cookie) = cookie {
             return User::find_by_id(cookie.user_id)
                 .one(db)
                 .await
-                .map_err(|_| UserError::InvalidUserId.into());
+                .map_err(|_| UserError::InvalidUserId("User not found").into());
         }
-        Err(AuthError::Invalid.into())
+        Err(AuthError::Invalid("You do not have permission to do this.").into())
     }
 
-    pub async fn to_user_model(&self, db: &DatabaseConnection) -> Result<UserModel, Error> {
+    pub async fn to_user_model(&self, db: &DatabaseConnection) -> Result<UserModel, GenericError> {
         if let Ok(Some(user)) = self.get_user(db).await {
-            return Ok(user);
+            Ok(user)
+        } else {
+            Err(AuthError::Invalid("You do not have permission to do this.").into())
         }
-        Err(AuthError::Invalid.into())
     }
 
     fn remove_from_jar(cookies: &CookieJar<'_>) {
@@ -63,7 +63,7 @@ impl CookieAuth {
         self,
         db: &DatabaseConnection,
         cookies: &CookieJar<'_>,
-    ) -> Result<&'static str, Error> {
+    ) -> Result<&'static str, GenericError> {
         if let Ok(Some(cookie)) = self.get_cookie(db).await {
             cookie.delete(db).await?;
             Self::remove_from_jar(cookies);
@@ -75,7 +75,7 @@ impl CookieAuth {
         self,
         db: &DatabaseConnection,
         cookies: &CookieJar<'_>,
-    ) -> Result<&'static str, Error> {
+    ) -> Result<&'static str, GenericError> {
         if let Ok(Some(user)) = self.get_user(db).await {
             let txn = db.begin().await?;
             for cookie in user.find_related(user_cookies::Entity).all(&txn).await? {
@@ -86,6 +86,22 @@ impl CookieAuth {
         }
 
         Ok("Successfully logged out")
+    }
+
+    async fn is_valid(&self, db: &DatabaseConnection) -> bool {
+        if let Ok(c) = self.get_cookie(db).await {
+            c.is_some()
+        } else {
+            false
+        }
+    }
+    pub async fn new_checked(cookie: String, db: &DatabaseConnection) -> Option<Self> {
+        let cookie = Self(cookie);
+        if cookie.is_valid(db).await {
+            Some(cookie)
+        } else {
+            None
+        }
     }
 }
 
@@ -134,10 +150,12 @@ impl<'a> OpenApiFromRequest<'a> for CookieAuth {
 #[get("/check-cookie")]
 pub async fn check_cookie(
     db: &State<DatabaseConnection>,
-    user: CookieAuth,
-) -> Result<&'static str, Error> {
-    user.to_user_model(db.inner()).await?;
-    Ok("Cookie is valid")
+    user_cookie: CookieAuth,
+) -> Result<&'static str, GenericError> {
+    match user_cookie.is_valid(db.inner()).await {
+        true => Ok("Cookie is valid"),
+        false => Err(AuthError::Invalid("Cookie is invalid").into()),
+    }
 }
 
 /// # Login
@@ -157,7 +175,7 @@ pub(crate) async fn login(
     login_data: Json<service::LoginInput>,
     db: &State<DatabaseConnection>,
     cookies: &CookieJar<'_>,
-) -> Result<String, Error> {
+) -> Result<String, GenericError> {
     let login_data = login_data.into_inner();
     let auth_result = service::query::authenticate(
         db.inner(),
@@ -165,6 +183,7 @@ pub(crate) async fn login(
         service::query::Auth::Password(login_data.password),
     )
     .await;
+    let generic_error_response = "Wrong username or password";
 
     match auth_result {
         Ok(true) => {
@@ -177,12 +196,11 @@ pub(crate) async fn login(
                     service::generate_cookie(db.inner(), user.id, cookies).await?;
                     Ok("Successfully logged in".to_string())
                 }
-                Ok(None) => Err(UserError::InvalidUserId.into()),
-                Err(_) => Err(AuthError::Invalid.into()),
+                Ok(None) | Err(_) => Err(AuthError::Invalid(generic_error_response).into()),
             }
         }
-        Ok(false) => Err(AuthError::WrongPassword.into()),
-        Err(_) => Err(AuthError::UnknownError.into()),
+        Ok(false) => Err(AuthError::WrongPassword(generic_error_response).into()),
+        Err(_) => Err(AuthError::UnknownError(generic_error_response).into()),
     }
 }
 
@@ -192,7 +210,7 @@ pub(crate) async fn logout(
     db: &State<DatabaseConnection>,
     cookies: &CookieJar<'_>,
     user: CookieAuth,
-) -> Result<&'static str, Error> {
+) -> Result<&'static str, GenericError> {
     user.remove_cookie(db.inner(), cookies).await?;
 
     Ok("Successfully logged out")
@@ -204,7 +222,7 @@ pub(crate) async fn logout_all(
     db: &State<DatabaseConnection>,
     cookies: &CookieJar<'_>,
     user: CookieAuth,
-) -> Result<&'static str, Error> {
+) -> Result<&'static str, GenericError> {
     user.remove_all_cookies(db.inner(), cookies).await?;
 
     Ok("Successfully logged out")

@@ -14,6 +14,7 @@ extern crate rocket;
 
 use authenticate::*;
 use dotenvy::dotenv;
+use rocket::{Build, Rocket};
 use ext_to_int::*;
 use mutation::*;
 use query::*;
@@ -21,15 +22,12 @@ use rocket_okapi::rapidoc::{make_rapidoc, GeneralConfig, HideShowConfig, RapiDoc
 use rocket_okapi::settings::UrlObject;
 use rocket_okapi::swagger_ui::{make_swagger_ui, SwaggerUIConfig};
 use service::*;
-
-#[launch]
-async fn rocket() -> _ {
+pub async fn launch() -> Rocket<Build> {
     dotenv().ok();
     let db =
         sea_orm::Database::connect(std::env::var("DATABASE_URL").expect("DATABASE_URL not set"))
             .await
             .unwrap();
-
     rocket::build()
         .manage(db)
         .mount(

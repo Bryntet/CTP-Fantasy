@@ -13,6 +13,7 @@ use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
 use entity::sea_orm_active_enums::FantasyTournamentInvitationStatus;
 use sea_orm::{QueryFilter, ColumnTrait};
+use crate::get_player_division;
 
 #[derive(Deserialize, JsonSchema)]
 pub struct CreateTournamentInput {
@@ -158,7 +159,7 @@ pub async fn generate_cookie(
     };
     UserCookies::insert(user_cookie).exec(db).await?;
 
-    let cookie: Cookie<'static> = Cookie::build("auth".to_string(), random_value.clone())
+    let cookie: Cookie<'static> = Cookie::build(("auth".to_string(), random_value.clone()))
         .secure(true)
         .same_site(rocket::http::SameSite::None)
         .finish();
@@ -240,4 +241,13 @@ pub async fn answer_invite(
 }
 
 
+
+pub async fn add_picks_to_tournament(
+    db: &DatabaseConnection,
+    user: user::Model,
+    picks: Vec<FantasyPick>,
+    fantasy_tournament_id: i32,
+) -> Result<(), DbErr> {
+    Ok(())
+}
 

@@ -1,5 +1,5 @@
 use crate::error::UserError;
-use crate::error::{Error, TournamentError};
+use crate::error::{GenericError, TournamentError};
 use rocket::serde::json::Json;
 use rocket::State;
 use rocket_okapi::openapi;
@@ -13,11 +13,11 @@ use service::SimpleFantasyTournament;
 pub(crate) async fn see_tournaments(
     db: &State<DatabaseConnection>,
     user: authenticate::CookieAuth,
-) -> Result<Json<Vec<SimpleFantasyTournament>>, Error> {
+) -> Result<Json<Vec<SimpleFantasyTournament>>, GenericError> {
     let user_model = user.to_user_model(db.inner()).await?;
     match service::get_fantasy_tournaments(db.inner(), user_model.id).await {
         Ok(tournaments) => Ok(Json(tournaments)),
-        Err(_) => Err(TournamentError::NotFound.into()),
+        Err(_) => Err(TournamentError::NotFound("Tournament not found").into()),
     }
 }
 
@@ -26,11 +26,10 @@ pub(crate) async fn see_tournaments(
 pub(crate) async fn get_tournament(
     db: &State<DatabaseConnection>,
     id: i32,
-) -> Result<Json<SimpleFantasyTournament>, Error> {
+) -> Result<Json<SimpleFantasyTournament>, GenericError> {
     match service::get_fantasy_tournament(db.inner(), id).await {
         Ok(Some(tournament)) => Ok(Json(tournament)),
-        Ok(None) => Err(TournamentError::NotFound.into()),
-        Err(_) => Err(TournamentError::NotFound.into()),
+        Ok(None) | Err(_) => Err(TournamentError::NotFound("Tournament not found").into()),
     }
 }
 
@@ -39,10 +38,10 @@ pub(crate) async fn get_tournament(
 pub(crate) async fn see_participants(
     db: &State<DatabaseConnection>,
     id: i32,
-) -> Result<Json<Vec<service::SimpleUser>>, Error> {
+) -> Result<Json<Vec<service::SimpleUser>>, GenericError> {
     match service::get_participants(db.inner(), id).await {
         Ok(participants) => Ok(Json(participants)),
-        Err(_) => Err(UserError::InvalidUserId.into()),
+        Err(_) => Err(UserError::InvalidUserId("Unknown user").into()),
     }
 }
 
@@ -53,7 +52,7 @@ pub(crate) async fn get_user_picks(
     requester: authenticate::CookieAuth,
     tournament_id: i32,
     user_id: i32,
-) -> Result<Json<service::SimpleFantasyPicks>, Error> {
+) -> Result<Json<service::SimpleFantasyPicks>, GenericError> {
     match service::get_user_picks_in_tournament(
         db.inner(),
         requester.to_user_model(db.inner()).await?,
@@ -63,7 +62,7 @@ pub(crate) async fn get_user_picks(
     .await
     {
         Ok(picks) => Ok(Json(picks)),
-        Err(_) => Err(UserError::InvalidUserId.into()),
+        Err(_) => Err(UserError::InvalidUserId("Unknown user").into()),
     }
 }
 
@@ -72,12 +71,11 @@ pub(crate) async fn get_user_picks(
 pub(crate) async fn get_my_id(
     db: &State<DatabaseConnection>,
     user: authenticate::CookieAuth,
-) -> Result<Json<i32>, Error> {
+) -> Result<Json<i32>, GenericError> {
     let user_model = user.get_user(db.inner()).await?;
     if let Some(user_model) = user_model {
-        dbg!(Json(&user_model.id));
         Ok(Json(user_model.id))
     } else {
-        Err(UserError::InvalidUserId.into())
+        Err(UserError::InvalidUserId("Unknown user").into())
     }
 }

@@ -1,4 +1,3 @@
-use rocket::serde::json::serde_json::json;
 use rocket::serde::json::Json;
 use rocket::State;
 
@@ -9,16 +8,16 @@ use sea_orm::{ActiveModelTrait, DatabaseConnection, DbErr, EntityTrait};
 
 use crate::authenticate;
 use crate::error;
-use crate::error::UserError;
-use error::Error;
+use crate::error::{TournamentError, UserError};
+use error::GenericError;
 use rocket_okapi::openapi;
 use serde::Deserialize;
 
-use crate::error::TournamentError;
-use rocket::http::Cookie;
 use rocket::http::CookieJar;
-use service::InviteError;
+use sea_orm::TransactionTrait;
 
+
+use dto::objects::FantasyPick;
 /// # Create a fantasy tournament
 ///
 /// # Parameters
@@ -50,7 +49,7 @@ pub(crate) async fn create_tournament(
     tournament: Json<service::CreateTournamentInput>,
     db: &State<DatabaseConnection>,
     user: authenticate::CookieAuth,
-) -> Result<(), Error> {
+) -> Result<(), GenericError> {
     dbg!("hi");
 
     let user_model = user.to_user_model(db.inner()).await?;
@@ -63,16 +62,16 @@ pub(crate) async fn create_tournament(
         Err(DbErr::Query(SqlxError(sqlx::Error::Database(error)))) => {
             let msg = error.message();
             if msg.contains("violates foreign key constraint \"fantasy_tournament_owner_fkey\"") {
-                Err(UserError::InvalidUserId.into())
+                Err(UserError::InvalidUserId("Your user id seems to be invalid?").into())
             } else if msg.contains("violates unique constraint") {
-                Err(UserError::UsernameConflict.into())
+                Err(TournamentError::TournamentNameConflict("Username already taken").into())
             } else {
-                Err(Error::UnknownError)
+                Err(GenericError::UnknownError("Unknown error").into())
             }
         }
         Err(e) => {
             dbg!(e);
-            Err(Error::UnknownError)
+            Err(GenericError::UnknownError("Unknown error").into())
         }
     }
 }
@@ -89,71 +88,25 @@ pub(crate) async fn create_user(
     user: Json<service::CreateUserInput>,
     db: &State<DatabaseConnection>,
     cookies: &CookieJar<'_>,
-) -> Result<String, Error> {
+) -> Result<String, GenericError> {
     let res = user.0.insert(db, cookies).await;
     match res {
         Ok(()) => Ok("Successfully created user".to_string()),
         Err(DbErr::Query(SqlxError(sqlx::Error::Database(error)))) => {
             let msg = error.message();
             if msg.contains("violates unique constraint") {
-                Err(UserError::UsernameConflict.into())
+                Err(UserError::UsernameConflict("Username already taken").into())
             } else {
-                Err(Error::UnknownError)
+                Err(GenericError::UnknownError("Unknown error"))
             }
         }
-        Err(_) => Err(Error::UnknownError),
+        Err(_) => Err(GenericError::UnknownError("Unknown error"))
     }
 }
 
-#[derive(Deserialize, JsonSchema, Debug)]
-struct FantasyPick {
-    slot: i32,
-    pdga_number: i32,
-    fantasy_tournament_id: i32,
-}
 
-impl FantasyPick {
-    async fn insert_or_change(&self, db: &DatabaseConnection, user_id: i32) -> Result<(), Error> {
-        use entity::prelude::FantasyPick as FantasyPickEntity;
-        use sea_orm::{ColumnTrait, NotSet, QueryFilter, Set};
 
-        let existing_pick = FantasyPickEntity::find()
-            .filter(entity::fantasy_pick::Column::PickNumber.eq(self.slot))
-            .filter(entity::fantasy_pick::Column::User.eq(user_id))
-            .filter(
-                entity::fantasy_pick::Column::FantasyTournamentId.eq(self.fantasy_tournament_id),
-            )
-            .one(db)
-            .await?;
 
-        if !service::player_exists(db, self.pdga_number).await {
-            Err::<(), Error>(error::PlayerError::PlayerNotFound.into())?;
-        }
-        match existing_pick {
-            Some(pick) => {
-                let mut pick: entity::fantasy_pick::ActiveModel = pick.into();
-                pick.player = Set(self.pdga_number);
-                pick.update(db).await?;
-            }
-            None => {
-                let new_pick = entity::fantasy_pick::ActiveModel {
-                    id: NotSet,
-                    user: Set(user_id),
-                    pick_number: Set(self.slot),
-                    player: Set(self.pdga_number),
-                    fantasy_tournament_id: Set(self.fantasy_tournament_id),
-                    division: Set(service::get_player_division(db, self.pdga_number)
-                        .await?
-                        .first()
-                        .unwrap()
-                        .to_owned()),
-                };
-                new_pick.insert(db).await?;
-            }
-        }
-        Ok(())
-    }
-}
 
 /// # Add a pick to a fantasy tournament
 ///
@@ -176,7 +129,7 @@ pub(crate) async fn add_pick(
     fantasy_tournament_id: i32,
     slot: i32,
     pdga_number: i32,
-) -> Result<String, Error> {
+) -> Result<String, GenericError> {
     let user = user.to_user_model(db).await?;
     let pick = FantasyPick {
         slot,
@@ -188,13 +141,25 @@ pub(crate) async fn add_pick(
 }
 
 #[openapi(tag = "Fantasy Tournament")]
+#[post("/fantasy-tournament/<fantasy_tournament_id>", format = "json", data = "<picks>")]
+pub(crate) async fn add_picks(user: authenticate::CookieAuth, db: &State<DatabaseConnection>, fantasy_tournament_id: i32, picks: Json<Vec<FantasyPick>>) -> Result<String, GenericError> {
+    let user = user.to_user_model(db).await?;
+
+    let txn = db.begin().await?;
+
+
+    Ok("Successfully added picks".to_string())
+}
+
+
+#[openapi(tag = "Fantasy Tournament")]
 #[post("/fantasy-tournament/<fantasy_tournament_id>/invite/<invited_user>")]
 pub(crate) async fn invite_user(
     user: authenticate::CookieAuth,
     db: &State<DatabaseConnection>,
     fantasy_tournament_id: i32,
     invited_user: String,
-) -> Result<String, Error> {
+) -> Result<String, GenericError> {
     let user = user.to_user_model(db).await?;
     match service::create_invite(db, user, invited_user, fantasy_tournament_id).await {
         Ok(_) => Ok("Successfully invited user".to_string()),
@@ -209,10 +174,11 @@ pub(crate) async fn answer_invite(
     db: &State<DatabaseConnection>,
     fantasy_tournament_id: i32,
     response: bool,
-) -> Result<String, Error> {
+) -> Result<String, GenericError> {
     let user = user.to_user_model(db).await?;
     match service::answer_invite(db, user, fantasy_tournament_id, response).await {
         Ok(()) => Ok("Successfully answered invite".to_string()),
         Err(e) => Err(e.into()),
     }
 }
+

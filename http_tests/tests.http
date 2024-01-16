@@ -1,51 +1,11 @@
-
-
-
-
-
-###
-
-# curl -X 'POST'
-#                                                         130 ↵
-#  'http://127.0.0.1:8000/create-fantasy-tournament'
-#  -H 'accept: text/plain'
-#  -H 'Cookie: auth=NzcjVmOcfYc7E6R4eCo26fRmjSoq3i; Secure'
-#-H 'Content-Type: application/json'
-#-d '{
-#"max_picks_per_user": 3
-#}'
-POST http://127.0.0.1:8000/api/create-fantasy-tournament
-accept: text/plain
-Cookie: auth=NzcjVmOcfYc7E6R4eCo26fRmjSoq3i; Secure
-Content-Type: application/json
-
-
-
-{
-"max_picks_per_user": 3
-}
+# curl -X 'GET'
+#  'http://localhost:8000/api/check-cookie'
+#
+#  -H 'accept: application/json'
+#  -H 'Cookie: auth=zYKuaUjVBfRHYEZhGyMOD5SIMmOMd4; Secure'
+GET http://localhost:8000/api/check-cookie
+accept: application/json
+Cookie: auth=zYKuaUjVBfRHYEZhGyMOD5SIMmOMda; Secure
 
 ###
-
-# curl -X 'POST'
-#  'http://127.0.0.1:8000/create-user'
-#  -H 'accept: text/plain'
-#  -H 'Content-Type: application/json'
-#  -d '{
-#  "username": "test",
-#  "password": "test"
-#}'
-POST http://127.0.0.1:8000/api/create-user
-accept: text/plain
-Content-Type: application/json
-
-{
-  "username": "test",
-  "password": "test"
-}
-
-###
-
-
-
 
