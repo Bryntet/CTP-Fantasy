@@ -1,4 +1,4 @@
-use sea_orm::{EnumIter,};
+use sea_orm::EnumIter;
 use sea_orm_migration::prelude::*;
 use serde::Deserialize;
 
@@ -42,7 +42,6 @@ pub(crate) enum Competition {
     Rounds,
 }
 
-
 #[derive(Iden, EnumIter)]
 pub(crate) enum CompetitionStatus {
     Table,
@@ -69,7 +68,7 @@ pub(crate) enum PlayerRoundScore {
     PDGANumber,
     CompetitionId,
     Round,
-    Score
+    Score,
 }
 
 #[derive(DeriveIden)]
@@ -79,7 +78,6 @@ pub(crate) enum CompetitionInFantasyTournament {
     CompetitionId,
     FantasyTournamentId,
 }
-
 
 #[derive(DeriveIden)]
 pub(crate) enum FantasyTournament {

@@ -1,29 +1,26 @@
-use rocket::http::{Cookie, CookieJar};
 use entity::prelude::*;
+use entity::sea_orm_active_enums::FantasyTournamentInvitationStatus;
 use entity::*;
 use fantasy_tournament::Entity as FantasyTournament;
 use rand::distributions::Alphanumeric;
 use rand::Rng;
+use rocket::http::{Cookie, CookieJar};
 use sea_orm::ActiveValue::*;
 use sea_orm::{ActiveModelTrait, DatabaseConnection, DbErr, EntityTrait, IntoActiveModel};
-use entity::sea_orm_active_enums::FantasyTournamentInvitationStatus;
-use sea_orm::{QueryFilter, ColumnTrait};
+use sea_orm::{ColumnTrait, QueryFilter};
 
-use crate::error::{InviteError};
-
-
+use crate::error::InviteError;
 
 pub async fn generate_cookie(
     db: &DatabaseConnection,
     user_id: i32,
-    cookies: &CookieJar<'_>
+    cookies: &CookieJar<'_>,
 ) -> Result<(), DbErr> {
     let random_value: String = rand::thread_rng()
         .sample_iter(&Alphanumeric)
         .take(30)
         .map(char::from)
         .collect();
-
 
     let user_cookie = user_cookies::ActiveModel {
         user_id: Set(user_id),
@@ -33,14 +30,12 @@ pub async fn generate_cookie(
 
     let cookie: Cookie<'static> = Cookie::build(("auth".to_string(), random_value.clone()))
         .secure(true)
-        .same_site(rocket::http::SameSite::None).build();
+        .same_site(rocket::http::SameSite::None)
+        .build();
 
     cookies.add(cookie);
     Ok(())
 }
-
-
-
 
 pub async fn create_invite(
     db: &DatabaseConnection,
@@ -48,9 +43,10 @@ pub async fn create_invite(
     receiver_name: String,
     fantasy_tournament_id: i32,
 ) -> Result<(), InviteError> {
-
-
-    let tournament = if let Ok(Some(t))= FantasyTournament::find_by_id(fantasy_tournament_id).one(db).await {
+    let tournament = if let Ok(Some(t)) = FantasyTournament::find_by_id(fantasy_tournament_id)
+        .one(db)
+        .await
+    {
         t
     } else {
         return Err(InviteError::TournamentNotFound);
@@ -71,7 +67,11 @@ pub async fn create_invite(
         invitation_status: Set(FantasyTournamentInvitationStatus::Pending),
     };
 
-    if (user_in_fantasy_tournament::Entity::insert(invite).exec(db).await).is_ok() {
+    if (user_in_fantasy_tournament::Entity::insert(invite)
+        .exec(db)
+        .await)
+        .is_ok()
+    {
         Ok(())
     } else {
         Err(InviteError::UserNotFound)
@@ -81,13 +81,17 @@ pub async fn answer_invite(
     db: &DatabaseConnection,
     user: user::Model,
     fantasy_tournament_id: i32,
-    invitation_status: bool
+    invitation_status: bool,
 ) -> Result<(), InviteError> {
-    let mut invite = if let Ok(Some(i)) = UserInFantasyTournament::find().filter(
-        user_in_fantasy_tournament::Column::FantasyTournamentId
-            .eq(fantasy_tournament_id)
-            .and(user_in_fantasy_tournament::Column::UserId.eq(user.id)),
-    ).one(db).await {
+    let mut invite = if let Ok(Some(i)) = UserInFantasyTournament::find()
+        .filter(
+            user_in_fantasy_tournament::Column::FantasyTournamentId
+                .eq(fantasy_tournament_id)
+                .and(user_in_fantasy_tournament::Column::UserId.eq(user.id)),
+        )
+        .one(db)
+        .await
+    {
         i.into_active_model()
     } else {
         return Err(InviteError::UserNotFound);
@@ -105,8 +109,6 @@ pub async fn answer_invite(
     }
 }
 
-
-
 pub async fn add_picks_to_tournament(
     db: &DatabaseConnection,
     user: user::Model,
@@ -115,4 +117,3 @@ pub async fn add_picks_to_tournament(
 ) -> Result<(), DbErr> {
     Ok(())
 }
-

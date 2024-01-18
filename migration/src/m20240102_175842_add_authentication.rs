@@ -1,5 +1,5 @@
+use crate::drop_table;
 use crate::enums::*;
-use crate::{drop_table};
 use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]

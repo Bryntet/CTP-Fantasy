@@ -1,4 +1,3 @@
-
 use entity::prelude::User;
 use entity::{user, user_cookies};
 use rocket::http::{CookieJar, Status};

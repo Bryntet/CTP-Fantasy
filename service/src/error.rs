@@ -1,13 +1,14 @@
+use rocket::form::validate::Contains;
 use rocket::response::Responder;
+use rocket::serde::{Deserialize, Serialize};
 use rocket_okapi::gen::OpenApiGenerator;
 use rocket_okapi::okapi::openapi3::Responses;
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::{JsonSchema, Map};
 use rocket_okapi::response::OpenApiResponderInner;
-use rocket::serde::{Deserialize, Serialize};
-use std::fmt::Debug;
-
-
+use sea_orm::DbErr;
+use sea_orm::RuntimeErr::SqlxError;
+use std::fmt::{Debug, Display};
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Responder)]
 pub enum GenericError {
@@ -20,6 +21,12 @@ pub enum GenericError {
     PlayerError(PlayerError),
     CookieError(AuthError),
     AuthError(AuthError),
+    #[response(status = 403)]
+    ViolatesForeignKey(&'static str),
+    #[response(status = 409)]
+    UniqueError(&'static str),
+    #[response(status = 422)]
+    CheckError(&'static str),
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Responder)]
@@ -56,7 +63,6 @@ impl From<PlayerError> for GenericError {
     }
 }
 
-
 #[derive(Debug, JsonSchema, Deserialize, Serialize, Responder)]
 pub enum AuthError {
     #[response(status = 401)]
@@ -69,8 +75,6 @@ pub enum AuthError {
     UnknownError(&'static str),
 }
 
-
-
 #[derive(Debug, JsonSchema, Deserialize, Serialize, Responder)]
 pub enum UserError {
     #[response(status = 409)]
@@ -81,10 +85,60 @@ pub enum UserError {
     NotPermitted(&'static str),
 }
 
-impl From<sea_orm::DbErr> for GenericError {
-    fn from(e: sea_orm::DbErr) -> Self {
-        dbg!(e);
-        Self::UnknownError("Unknown error")
+enum ForeignKeyError {
+    FantasyTournamentOwner,
+    FantasyPickConflict,
+    Other,
+}
+impl ForeignKeyError {
+    fn new(msg: &str) -> Self {
+        if msg.contains("fantasy_tournament_owner_fkey") {
+            Self::FantasyTournamentOwner
+        } else if msg.contains("fantasy_pick_player_fkey") {
+            Self::FantasyPickConflict
+        }
+        else {
+            dbg!(msg);
+            Self::Other
+        }
+    }
+}
+
+impl From<ForeignKeyError> for GenericError {
+    fn from(e: ForeignKeyError) -> Self {
+        Self::ViolatesForeignKey(match e {
+            ForeignKeyError::FantasyTournamentOwner => "You are not the owner of this tournament",
+            ForeignKeyError::FantasyPickConflict => "You have already picked this player",
+            ForeignKeyError::Other => {
+                todo!("Other foreign key error")
+            }
+        })
+    }
+}
+impl From<DbErr> for GenericError {
+    fn from(e: DbErr) -> Self {
+        match e {
+            DbErr::Query(SqlxError(sqlx::Error::Database(error))) => {
+                let msg = error.message();
+                if error.is_foreign_key_violation() {
+                    let f_key_error = ForeignKeyError::new(msg);
+                    Self::from(f_key_error)
+                } else if error.is_unique_violation() {
+                    dbg!(error);
+                    Self::UniqueError("Unique violation")
+                } else if error.is_check_violation() {
+                    dbg!(msg);
+                    Self::CheckError("Check violation")
+                } else {
+                    dbg!(msg);
+                    Self::UnknownError("Unknown error")
+                }
+            }
+            e => {
+                dbg!(e);
+                Self::UnknownError("Unknown error")
+            }
+        }
     }
 }
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Responder)]
@@ -93,24 +147,40 @@ pub enum PlayerError {
     PlayerNotFound(&'static str),
 }
 
-
 pub enum InviteError {
     TournamentNotFound,
     UserNotFound,
     NotOwner,
 }
-
 impl From<InviteError> for GenericError {
     fn from(e: InviteError) -> Self {
         use InviteError::*;
         match e {
-            TournamentNotFound => GenericError::TournamentError(TournamentError::NotFound("Tournament not found")),
+            TournamentNotFound => {
+                GenericError::TournamentError(TournamentError::NotFound("Tournament not found"))
+            }
             UserNotFound => GenericError::UserError(UserError::InvalidUserId("User not found")),
-            NotOwner => GenericError::TournamentError(TournamentError::NotPermitted("You are not the owner of this tournament")),
+            NotOwner => GenericError::TournamentError(TournamentError::NotPermitted(
+                "You are not the owner of this tournament",
+            )),
         }
     }
 }
 
+impl Display for ForeignKeyError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
+            ForeignKeyError::FantasyTournamentOwner => {
+                "You are not the owner of this tournament".to_string()
+            }
+            ForeignKeyError::FantasyPickConflict => {
+                "You have already picked this player".to_string()
+            }
+            ForeignKeyError::Other => todo!(),
+        };
+        write!(f, "{}", str)
+    }
+}
 
 pub struct ResultResponder(Result<(), GenericError>);
 

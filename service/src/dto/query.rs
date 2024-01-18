@@ -1,15 +1,12 @@
-use sea_orm::ActiveValue::Set;
-use sea_orm::NotSet;
-use entity::{user, user_authentication};
 use super::*;
+use crate::error::GenericError;
+use entity::{user, user_authentication};
+use sea_orm::ActiveValue::Set;
+use sea_orm::{ConnectionTrait, DatabaseConnection, EntityTrait, NotSet};
 trait ToModel {
     type Model;
     fn to_model(&self) -> Self::Model;
 }
-
-
-
-
 
 impl UserLogin {
     pub(super) fn active_user(&self) -> user::ActiveModel {
@@ -28,8 +25,6 @@ impl UserLogin {
             hashed_password: Set(hashed_password),
         }
     }
-
-
 }
 
 impl UserScore {
@@ -56,5 +51,51 @@ impl CreateTournament {
             },
         }
     }
-    
+}
+
+impl FantasyPick {
+    pub(super) async fn player_in_slot<C>(
+        db: &C,
+        user_id: i32,
+        fantasy_tournament_id: i32,
+        slot: i32,
+    ) -> Result<Option<fantasy_pick::Model>, GenericError>
+    where
+        C: ConnectionTrait,
+    {
+        use entity::prelude::FantasyPick as FantasyPickEntity;
+        use sea_orm::{ColumnTrait, QueryFilter};
+        let existing_pick = FantasyPickEntity::find()
+            .filter(
+                fantasy_pick::Column::PickNumber
+                    .eq(slot)
+                    .and(fantasy_pick::Column::FantasyTournamentId.eq(fantasy_tournament_id))
+                    .and(fantasy_pick::Column::User.eq(user_id)),
+            )
+            .one(db)
+            .await?;
+        Ok(existing_pick)
+    }
+
+    pub(super) async fn player_already_chosen<C>(
+        db: &C,
+        user_id: i32,
+        fantasy_tournament_id: i32,
+        pdga_number: i32,
+    ) -> Result<Option<fantasy_pick::Model>, GenericError>
+    where C: ConnectionTrait, {
+        use entity::prelude::FantasyPick as FantasyPickEntity;
+        use sea_orm::{ColumnTrait, QueryFilter};
+        let existing_pick = FantasyPickEntity::find()
+            .filter(
+                fantasy_pick::Column::Player
+                    .eq(pdga_number)
+                    .and(fantasy_pick::Column::FantasyTournamentId.eq(fantasy_tournament_id))
+                    .and(fantasy_pick::Column::User.eq(user_id)),
+            )
+            .one(db)
+            .await?;
+        Ok(existing_pick)
+    }
+
 }

@@ -13,21 +13,23 @@ extern crate rocket;
 
 use authenticate::*;
 use dotenvy::dotenv;
-use rocket::{Build, Rocket};
-use rocket::fs::FileServer;
 use ext_to_int::*;
 use mutation::*;
 use query::*;
+use rocket::fs::FileServer;
+use rocket::{Build, Rocket};
 use rocket_okapi::rapidoc::{make_rapidoc, GeneralConfig, HideShowConfig, RapiDocConfig};
 use rocket_okapi::settings::UrlObject;
 use rocket_okapi::swagger_ui::{make_swagger_ui, SwaggerUIConfig};
 use service::*;
 pub async fn launch() -> Rocket<Build> {
     dotenv().ok();
+
     let db =
         sea_orm::Database::connect(std::env::var("DATABASE_URL").expect("DATABASE_URL not set"))
             .await
             .unwrap();
+    let flutter_path = std::env::var("FLUTTER_PATH").expect("FLUTTER_PATH not set");
     rocket::build()
         .manage(db)
         .mount(
@@ -38,6 +40,7 @@ pub async fn launch() -> Rocket<Build> {
                 create_user,
                 login,
                 add_pick,
+                add_picks,
                 see_tournaments,
                 see_participants,
                 invite_user,
@@ -47,7 +50,8 @@ pub async fn launch() -> Rocket<Build> {
                 logout,
                 get_my_id,
                 get_tournament,
-                logout_all
+                logout_all,
+                get_max_picks
             ],
         )
         .mount(
@@ -72,5 +76,5 @@ pub async fn launch() -> Rocket<Build> {
                 ..Default::default()
             }),
         )
-        .mount("/", FileServer::from("/home/brynte/IdeaProjects/rusty_chains/build/web"))
+        .mount("/", FileServer::from(flutter_path))
 }

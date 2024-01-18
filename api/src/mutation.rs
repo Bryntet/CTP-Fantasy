@@ -2,7 +2,7 @@ use rocket::serde::json::Json;
 use rocket::State;
 
 use sea_orm::RuntimeErr::SqlxError;
-use sea_orm::{DatabaseConnection, DbErr, };
+use sea_orm::{DatabaseConnection, DbErr};
 
 use crate::authenticate;
 use crate::error;
@@ -12,7 +12,6 @@ use rocket_okapi::openapi;
 
 use rocket::http::CookieJar;
 use sea_orm::TransactionTrait;
-
 
 use service::dto::FantasyPick;
 use service::dto::UserLogin;
@@ -99,13 +98,9 @@ pub(crate) async fn create_user(
                 Err(GenericError::UnknownError("Unknown error"))
             }
         }
-        Err(_) => Err(GenericError::UnknownError("Unknown error"))
+        Err(_) => Err(GenericError::UnknownError("Unknown error")),
     }
 }
-
-
-
-
 
 /// # Add a pick to a fantasy tournament
 ///
@@ -129,24 +124,36 @@ pub(crate) async fn add_pick(
     slot: i32,
     pdga_number: i32,
 ) -> Result<String, GenericError> {
+    let db = db.inner();
     let user = user.to_user_model(db).await?;
-    let pick = FantasyPick {
-        slot,
-        pdga_number,
-        fantasy_tournament_id,
-    };
-    pick.insert_or_change(db, user.id).await?;
+    let pick = FantasyPick { slot, pdga_number, name: None};
+    // TODO: ADD AUTH FOR FANTASY_TOURNAMENT_ID
+    pick.change_or_insert(db, user.id, fantasy_tournament_id)
+        .await?;
     Ok("Successfully added pick".to_string())
 }
 
 #[openapi(tag = "Fantasy Tournament")]
-#[post("/fantasy-tournament/<fantasy_tournament_id>", format = "json", data = "<picks>")]
-pub(crate) async fn add_picks(user: authenticate::CookieAuth, db: &State<DatabaseConnection>, fantasy_tournament_id: i32, picks: Json<Vec<FantasyPick>>) -> Result<String, GenericError> {
+#[post(
+    "/fantasy-tournament/<fantasy_tournament_id>/pick",
+    format = "json",
+    data = "<picks>"
+)]
+pub(crate) async fn add_picks(
+    user: authenticate::CookieAuth,
+    db: &State<DatabaseConnection>,
+    fantasy_tournament_id: i32,
+    picks: Json<Vec<FantasyPick>>,
+) -> Result<String, GenericError> {
     let user = user.to_user_model(db).await?;
 
-    let txn = db.begin().await?;
+    let txn = db.inner().begin().await?;
 
-
+    for pick in picks.into_inner() {
+        pick.change_or_insert(&txn, user.id, fantasy_tournament_id)
+            .await?;
+    }
+    txn.commit().await?;
     Ok("Successfully added picks".to_string())
 }
 
@@ -179,4 +186,3 @@ pub(crate) async fn answer_invite(
         Err(e) => Err(e.into()),
     }
 }
-

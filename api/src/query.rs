@@ -4,6 +4,7 @@ use rocket::serde::json::Json;
 use rocket::State;
 use rocket_okapi::openapi;
 use sea_orm::DatabaseConnection;
+use service::dto::FantasyPicks;
 
 use crate::authenticate;
 use service::SimpleFantasyTournament;
@@ -52,7 +53,7 @@ pub(crate) async fn get_user_picks(
     requester: authenticate::CookieAuth,
     tournament_id: i32,
     user_id: i32,
-) -> Result<Json<service::SimpleFantasyPicks>, GenericError> {
+) -> Result<Json<FantasyPicks>, GenericError> {
     match service::get_user_picks_in_tournament(
         db.inner(),
         requester.to_user_model(db.inner()).await?,
@@ -77,5 +78,18 @@ pub(crate) async fn get_my_id(
         Ok(Json(user_model.id))
     } else {
         Err(UserError::InvalidUserId("Unknown user").into())
+    }
+}
+
+
+#[openapi(tag = "Fantasy Tournament")]
+#[get("/fantasy-tournament/<tournament_id>/max-picks")]
+pub(crate) async fn get_max_picks(
+    db: &State<DatabaseConnection>,
+    tournament_id: i32,
+) -> Result<Json<i32>, GenericError> {
+    match service::max_picks(db.inner(), tournament_id).await {
+        Ok(max_picks) => Ok(Json(max_picks)),
+        Err(_) => Err(TournamentError::NotFound("Tournament not found").into()),
     }
 }

@@ -2,8 +2,7 @@ use dotenvy::dotenv;
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
 use sea_orm::{
-    ActiveModelTrait, Database, DatabaseConnection, DbErr, IntoActiveModel,
-    TransactionTrait,
+    ActiveModelTrait, Database, DatabaseConnection, DbErr, IntoActiveModel, TransactionTrait,
 };
 use serde::Deserialize;
 use std::time::Duration;
@@ -120,14 +119,6 @@ async fn add_player(db: &DatabaseConnection, player: ApiPlayer) -> Result<(), Db
     }
     Ok(())
 }
-
-
-
-
-
-
-
-
 
 #[test]
 fn test_get_pdga_things() {

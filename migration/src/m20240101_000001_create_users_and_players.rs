@@ -1,5 +1,5 @@
 use crate::macros::*;
-use sea_orm::{Iterable};
+use sea_orm::Iterable;
 use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]

@@ -3,7 +3,7 @@ mod query;
 use entity::*;
 use rocket::serde::{Deserialize, Serialize};
 use rocket_okapi::okapi::schemars::{self, JsonSchema};
-
+use crate::dto;
 
 #[derive(Deserialize, JsonSchema)]
 pub struct CreateTournament {
@@ -15,15 +15,21 @@ pub struct CreateTournament {
 pub struct FantasyPick {
     pub slot: i32,
     pub pdga_number: i32,
-    pub fantasy_tournament_id: i32,
+    pub name: Option<String>,
 }
+#[derive(serde::Serialize, serde::Deserialize, JsonSchema, Debug)]
+pub struct FantasyPicks {
+    pub(crate) picks: Vec<FantasyPick>,
+    pub(crate) owner: bool,
+    pub(crate) fantasy_tournament_id: i32,
+}
+
 
 #[derive(Deserialize, JsonSchema, Debug, Clone)]
 pub struct UserLogin {
     pub username: String,
     pub password: String,
 }
-
 
 #[derive(Deserialize, JsonSchema, Debug)]
 pub struct UserScore {
@@ -32,7 +38,6 @@ pub struct UserScore {
     pub ranking: i32,
     pub fantasy_tournament_id: i32,
 }
-
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug)]
 pub enum InvitationStatus {
@@ -45,7 +50,7 @@ pub enum InvitationStatus {
 pub struct User {
     pub id: i32,
     pub name: String,
-    pub score: i32
+    pub score: i32,
 }
 
 #[derive(Deserialize, JsonSchema, Debug)]
@@ -53,4 +58,3 @@ pub struct LoginInput {
     pub username: String,
     pub password: String,
 }
-

@@ -1,4 +1,6 @@
+use crate::dto;
 use bcrypt::verify;
+use dto::InvitationStatus;
 use entity::prelude::*;
 use entity::sea_orm_active_enums::Division;
 use entity::*;
@@ -6,12 +8,7 @@ use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
 use sea_orm::entity::prelude::*;
 use sea_orm::{DatabaseConnection, DbErr, EntityTrait};
-use crate::dto;
-use dto::InvitationStatus;
-
-
-
-
+use crate::dto::FantasyPicks;
 
 pub enum Auth {
     Password(String),
@@ -54,14 +51,17 @@ pub async fn authenticate(
     }
 }
 
-pub async fn player_exists(db: &DatabaseConnection, player_id: i32) -> bool {
+pub async fn player_exists<C>(db: &C, player_id: i32) -> bool
+where
+    C: ConnectionTrait,
+{
     Player::find_by_id(player_id).one(db).await.is_ok()
 }
 
-pub async fn get_player_division(
-    db: &DatabaseConnection,
-    player_id: i32,
-) -> Result<Vec<Division>, DbErr> {
+pub async fn get_player_division<C>(db: &C, player_id: i32) -> Result<Vec<Division>, DbErr>
+where
+    C: ConnectionTrait,
+{
     let player_division = PlayerDivision::find_by_id(player_id).all(db).await?;
 
     let divs = player_division
@@ -71,9 +71,6 @@ pub async fn get_player_division(
     Ok(divs)
 }
 
-
-
-
 #[derive(serde::Serialize, serde::Deserialize, JsonSchema, Debug)]
 pub struct SimpleFantasyTournament {
     id: i32,
@@ -82,12 +79,18 @@ pub struct SimpleFantasyTournament {
     invitation_status: InvitationStatus,
 }
 
-impl From<sea_orm_active_enums::FantasyTournamentInvitationStatus>  for InvitationStatus {
+impl From<sea_orm_active_enums::FantasyTournamentInvitationStatus> for InvitationStatus {
     fn from(status: sea_orm_active_enums::FantasyTournamentInvitationStatus) -> Self {
         match status {
-            sea_orm_active_enums::FantasyTournamentInvitationStatus::Accepted => InvitationStatus::Accepted,
-            sea_orm_active_enums::FantasyTournamentInvitationStatus::Pending => InvitationStatus::Pending,
-            sea_orm_active_enums::FantasyTournamentInvitationStatus::Declined => InvitationStatus::Declined,
+            sea_orm_active_enums::FantasyTournamentInvitationStatus::Accepted => {
+                InvitationStatus::Accepted
+            }
+            sea_orm_active_enums::FantasyTournamentInvitationStatus::Pending => {
+                InvitationStatus::Pending
+            }
+            sea_orm_active_enums::FantasyTournamentInvitationStatus::Declined => {
+                InvitationStatus::Declined
+            }
         }
     }
 }
@@ -102,22 +105,21 @@ pub async fn get_fantasy_tournaments(
 
     let mut out_things = Vec::new();
     for user_in_tournament in tournaments {
-        if let Some(tournament) = FantasyTournament::find_by_id(user_in_tournament.fantasy_tournament_id)
-            .one(db)
-            .await? {
-            out_things.push(
-                SimpleFantasyTournament {
-                    id: tournament.id,
-                    name: tournament.name.to_string(),
-                    invitation_status: user_in_tournament.invitation_status.into(),
-                    owner_id: tournament.owner,
-                }
-            );
+        if let Some(tournament) =
+            FantasyTournament::find_by_id(user_in_tournament.fantasy_tournament_id)
+                .one(db)
+                .await?
+        {
+            out_things.push(SimpleFantasyTournament {
+                id: tournament.id,
+                name: tournament.name.to_string(),
+                invitation_status: user_in_tournament.invitation_status.into(),
+                owner_id: tournament.owner,
+            });
         }
     }
     Ok(out_things)
 }
-
 
 pub async fn get_fantasy_tournament(
     db: &DatabaseConnection,
@@ -135,11 +137,7 @@ pub async fn get_fantasy_tournament(
     } else {
         Ok(None)
     }
-
 }
-
-
-
 
 pub async fn get_participants(
     db: &DatabaseConnection,
@@ -156,11 +154,10 @@ pub async fn get_participants(
 
     let mut out_things = Vec::new();
     for participant in participants {
-        if let Some(participant) = participant.find_related(User)
-            .one(db)
-            .await? {
+        if let Some(participant) = participant.find_related(User).one(db).await? {
             out_things.push(
-                participant.find_related(FantasyScores)
+                participant
+                    .find_related(FantasyScores)
                     .filter(fantasy_scores::Column::FantasyTournamentId.eq(tournament_id))
                     .one(db)
                     .await?
@@ -173,7 +170,7 @@ pub async fn get_participants(
                         id: participant.id,
                         name: participant.name.to_string(),
                         score: 0,
-                    })
+                    }),
             );
         }
     }
@@ -190,45 +187,38 @@ pub async fn get_user_by_name(
         .one(db)
         .await
 }
-#[derive(serde::Serialize, serde::Deserialize, JsonSchema, Debug)]
-struct SimpleFantasyPick {
-    slot: i32,
-    pdga_number: i32,
-    name: String
-}
 
-#[derive(serde::Serialize, serde::Deserialize, JsonSchema, Debug)]
-pub struct SimpleFantasyPicks {
-    picks: Vec<SimpleFantasyPick>,
-    owner: bool,
-    fantasy_tournament_id: i32,
-}
+
+
 
 pub async fn get_user_picks_in_tournament(
     db: &DatabaseConnection,
     requester: user::Model,
     user_id: i32,
     tournament_id: i32,
-) -> Result<SimpleFantasyPicks, DbErr> {
+) -> Result<FantasyPicks, DbErr> {
     let picks = FantasyPick::find()
-        .filter(fantasy_pick::Column::User.eq(user_id).and(fantasy_pick::Column::FantasyTournamentId.eq(tournament_id)))
+        .filter(
+            fantasy_pick::Column::User
+                .eq(user_id)
+                .and(fantasy_pick::Column::FantasyTournamentId.eq(tournament_id)),
+        )
         .all(db)
         .await?;
     let owner = requester.id == user_id;
 
-
-    Ok(SimpleFantasyPicks {
+    Ok(FantasyPicks {
         picks: {
             let mut out = Vec::new();
             for p in &picks {
-                out.push(SimpleFantasyPick {
+                out.push(dto::FantasyPick {
                     slot: p.pick_number,
                     pdga_number: p.player,
-                    name: if let Ok(Some(p))= p.find_related(Player).one(db).await {
-                        p.first_name + " " + &p.last_name
+                    name: if let Ok(Some(p)) = p.find_related(Player).one(db).await {
+                        Some(p.first_name + " " + &p.last_name)
                     } else {
-                        DbErr::RecordNotFound("Player not found".to_string()).to_string()
-                    }
+                        None
+                    },
                 })
             }
             out
@@ -238,3 +228,12 @@ pub async fn get_user_picks_in_tournament(
     })
 }
 
+
+pub async fn max_picks(db: &DatabaseConnection, tournament_id: i32) -> Result<i32, DbErr> {
+    let tournament = FantasyTournament::find_by_id(tournament_id).one(db).await?;
+    if let Some(tournament) = tournament {
+        Ok(tournament.max_picks_per_user)
+    } else {
+        Ok(0)
+    }
+}
