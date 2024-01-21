@@ -188,6 +188,28 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
+        manager.create_table(Table::create().table(FantasyTournamentDivision::Table).col(
+            ColumnDef::new(FantasyTournamentDivision::Id)
+                .integer()
+                .auto_increment()
+                .primary_key(),
+        ).col(ColumnDef::new(FantasyTournamentDivision::FantasyTournamentId).integer().not_null()).foreign_key(
+            ForeignKey::create()
+                .name("fk_tournament_division_tournament")
+                .from(
+                    FantasyTournamentDivision::Table,
+                    FantasyTournamentDivision::FantasyTournamentId,
+                )
+                .to(FantasyTournament::Table, FantasyTournament::Id)
+                .on_delete(ForeignKeyAction::Cascade),
+        ).col(ColumnDef::new(FantasyTournamentDivision::Division).custom(Division::Table).not_null()).index(
+            Index::create()
+                .name("unique_tournament_division")
+                .col(FantasyTournamentDivision::FantasyTournamentId)
+                .col(FantasyTournamentDivision::Division)
+                .unique(),
+        ).to_owned()).await?;
+
         manager
             .create_table(
                 Table::create()
@@ -245,6 +267,7 @@ impl MigrationTrait for Migration {
         drop_table!(Competition, manager);
         drop_type!(CompetitionStatus, manager);
         drop_table!(FantasyTournament, manager);
+        drop_table!(FantasyTournamentDivision, manager);
         drop_table!(CompetitionInFantasyTournament, manager);
         Ok(())
     }

@@ -1,8 +1,10 @@
 use super::*;
 use crate::error::GenericError;
+use entity::prelude::Player;
 use entity::{user, user_authentication};
 use sea_orm::ActiveValue::Set;
-use sea_orm::{ConnectionTrait, DatabaseConnection, EntityTrait, NotSet};
+use sea_orm::{ConnectionTrait, DatabaseConnection, EntityTrait, ModelTrait, NotSet};
+
 trait ToModel {
     type Model;
     fn to_model(&self) -> Self::Model;
@@ -59,6 +61,7 @@ impl FantasyPick {
         user_id: i32,
         fantasy_tournament_id: i32,
         slot: i32,
+        division: sea_orm_active_enums::Division
     ) -> Result<Option<fantasy_pick::Model>, GenericError>
     where
         C: ConnectionTrait,
@@ -70,7 +73,7 @@ impl FantasyPick {
                 fantasy_pick::Column::PickNumber
                     .eq(slot)
                     .and(fantasy_pick::Column::FantasyTournamentId.eq(fantasy_tournament_id))
-                    .and(fantasy_pick::Column::User.eq(user_id)),
+                    .and(fantasy_pick::Column::User.eq(user_id)).and(fantasy_pick::Column::Division.eq(division)),
             )
             .one(db)
             .await?;
@@ -83,7 +86,9 @@ impl FantasyPick {
         fantasy_tournament_id: i32,
         pdga_number: i32,
     ) -> Result<Option<fantasy_pick::Model>, GenericError>
-    where C: ConnectionTrait, {
+    where
+        C: ConnectionTrait,
+    {
         use entity::prelude::FantasyPick as FantasyPickEntity;
         use sea_orm::{ColumnTrait, QueryFilter};
         let existing_pick = FantasyPickEntity::find()
@@ -97,5 +102,4 @@ impl FantasyPick {
             .await?;
         Ok(existing_pick)
     }
-
 }

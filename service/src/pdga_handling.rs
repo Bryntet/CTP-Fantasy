@@ -6,11 +6,12 @@ use sea_orm::{
 };
 use serde::Deserialize;
 use std::time::Duration;
+use crate::dto;
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct CompetitionInfoInput {
     pub id: u32,
-    pub division: ApiDivision,
+    pub division: dto::Division,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -22,7 +23,7 @@ struct ApiPlayer {
     pub last_name: String,
     #[serde(rename = "AvatarURL")]
     pub avatar: Option<String>,
-    pub division: ApiDivision,
+    pub division: dto::Division,
 }
 
 impl ApiPlayer {
@@ -39,7 +40,7 @@ impl ApiPlayer {
     fn to_division(&self) -> entity::player_division::ActiveModel {
         entity::player_division::Model {
             player_pdga_number: self.pdga_number,
-            division: self.division.to_division(),
+            division: self.division.clone().into(),
         }
         .into_active_model()
     }
@@ -55,21 +56,9 @@ struct Data {
     scores: Vec<ApiPlayer>,
 }
 
-#[derive(Debug, Deserialize, Clone, JsonSchema)]
-pub enum ApiDivision {
-    MPO,
-    FPO,
-}
 
-impl ApiDivision {
-    pub fn to_division(&self) -> entity::sea_orm_active_enums::Division {
-        use entity::sea_orm_active_enums::Division::{Fpo, Mpo};
-        match self {
-            Self::FPO => Fpo,
-            Self::MPO => Mpo,
-        }
-    }
-}
+
+
 
 pub async fn fetch_people_from_competition(
     tour_id: u32,

@@ -27,7 +27,7 @@ pub(crate) async fn fetch_competition(
         comp.id, comp.division
     );
     // Here you can add the code to process the competition data
-    let div_string = match comp.division.to_division() {
+    let div_string = match comp.division.into() {
         Division::Fpo => "FPO".to_string(),
         Division::Mpo => "MPO".to_string(),
     };

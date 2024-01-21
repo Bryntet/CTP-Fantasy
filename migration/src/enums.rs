@@ -141,3 +141,11 @@ pub(crate) enum UserInFantasyTournament {
     FantasyTournamentId,
     InvitationStatus,
 }
+
+#[derive(DeriveIden)]
+pub(crate) enum FantasyTournamentDivision {
+    Table,
+    Id,
+    FantasyTournamentId,
+    Division,
+}

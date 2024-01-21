@@ -4,10 +4,10 @@ use rocket::serde::json::Json;
 use rocket::State;
 use rocket_okapi::openapi;
 use sea_orm::DatabaseConnection;
-use service::dto::FantasyPicks;
+use service::dto::{FantasyPick, FantasyPicks};
 
 use crate::authenticate;
-use service::SimpleFantasyTournament;
+use service::{dto, SimpleFantasyTournament};
 
 #[openapi(tag = "Fantasy Tournament")]
 #[get("/my-tournaments")]
@@ -35,7 +35,7 @@ pub(crate) async fn get_tournament(
 }
 
 #[openapi(tag = "Fantasy Tournament")]
-#[get("/fantasy-tournament/<id>/participants")]
+#[get("/fantasy-tournament/<id>/users")]
 pub(crate) async fn see_participants(
     db: &State<DatabaseConnection>,
     id: i32,
@@ -47,23 +47,58 @@ pub(crate) async fn see_participants(
 }
 
 #[openapi(tag = "Fantasy Tournament")]
-#[get("/fantasy-tournament/<tournament_id>/user_picks/<user_id>")]
+#[get("/fantasy-tournament/<tournament_id>/user/<user_id>/picks/<pick_slot>")]
+pub(crate) async fn get_user_pick(
+    db: &State<DatabaseConnection>,
+    requester: authenticate::CookieAuth,
+    tournament_id: i32,
+    user_id: i32,
+    pick_slot: i32,
+) -> Result<Json<FantasyPick>, GenericError> {
+    if requester.to_user_model(db.inner()).await?.id != user_id {
+        Err(UserError::NotPermitted("You are not permitted to view this pick").into())
+    } else {
+        match service::get_user_pick_in_tournament(db.inner(), user_id, tournament_id, pick_slot)
+            .await
+        {
+            Ok(pick) => Ok(Json(pick)),
+            Err(_) => Err(GenericError::NotFound("Pick not found")),
+        }
+    }
+}
+#[openapi(tag = "Fantasy Tournament")]
+#[get("/fantasy-tournament/<tournament_id>/user/<user_id>/picks/div/<division>")]
 pub(crate) async fn get_user_picks(
     db: &State<DatabaseConnection>,
     requester: authenticate::CookieAuth,
     tournament_id: i32,
     user_id: i32,
+    division: dto::Division,
 ) -> Result<Json<FantasyPicks>, GenericError> {
-    match service::get_user_picks_in_tournament(
+    let res = service::get_user_picks_in_tournament(
         db.inner(),
         requester.to_user_model(db.inner()).await?,
         user_id,
         tournament_id,
-    )
-    .await
+        division
+    ).await;
+    //dbg!(&res);
+    match res
     {
         Ok(picks) => Ok(Json(picks)),
         Err(_) => Err(UserError::InvalidUserId("Unknown user").into()),
+    }
+}
+
+#[openapi(tag="Fantasy Tournament")]
+#[get("/fantasy-tournament/<tournament_id>/divisions")]
+pub(crate) async fn get_divisions(
+    db: &State<DatabaseConnection>,
+    tournament_id: i32,
+) -> Result<Json<Vec<service::dto::Division>>, GenericError> {
+    match service::get_tournament_divisions(db.inner(), tournament_id).await {
+        Ok(divisions) => Ok(Json(divisions)),
+        Err(_) => Err(TournamentError::NotFound("Tournament not found").into()),
     }
 }
 
@@ -80,7 +115,6 @@ pub(crate) async fn get_my_id(
         Err(UserError::InvalidUserId("Unknown user").into())
     }
 }
-
 
 #[openapi(tag = "Fantasy Tournament")]
 #[get("/fantasy-tournament/<tournament_id>/max-picks")]

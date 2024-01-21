@@ -15,6 +15,7 @@ use sea_orm::TransactionTrait;
 
 use service::dto::FantasyPick;
 use service::dto::UserLogin;
+use service::error::GenericError::{AuthError, CookieError};
 
 /// # Create a fantasy tournament
 ///
@@ -116,41 +117,65 @@ pub(crate) async fn create_user(
 ///
 /// A string indicating success
 #[openapi(tag = "Fantasy Tournament")]
-#[put("/fantasy-tournament/<fantasy_tournament_id>/pick/<slot>/player/<pdga_number>")]
+#[put("/fantasy-tournament/<fantasy_tournament_id>/user/<user_id>/picks/div/<division>/<slot>/<pdga_number>")]
 pub(crate) async fn add_pick(
     user: authenticate::CookieAuth,
     db: &State<DatabaseConnection>,
+    user_id: i32,
     fantasy_tournament_id: i32,
     slot: i32,
     pdga_number: i32,
-) -> Result<String, GenericError> {
+    division: service::dto::Division,
+) -> Result<&'static str, GenericError> {
+    dbg!("hi");
+    let not_permitted = UserError::NotPermitted("You are not permitted to add picks for this user");
     let db = db.inner();
     let user = user.to_user_model(db).await?;
-    let pick = FantasyPick { slot, pdga_number, name: None};
-    // TODO: ADD AUTH FOR FANTASY_TOURNAMENT_ID
-    pick.change_or_insert(db, user.id, fantasy_tournament_id)
-        .await?;
-    Ok("Successfully added pick".to_string())
+
+    if service::check_if_user_in_tournament(db, user.id, fantasy_tournament_id)
+        .await
+        .unwrap_or(false)
+    {
+        if user.id != user_id {
+            return Err(not_permitted.into());
+        }
+        let pick = FantasyPick {
+            slot,
+            pdga_number,
+            name: None,
+        };
+        pick.change_or_insert(db, user.id, fantasy_tournament_id, division)
+            .await?;
+        Ok("Successfully added pick")
+    } else {
+        Err(not_permitted.into())
+    }
 }
 
 #[openapi(tag = "Fantasy Tournament")]
 #[post(
-    "/fantasy-tournament/<fantasy_tournament_id>/pick",
+    "/fantasy-tournament/<fantasy_tournament_id>/user/<user_id>/picks/div/<division>",
     format = "json",
-    data = "<picks>"
+    data = "<json_picks>"
 )]
 pub(crate) async fn add_picks(
     user: authenticate::CookieAuth,
     db: &State<DatabaseConnection>,
+    user_id: i32,
     fantasy_tournament_id: i32,
-    picks: Json<Vec<FantasyPick>>,
+    json_picks: Json<Vec<FantasyPick>>,
+    division: service::dto::Division,
 ) -> Result<String, GenericError> {
     let user = user.to_user_model(db).await?;
-
+    if user.id != user_id {
+        return Err(
+            UserError::NotPermitted("You are not permitted to add picks for this user").into(),
+        );
+    }
     let txn = db.inner().begin().await?;
 
-    for pick in picks.into_inner() {
-        pick.change_or_insert(&txn, user.id, fantasy_tournament_id)
+    for pick in json_picks.into_inner() {
+        pick.change_or_insert(&txn, user.id, fantasy_tournament_id, division.clone())
             .await?;
     }
     txn.commit().await?;

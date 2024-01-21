@@ -5,6 +5,7 @@ mod query;
 mod utils;
 
 use externally_update_internal as ext_to_int;
+use std::net::{IpAddr, Ipv4Addr};
 
 use rocket_okapi::openapi_get_routes;
 
@@ -17,7 +18,7 @@ use ext_to_int::*;
 use mutation::*;
 use query::*;
 use rocket::fs::FileServer;
-use rocket::{Build, Rocket};
+use rocket::{Build, Config, Rocket};
 use rocket_okapi::rapidoc::{make_rapidoc, GeneralConfig, HideShowConfig, RapiDocConfig};
 use rocket_okapi::settings::UrlObject;
 use rocket_okapi::swagger_ui::{make_swagger_ui, SwaggerUIConfig};
@@ -30,6 +31,11 @@ pub async fn launch() -> Rocket<Build> {
             .await
             .unwrap();
     let flutter_path = std::env::var("FLUTTER_PATH").expect("FLUTTER_PATH not set");
+
+    let config = Config {
+        address: Ipv4Addr::new(192, 169, 21, 12).into(),
+        ..Default::default()
+    };
     rocket::build()
         .manage(db)
         .mount(
@@ -51,7 +57,9 @@ pub async fn launch() -> Rocket<Build> {
                 get_my_id,
                 get_tournament,
                 logout_all,
-                get_max_picks
+                get_max_picks,
+                get_user_pick,
+                get_divisions,
             ],
         )
         .mount(
@@ -77,4 +85,5 @@ pub async fn launch() -> Rocket<Build> {
             }),
         )
         .mount("/", FileServer::from(flutter_path))
+        .configure(config)
 }

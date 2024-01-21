@@ -1,14 +1,15 @@
 mod mutation;
 mod query;
+use crate::dto;
 use entity::*;
 use rocket::serde::{Deserialize, Serialize};
 use rocket_okapi::okapi::schemars::{self, JsonSchema};
-use crate::dto;
 
-#[derive(Deserialize, JsonSchema)]
+#[derive(Deserialize, JsonSchema, Clone)]
 pub struct CreateTournament {
     pub name: String,
     pub max_picks_per_user: Option<i32>,
+    pub divisions: Vec<Division>,
 }
 
 #[derive(Deserialize, Serialize, JsonSchema, Debug)]
@@ -23,7 +24,6 @@ pub struct FantasyPicks {
     pub(crate) owner: bool,
     pub(crate) fantasy_tournament_id: i32,
 }
-
 
 #[derive(Deserialize, JsonSchema, Debug, Clone)]
 pub struct UserLogin {
@@ -57,4 +57,15 @@ pub struct User {
 pub struct LoginInput {
     pub username: String,
     pub password: String,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone)]
+pub enum Division {
+    MPO,
+    FPO,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug)]
+pub struct FantasyTournamentDivs {
+    pub(crate) divisions: Vec<Division>,
 }

@@ -1,4 +1,6 @@
 use crate::dto;
+use crate::dto::FantasyPicks;
+use crate::error::GenericError;
 use bcrypt::verify;
 use dto::InvitationStatus;
 use entity::prelude::*;
@@ -8,7 +10,6 @@ use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
 use sea_orm::entity::prelude::*;
 use sea_orm::{DatabaseConnection, DbErr, EntityTrait};
-use crate::dto::FantasyPicks;
 
 pub enum Auth {
     Password(String),
@@ -57,6 +58,9 @@ where
 {
     Player::find_by_id(player_id).one(db).await.is_ok()
 }
+
+
+
 
 pub async fn get_player_division<C>(db: &C, player_id: i32) -> Result<Vec<Division>, DbErr>
 where
@@ -188,20 +192,55 @@ pub async fn get_user_by_name(
         .await
 }
 
+pub async fn get_user_pick_in_tournament(
+    db: &DatabaseConnection,
+    user_id: i32,
+    tournament_id: i32,
+    slot: i32,
+) -> Result<dto::FantasyPick, GenericError> {
+    let pick = FantasyPick::find()
+        .filter(
+            fantasy_pick::Column::User
+                .eq(user_id)
+                .and(fantasy_pick::Column::FantasyTournamentId.eq(tournament_id))
+                .and(fantasy_pick::Column::PickNumber.eq(slot)),
+        )
+        .one(db)
+        .await?;
 
+    if let Some(pick) = pick {
+        Ok(dto::FantasyPick {
+            slot: pick.pick_number,
+            pdga_number: pick.player,
+            name: get_player_name(db, pick.player).await.ok(),
+        })
+    } else {
+        Err(GenericError::NotFound("Pick not found"))
+    }
+}
 
+async fn get_player_name(db: &DatabaseConnection, player_id: i32) -> Result<String, GenericError> {
+    let player = Player::find_by_id(player_id).one(db).await?;
+    if let Some(player) = player {
+        Ok(player.first_name + " " + &player.last_name)
+    } else {
+        Err(GenericError::NotFound("Player not found"))
+    }
+}
 
 pub async fn get_user_picks_in_tournament(
     db: &DatabaseConnection,
     requester: user::Model,
     user_id: i32,
     tournament_id: i32,
+    div: dto::Division
 ) -> Result<FantasyPicks, DbErr> {
+
     let picks = FantasyPick::find()
         .filter(
             fantasy_pick::Column::User
                 .eq(user_id)
-                .and(fantasy_pick::Column::FantasyTournamentId.eq(tournament_id)),
+                .and(fantasy_pick::Column::FantasyTournamentId.eq(tournament_id)).and(fantasy_pick::Column::Division.eq(div.to_string()))
         )
         .all(db)
         .await?;
@@ -228,7 +267,6 @@ pub async fn get_user_picks_in_tournament(
     })
 }
 
-
 pub async fn max_picks(db: &DatabaseConnection, tournament_id: i32) -> Result<i32, DbErr> {
     let tournament = FantasyTournament::find_by_id(tournament_id).one(db).await?;
     if let Some(tournament) = tournament {
@@ -236,4 +274,30 @@ pub async fn max_picks(db: &DatabaseConnection, tournament_id: i32) -> Result<i3
     } else {
         Ok(0)
     }
+}
+
+pub async fn check_if_user_in_tournament(
+    db: &DatabaseConnection,
+    user_id: i32,
+    tournament_id: i32,
+) -> Result<bool, GenericError> {
+    let user_in_tournament = UserInFantasyTournament::find()
+        .filter(user_in_fantasy_tournament::Column::UserId.eq(user_id))
+        .filter(user_in_fantasy_tournament::Column::FantasyTournamentId.eq(tournament_id))
+        .one(db)
+        .await?;
+    Ok(user_in_tournament.is_some())
+}
+
+
+pub async fn get_tournament_divisions(
+    db: &DatabaseConnection,
+    tournament_id: i32,
+) -> Result<Vec<dto::Division>, DbErr> {
+    let picks = FantasyTournamentDivision::find()
+        .filter(fantasy_tournament_division::Column::FantasyTournamentId.eq(tournament_id))
+        .all(db)
+        .await?;
+
+    Ok(picks.iter().map(|p| p.clone().division.into()).collect())
 }

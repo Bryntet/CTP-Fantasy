@@ -8,6 +8,8 @@ use rocket::{
     request::{self, FromRequest},
     Request, State,
 };
+use rocket::data::Outcome;
+use rocket::yansi::Paint;
 use rocket_okapi::okapi::openapi3::{Object, Parameter, ParameterValue};
 use rocket_okapi::{
     gen::OpenApiGenerator,
@@ -109,12 +111,27 @@ impl CookieAuth {
 impl<'a> FromRequest<'a> for CookieAuth {
     type Error = AuthError;
     async fn from_request(request: &'a Request<'_>) -> request::Outcome<Self, Self::Error> {
-        request
+        let db = request
+            .rocket()
+            .state::<DatabaseConnection>()
+            .expect("Database not found");
+        let c = request
             .cookies()
-            .get("auth")
-            .and_then(|cookie| cookie.value().parse().ok())
-            .map(CookieAuth)
-            .or_forward(Status::Unauthorized)
+            .get("auth").map(|c| { c.value() });
+
+        let a: request::Outcome<&str, Self::Error> = c.or_forward(Status::Unauthorized);
+
+
+
+
+
+
+        let res = if let Some(c_string) = a.succeeded() {
+            CookieAuth::new_checked(c_string.to_string(), db).await
+        } else {
+            None
+        };
+        res.or_forward(Status::Unauthorized)
     }
 }
 

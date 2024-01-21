@@ -29,8 +29,8 @@ pub async fn generate_cookie(
     UserCookies::insert(user_cookie).exec(db).await?;
 
     let cookie: Cookie<'static> = Cookie::build(("auth".to_string(), random_value.clone()))
-        .secure(true)
-        .same_site(rocket::http::SameSite::None)
+        .secure(false)
+        //.same_site(rocket::http::SameSite::None)
         .build();
 
     cookies.add(cookie);
