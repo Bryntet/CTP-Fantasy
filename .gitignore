@@ -1,7 +1,7 @@
 /target
 .env
 ctp_fantasy.code-workspace
-
+/pdga_schema
 # Added by cargo
 #
 # already existing elements were commented out
