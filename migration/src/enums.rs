@@ -38,8 +38,18 @@ pub(crate) enum Division {
 pub(crate) enum Competition {
     Table,
     Id,
+    Name,
     Status,
     Rounds,
+}
+
+#[derive(DeriveIden)]
+pub(crate) enum Round {
+    Table,
+    Id,
+    RoundNumber,
+    CompetitionId,
+    Date,
 }
 
 #[derive(Iden, EnumIter)]
@@ -59,6 +69,7 @@ pub(crate) enum PlayerInCompetition {
     Id,
     PDGANumber,
     CompetitionId,
+    Division,
 }
 
 #[derive(DeriveIden)]

@@ -80,17 +80,17 @@ pub(crate) async fn get_user_picks(
         requester.to_user_model(db.inner()).await?,
         user_id,
         tournament_id,
-        division
-    ).await;
+        division,
+    )
+    .await;
     //dbg!(&res);
-    match res
-    {
+    match res {
         Ok(picks) => Ok(Json(picks)),
         Err(_) => Err(UserError::InvalidUserId("Unknown user").into()),
     }
 }
 
-#[openapi(tag="Fantasy Tournament")]
+#[openapi(tag = "Fantasy Tournament")]
 #[get("/fantasy-tournament/<tournament_id>/divisions")]
 pub(crate) async fn get_divisions(
     db: &State<DatabaseConnection>,

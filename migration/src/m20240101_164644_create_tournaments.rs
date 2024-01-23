@@ -25,12 +25,39 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(Competition::Table)
                     .col(ColumnDef::new(Competition::Id).integer().primary_key())
+                    .col(ColumnDef::new(Competition::Name).string().not_null())
                     .col(
                         ColumnDef::new(Competition::Status)
                             .custom(CompetitionStatus::Table)
                             .not_null(),
                     )
                     .col(ColumnDef::new(Competition::Rounds).integer().not_null())
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_table(
+                Table::create()
+                    .table(Round::Table)
+                    .col(ColumnDef::new(Round::Id).integer().auto_increment().primary_key())
+                    .col(ColumnDef::new(Round::RoundNumber).integer().not_null())
+                    .col(ColumnDef::new(Round::CompetitionId).integer().not_null())
+                    .foreign_key(
+                        ForeignKey::create()
+                            .from(Round::Table, Round::CompetitionId)
+                            .to(Competition::Table, Competition::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
+                    )
+                    .col(ColumnDef::new(Round::Date).date().not_null())
+                    .index(
+                        Index::create()
+                            .name("unique_competition_round")
+                            .col(Round::CompetitionId)
+                            .col(Round::RoundNumber)
+                            .col(Round::Date)
+                            .unique(),
+                    )
                     .to_owned(),
             )
             .await?;
@@ -151,6 +178,11 @@ impl MigrationTrait for Migration {
                             )
                             .on_delete(ForeignKeyAction::Cascade),
                     )
+                    .col(
+                        ColumnDef::new(PlayerInCompetition::Division)
+                            .custom(Division::Table)
+                            .not_null(),
+                    )
                     .to_owned(),
             )
             .await?;
@@ -188,27 +220,46 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-        manager.create_table(Table::create().table(FantasyTournamentDivision::Table).col(
-            ColumnDef::new(FantasyTournamentDivision::Id)
-                .integer()
-                .auto_increment()
-                .primary_key(),
-        ).col(ColumnDef::new(FantasyTournamentDivision::FantasyTournamentId).integer().not_null()).foreign_key(
-            ForeignKey::create()
-                .name("fk_tournament_division_tournament")
-                .from(
-                    FantasyTournamentDivision::Table,
-                    FantasyTournamentDivision::FantasyTournamentId,
-                )
-                .to(FantasyTournament::Table, FantasyTournament::Id)
-                .on_delete(ForeignKeyAction::Cascade),
-        ).col(ColumnDef::new(FantasyTournamentDivision::Division).custom(Division::Table).not_null()).index(
-            Index::create()
-                .name("unique_tournament_division")
-                .col(FantasyTournamentDivision::FantasyTournamentId)
-                .col(FantasyTournamentDivision::Division)
-                .unique(),
-        ).to_owned()).await?;
+        manager
+            .create_table(
+                Table::create()
+                    .table(FantasyTournamentDivision::Table)
+                    .col(
+                        ColumnDef::new(FantasyTournamentDivision::Id)
+                            .integer()
+                            .auto_increment()
+                            .primary_key(),
+                    )
+                    .col(
+                        ColumnDef::new(FantasyTournamentDivision::FantasyTournamentId)
+                            .integer()
+                            .not_null(),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_tournament_division_tournament")
+                            .from(
+                                FantasyTournamentDivision::Table,
+                                FantasyTournamentDivision::FantasyTournamentId,
+                            )
+                            .to(FantasyTournament::Table, FantasyTournament::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
+                    )
+                    .col(
+                        ColumnDef::new(FantasyTournamentDivision::Division)
+                            .custom(Division::Table)
+                            .not_null(),
+                    )
+                    .index(
+                        Index::create()
+                            .name("unique_tournament_division")
+                            .col(FantasyTournamentDivision::FantasyTournamentId)
+                            .col(FantasyTournamentDivision::Division)
+                            .unique(),
+                    )
+                    .to_owned(),
+            )
+            .await?;
 
         manager
             .create_table(

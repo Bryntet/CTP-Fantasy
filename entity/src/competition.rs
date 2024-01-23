@@ -10,6 +10,7 @@ use serde::Deserialize;
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: i32,
+    pub name: String,
     pub status: CompetitionStatus,
     pub rounds: i32,
 }
@@ -24,6 +25,8 @@ pub enum Relation {
     PlayerInCompetition,
     #[sea_orm(has_many = "super::player_round_score::Entity")]
     PlayerRoundScore,
+    #[sea_orm(has_many = "super::round::Entity")]
+    Round,
 }
 
 impl Related<super::competition_in_fantasy_tournament::Entity> for Entity {
@@ -47,6 +50,12 @@ impl Related<super::player_in_competition::Entity> for Entity {
 impl Related<super::player_round_score::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::PlayerRoundScore.def()
+    }
+}
+
+impl Related<super::round::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Round.def()
     }
 }
 

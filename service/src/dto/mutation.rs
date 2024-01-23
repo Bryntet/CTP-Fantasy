@@ -1,4 +1,3 @@
-use std::fmt::Display;
 use crate::error::GenericError;
 use crate::error::PlayerError;
 use crate::{generate_cookie, get_player_division, player_exists};
@@ -11,7 +10,10 @@ use entity::sea_orm_active_enums::FantasyTournamentInvitationStatus;
 use rocket::http::CookieJar;
 use rocket::request::FromParam;
 use sea_orm::ActiveValue::Set;
-use sea_orm::{ActiveModelTrait, ConnectionTrait, DatabaseConnection, EntityTrait, IntoActiveModel, NotSet, TransactionTrait};
+use sea_orm::{ActiveModelTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait, IntoActiveModel, NotSet, TransactionTrait};
+use std::fmt::Display;
+use sea_orm::prelude::Date;
+use crate::dto::pdga::CompetitionInfo;
 
 use super::*;
 
@@ -26,9 +28,11 @@ impl FantasyPick {
     where
         C: ConnectionTrait,
     {
-
         if player_exists(db, self.pdga_number).await {
-            if get_player_division(db, self.pdga_number).await?.contains(div.clone().into()) {
+            if get_player_division(db, self.pdga_number)
+                .await?
+                .contains(div.clone().into())
+            {
                 let person_in_slot =
                     Self::player_in_slot(db, user_id, tournament_id, self.slot, div.into()).await?;
 
@@ -38,7 +42,8 @@ impl FantasyPick {
                 }
 
                 if let Some(player) =
-                    Self::player_already_chosen(db, user_id, tournament_id, self.pdga_number).await?
+                    Self::player_already_chosen(db, user_id, tournament_id, self.pdga_number)
+                        .await?
                 {
                     let player: fantasy_pick::ActiveModel = player.into();
                     player.delete(db).await?;
@@ -48,7 +53,6 @@ impl FantasyPick {
             } else {
                 Err(PlayerError::WrongDivision.into())
             }
-
         } else {
             Err(PlayerError::NotFound.into())
         }
@@ -58,12 +62,9 @@ impl FantasyPick {
     where
         C: ConnectionTrait,
     {
-        match crate::get_player_division(db, self.pdga_number).await {
+        match get_player_division(db, self.pdga_number).await {
             Ok(division) => {
-                let division = division
-                    .first()
-                    .unwrap_or(Division::MPO.into())
-                    .to_owned();
+                let division = division.first().unwrap_or(Division::MPO.into()).to_owned();
                 let pick = fantasy_pick::ActiveModel {
                     id: NotSet,
                     user: Set(user_id),
@@ -88,7 +89,7 @@ impl From<Division> for &sea_orm_active_enums::Division {
         }
     }
 }
-impl From<Division > for sea_orm_active_enums::Division {
+impl From<Division> for sea_orm_active_enums::Division {
     fn from(division: Division) -> Self {
         match division {
             Division::MPO => sea_orm_active_enums::Division::Mpo,
@@ -133,7 +134,6 @@ impl Display for Division {
         write!(f, "{}", str)
     }
 }
-
 
 impl UserLogin {
     pub async fn insert<'a>(
@@ -182,12 +182,9 @@ impl CreateTournament {
         .await?;
         FantasyTournamentDivs::insert(self.divisions.clone(), db, tour.last_insert_id).await?;
 
-
         Ok(())
     }
 }
-
-
 
 impl FantasyTournamentDivs {
     pub async fn insert(
@@ -207,4 +204,53 @@ impl FantasyTournamentDivs {
         txn.commit().await?;
         Ok(())
     }
+}
+
+impl PlayerInCompetition {
+    pub async fn insert<C>(&self, db: &C) -> Result<(), sea_orm::error::DbErr>
+    where
+        C: ConnectionTrait,
+    {
+        let player = self.active_model();
+        player.save(db).await?;
+        Ok(())
+    }
+
+    fn active_model(&self) -> player_in_competition::ActiveModel {
+        player_in_competition::ActiveModel {
+            id: NotSet,
+            pdga_number: Set(self.pdga_number),
+            competition_id: Set(self.competition_id),
+            division: Set(self.division.clone().into()),
+        }
+    }
+}
+
+
+impl CompetitionInfo {
+    async fn insert_if_not_exists(&self, db: &sea_orm::DatabaseConnection) -> Result<(), DbErr> {
+        use entity::prelude::Competition;
+        let competition = Competition::find_by_id(self.competition_id as i32)
+            .one(db)
+            .await?;
+        if competition.is_none() {
+            Competition::insert(self.active_model())
+                .exec(db)
+                .await?;
+        }
+        Ok(())
+    }
+
+    async fn insert_rounds(&self, db: &sea_orm::DatabaseConnection) -> Result<(), DbErr> {
+        use entity::prelude::Round;
+        for date in &self.date_range {
+            if self.round(db, *date).await?.is_none() {
+                Round::insert(self.round_active_model(*date))
+                    .exec(db)
+                    .await?;
+            }
+        }
+        Ok(())
+    }
+
 }

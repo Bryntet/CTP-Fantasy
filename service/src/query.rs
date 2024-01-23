@@ -59,9 +59,6 @@ where
     Player::find_by_id(player_id).one(db).await.is_ok()
 }
 
-
-
-
 pub async fn get_player_division<C>(db: &C, player_id: i32) -> Result<Vec<Division>, DbErr>
 where
     C: ConnectionTrait,
@@ -233,14 +230,14 @@ pub async fn get_user_picks_in_tournament(
     requester: user::Model,
     user_id: i32,
     tournament_id: i32,
-    div: dto::Division
+    div: dto::Division,
 ) -> Result<FantasyPicks, DbErr> {
-
     let picks = FantasyPick::find()
         .filter(
             fantasy_pick::Column::User
                 .eq(user_id)
-                .and(fantasy_pick::Column::FantasyTournamentId.eq(tournament_id)).and(fantasy_pick::Column::Division.eq(div.to_string()))
+                .and(fantasy_pick::Column::FantasyTournamentId.eq(tournament_id))
+                .and(fantasy_pick::Column::Division.eq(div.to_string())),
         )
         .all(db)
         .await?;
@@ -288,7 +285,6 @@ pub async fn check_if_user_in_tournament(
         .await?;
     Ok(user_in_tournament.is_some())
 }
-
 
 pub async fn get_tournament_divisions(
     db: &DatabaseConnection,

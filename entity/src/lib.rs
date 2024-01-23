@@ -12,6 +12,7 @@ pub mod player;
 pub mod player_division;
 pub mod player_in_competition;
 pub mod player_round_score;
+pub mod round;
 pub mod sea_orm_active_enums;
 pub mod user;
 pub mod user_authentication;

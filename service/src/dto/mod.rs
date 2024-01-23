@@ -1,5 +1,7 @@
 mod mutation;
+mod pdga;
 mod query;
+
 use crate::dto;
 use entity::*;
 use rocket::serde::{Deserialize, Serialize};
@@ -68,4 +70,11 @@ pub enum Division {
 #[derive(Serialize, Deserialize, JsonSchema, Debug)]
 pub struct FantasyTournamentDivs {
     pub(crate) divisions: Vec<Division>,
+}
+
+#[derive(Deserialize, JsonSchema, Debug)]
+pub struct PlayerInCompetition {
+    pub pdga_number: i32,
+    pub division: Division,
+    pub competition_id: i32,
 }

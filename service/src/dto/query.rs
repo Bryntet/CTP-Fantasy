@@ -1,10 +1,15 @@
 use super::*;
 use crate::error::GenericError;
-use entity::prelude::Player;
+use entity::prelude::{Player, Round};
 use entity::{user, user_authentication};
 use sea_orm::ActiveValue::Set;
 use sea_orm::{ConnectionTrait, DatabaseConnection, EntityTrait, ModelTrait, NotSet};
-
+use sea_orm::prelude::Date;
+use crate::CompetitionInfoInput;
+use crate::dto::pdga::CompetitionInfo;
+use sea_orm::ColumnTrait;
+use sea_orm::DbErr;
+use sea_orm::QueryFilter;
 trait ToModel {
     type Model;
     fn to_model(&self) -> Self::Model;
@@ -61,7 +66,7 @@ impl FantasyPick {
         user_id: i32,
         fantasy_tournament_id: i32,
         slot: i32,
-        division: sea_orm_active_enums::Division
+        division: sea_orm_active_enums::Division,
     ) -> Result<Option<fantasy_pick::Model>, GenericError>
     where
         C: ConnectionTrait,
@@ -73,7 +78,8 @@ impl FantasyPick {
                 fantasy_pick::Column::PickNumber
                     .eq(slot)
                     .and(fantasy_pick::Column::FantasyTournamentId.eq(fantasy_tournament_id))
-                    .and(fantasy_pick::Column::User.eq(user_id)).and(fantasy_pick::Column::Division.eq(division)),
+                    .and(fantasy_pick::Column::User.eq(user_id))
+                    .and(fantasy_pick::Column::Division.eq(division)),
             )
             .one(db)
             .await?;
@@ -101,5 +107,33 @@ impl FantasyPick {
             .one(db)
             .await?;
         Ok(existing_pick)
+    }
+}
+
+
+
+impl CompetitionInfo {
+    pub(crate) fn active_model(&self) -> competition::ActiveModel {
+        competition::ActiveModel {
+            id: Set(self.competition_id as i32),
+            status: Set(sea_orm_active_enums::CompetitionStatus::NotStarted),
+            name: Set(self.name.clone()),
+            rounds: Default::default(),
+        }
+    }
+
+    pub(crate) fn round_active_model(&self, date: sea_orm::prelude::Date) -> round::ActiveModel {
+        round::ActiveModel {
+            id: NotSet,
+            round_number: sea_orm::Set(1),
+            competition_id: sea_orm::Set(self.competition_id as i32),
+            date: sea_orm::Set(date),
+        }
+    }
+
+    pub(crate) async fn round<C>(&self, db: &C, date: Date) -> Result<Option<round::Model>, DbErr> where C: ConnectionTrait {
+        Round::find().filter(entity::round::Column::Date.eq::<Date>(date).and(entity::round::Column::CompetitionId.eq(self.competition_id as i32)))
+            .one(db)
+            .await
     }
 }

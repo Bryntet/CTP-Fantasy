@@ -1,3 +1,4 @@
+use crate::dto;
 use dotenvy::dotenv;
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
@@ -6,7 +7,6 @@ use sea_orm::{
 };
 use serde::Deserialize;
 use std::time::Duration;
-use crate::dto;
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct CompetitionInfoInput {
@@ -56,10 +56,6 @@ struct Data {
     scores: Vec<ApiPlayer>,
 }
 
-
-
-
-
 pub async fn fetch_people_from_competition(
     tour_id: u32,
     div_name: &str,
@@ -107,10 +103,4 @@ async fn add_player(db: &DatabaseConnection, player: ApiPlayer) -> Result<(), Db
         dbg!(e);
     }
     Ok(())
-}
-
-#[test]
-fn test_get_pdga_things() {
-    let rt = tokio::runtime::Runtime::new().unwrap();
-    rt.block_on(fetch_people_from_competition(65206, "MPO", 1));
 }

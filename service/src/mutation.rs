@@ -108,12 +108,3 @@ pub async fn answer_invite(
         Err(InviteError::UserNotFound)
     }
 }
-
-pub async fn add_picks_to_tournament(
-    db: &DatabaseConnection,
-    user: user::Model,
-    picks: Vec<FantasyPick>,
-    fantasy_tournament_id: i32,
-) -> Result<(), DbErr> {
-    Ok(())
-}

@@ -1,15 +1,15 @@
 use entity::prelude::User;
 use entity::{user, user_cookies};
+use rocket::data::Outcome;
 use rocket::http::{CookieJar, Status};
 use rocket::outcome::IntoOutcome;
 use rocket::serde::json::Json;
+use rocket::yansi::Paint;
 use rocket::{
     get,
     request::{self, FromRequest},
     Request, State,
 };
-use rocket::data::Outcome;
-use rocket::yansi::Paint;
 use rocket_okapi::okapi::openapi3::{Object, Parameter, ParameterValue};
 use rocket_okapi::{
     gen::OpenApiGenerator,
@@ -115,16 +115,9 @@ impl<'a> FromRequest<'a> for CookieAuth {
             .rocket()
             .state::<DatabaseConnection>()
             .expect("Database not found");
-        let c = request
-            .cookies()
-            .get("auth").map(|c| { c.value() });
+        let c = request.cookies().get("auth").map(|c| c.value());
 
         let a: request::Outcome<&str, Self::Error> = c.or_forward(Status::Unauthorized);
-
-
-
-
-
 
         let res = if let Some(c_string) = a.succeeded() {
             CookieAuth::new_checked(c_string.to_string(), db).await
