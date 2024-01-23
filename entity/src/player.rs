@@ -18,13 +18,7 @@ pub struct Model {
 pub enum Relation {
     #[sea_orm(has_many = "super::fantasy_pick::Entity")]
     FantasyPick,
-    #[sea_orm(
-        belongs_to = "super::player_division::Entity",
-        from = "Column::PdgaNumber",
-        to = "super::player_division::Column::PlayerPdgaNumber",
-        on_update = "NoAction",
-        on_delete = "NoAction"
-    )]
+    #[sea_orm(has_many = "super::player_division::Entity")]
     PlayerDivision,
     #[sea_orm(has_many = "super::player_in_competition::Entity")]
     PlayerInCompetition,

@@ -1,10 +1,9 @@
-use crate::extension::postgres::Type;
 use sea_orm::Iterable;
+use sea_orm_migration::prelude::*;
 
 use crate::enums::*;
+use crate::extension::postgres::Type;
 use crate::macros::*;
-
-use sea_orm_migration::prelude::*;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -40,7 +39,12 @@ impl MigrationTrait for Migration {
             .create_table(
                 Table::create()
                     .table(Round::Table)
-                    .col(ColumnDef::new(Round::Id).integer().auto_increment().primary_key())
+                    .col(
+                        ColumnDef::new(Round::Id)
+                            .integer()
+                            .auto_increment()
+                            .primary_key(),
+                    )
                     .col(ColumnDef::new(Round::RoundNumber).integer().not_null())
                     .col(ColumnDef::new(Round::CompetitionId).integer().not_null())
                     .foreign_key(
@@ -268,7 +272,7 @@ impl MigrationTrait for Migration {
                     .col(
                         ColumnDef::new(CompetitionInFantasyTournament::Id)
                             .integer()
-                            .not_null()
+                            .auto_increment()
                             .primary_key(),
                     )
                     .col(
@@ -278,6 +282,7 @@ impl MigrationTrait for Migration {
                     )
                     .foreign_key(
                         ForeignKey::create()
+                            .name("fk_competition_in_fantasy_tournament_competition")
                             .from(
                                 CompetitionInFantasyTournament::Table,
                                 CompetitionInFantasyTournament::CompetitionId,
@@ -309,6 +314,17 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
+
+        /*manager.create_foreign_key(
+            ForeignKey::create()
+                .name("fk_competition_to_competition_in_tournament")
+                .from(
+                    Competition::Table,
+                    Competition::Id
+                )
+                .to(CompetitionInFantasyTournament::Table, CompetitionInFantasyTournament::CompetitionId)
+                .on_delete(ForeignKeyAction::Cascade).to_owned()
+        ).await?;*/
         Ok(())
     }
 
@@ -320,6 +336,11 @@ impl MigrationTrait for Migration {
         drop_table!(FantasyTournament, manager);
         drop_table!(FantasyTournamentDivision, manager);
         drop_table!(CompetitionInFantasyTournament, manager);
+        drop_table!(Round, manager);
+        /*manager.drop_foreign_key(
+            ForeignKey::drop()
+                .name("fk_competition_to_competition_in_tournament").to_owned()
+        ).await?;*/
         Ok(())
     }
 }

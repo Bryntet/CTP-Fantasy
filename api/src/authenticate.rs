@@ -25,9 +25,58 @@ use sea_orm::ColumnTrait;
 use sea_orm::QueryFilter;
 use user::Model as UserModel;
 use user_cookies::Model as CookieModel;
-pub struct CookieAuth(String);
 
-impl CookieAuth {
+#[derive(OpenApiFromRequest, Debug)]
+pub struct Authenticated(String);
+
+#[derive(OpenApiFromRequest, Debug)]
+pub struct TournamentOwner {
+    pub user: Authenticated,
+    pub tournament_id: u32,
+}
+
+impl TournamentOwner {
+    async fn is_authenticated(&self, db: &DatabaseConnection) -> bool {
+
+        if let Ok(Some(c)) = self.user.get_cookie(db).await {
+            c.user_id == self.get_owner_id(db).await.unwrap_or(-1)
+        } else {
+            false
+        }
+    }
+
+    async fn get_owner_id(&self, db: &DatabaseConnection) -> Result<i32, GenericError> {
+        entity::fantasy_tournament::Entity::find_by_id(self.tournament_id as i32).one(db).await?.map(|c| c.owner).ok_or(UserError::InvalidUserId("User not found").into())
+    }
+}
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for TournamentOwner {
+    type Error = AuthError;
+
+    async fn from_request(request: &'r Request<'_>) -> request::Outcome<Self, Self::Error> {
+        let db = request
+            .rocket()
+            .state::<DatabaseConnection>()
+            .expect("Database not found");
+        let cookie = request.guard::<Authenticated>().await;
+        let t = cookie.map(|cookie|{
+            request
+                .param::<u32>(1).map(|t_id|t_id.map(|t_id| {
+                Self {
+                    user: cookie,
+                    tournament_id: t_id,
+                }
+            })).or_forward(Status::BadRequest)
+        }).and_then(|t|t);
+        if let Some(Ok(t)) = t.succeeded() {
+            t.is_authenticated(db).await.then_some(t).or_forward(Status::Unauthorized)
+        } else {
+            None.or_forward(Status::BadRequest)
+        }
+    }
+}
+
+impl Authenticated {
     async fn get_cookie(&self, db: &DatabaseConnection) -> Result<Option<CookieModel>, DbErr> {
         entity::prelude::UserCookies::find_by_id(self.0.to_owned())
             .one(db)
@@ -108,7 +157,7 @@ impl CookieAuth {
 
 // Implement the actual checks for the authentication
 #[rocket::async_trait]
-impl<'a> FromRequest<'a> for CookieAuth {
+impl<'a> FromRequest<'a> for Authenticated {
     type Error = AuthError;
     async fn from_request(request: &'a Request<'_>) -> request::Outcome<Self, Self::Error> {
         let db = request
@@ -120,7 +169,7 @@ impl<'a> FromRequest<'a> for CookieAuth {
         let a: request::Outcome<&str, Self::Error> = c.or_forward(Status::Unauthorized);
 
         let res = if let Some(c_string) = a.succeeded() {
-            CookieAuth::new_checked(c_string.to_string(), db).await
+            Authenticated::new_checked(c_string.to_string(), db).await
         } else {
             None
         };
@@ -128,7 +177,7 @@ impl<'a> FromRequest<'a> for CookieAuth {
     }
 }
 
-impl<'a> OpenApiFromRequest<'a> for CookieAuth {
+/*impl<'a> OpenApiFromRequest<'a> for CookieAuth {
     fn from_request_input(
         gen: &mut OpenApiGenerator,
         _name: String,
@@ -153,13 +202,13 @@ impl<'a> OpenApiFromRequest<'a> for CookieAuth {
             extensions: Object::default(),
         }))
     }
-}
+}*/
 
 #[openapi(tag = "User")]
 #[get("/check-cookie")]
 pub async fn check_cookie(
     db: &State<DatabaseConnection>,
-    user_cookie: CookieAuth,
+    user_cookie: Authenticated,
 ) -> Result<&'static str, GenericError> {
     match user_cookie.is_valid(db.inner()).await {
         true => Ok("Cookie is valid"),
@@ -218,7 +267,7 @@ pub(crate) async fn login(
 pub(crate) async fn logout(
     db: &State<DatabaseConnection>,
     cookies: &CookieJar<'_>,
-    user: CookieAuth,
+    user: Authenticated,
 ) -> Result<&'static str, GenericError> {
     user.remove_cookie(db.inner(), cookies).await?;
 
@@ -230,7 +279,7 @@ pub(crate) async fn logout(
 pub(crate) async fn logout_all(
     db: &State<DatabaseConnection>,
     cookies: &CookieJar<'_>,
-    user: CookieAuth,
+    user: Authenticated,
 ) -> Result<&'static str, GenericError> {
     user.remove_all_cookies(db.inner(), cookies).await?;
 

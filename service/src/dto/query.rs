@@ -1,15 +1,15 @@
 use super::*;
+use crate::dto::pdga::CompetitionInfo;
 use crate::error::GenericError;
+use crate::dto::pdga::fetch_people::CompetitionInfoInput;
 use entity::prelude::{Player, Round};
 use entity::{user, user_authentication};
-use sea_orm::ActiveValue::Set;
-use sea_orm::{ConnectionTrait, DatabaseConnection, EntityTrait, ModelTrait, NotSet};
 use sea_orm::prelude::Date;
-use crate::CompetitionInfoInput;
-use crate::dto::pdga::CompetitionInfo;
+use sea_orm::ActiveValue::Set;
 use sea_orm::ColumnTrait;
 use sea_orm::DbErr;
 use sea_orm::QueryFilter;
+use sea_orm::{ConnectionTrait, DatabaseConnection, EntityTrait, ModelTrait, NotSet};
 trait ToModel {
     type Model;
     fn to_model(&self) -> Self::Model;
@@ -110,15 +110,13 @@ impl FantasyPick {
     }
 }
 
-
-
 impl CompetitionInfo {
     pub(crate) fn active_model(&self) -> competition::ActiveModel {
         competition::ActiveModel {
             id: Set(self.competition_id as i32),
             status: Set(sea_orm_active_enums::CompetitionStatus::NotStarted),
             name: Set(self.name.clone()),
-            rounds: Default::default(),
+            rounds: Set(self.date_range.len() as i32),
         }
     }
 
@@ -131,9 +129,28 @@ impl CompetitionInfo {
         }
     }
 
-    pub(crate) async fn round<C>(&self, db: &C, date: Date) -> Result<Option<round::Model>, DbErr> where C: ConnectionTrait {
-        Round::find().filter(entity::round::Column::Date.eq::<Date>(date).and(entity::round::Column::CompetitionId.eq(self.competition_id as i32)))
+    pub(crate) async fn round<C>(&self, db: &C, date: Date) -> Result<Option<round::Model>, DbErr>
+    where
+        C: ConnectionTrait,
+    {
+        Round::find()
+            .filter(
+                round::Column::Date
+                    .eq::<Date>(date)
+                    .and(entity::round::Column::CompetitionId.eq(self.competition_id as i32)),
+            )
             .one(db)
             .await
+    }
+
+    pub(crate) fn fantasy_model(
+        &self,
+        fantasy_tournament_id: u32,
+    ) -> competition_in_fantasy_tournament::ActiveModel {
+        competition_in_fantasy_tournament::ActiveModel {
+            id: NotSet,
+            competition_id: Set(self.competition_id as i32),
+            fantasy_tournament_id: Set(fantasy_tournament_id as i32),
+        }
     }
 }

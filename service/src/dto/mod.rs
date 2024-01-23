@@ -1,9 +1,9 @@
 mod mutation;
 mod pdga;
 mod query;
-
 use crate::dto;
 use entity::*;
+pub use pdga::CompetitionInfo;
 use rocket::serde::{Deserialize, Serialize};
 use rocket_okapi::okapi::schemars::{self, JsonSchema};
 
@@ -61,7 +61,7 @@ pub struct LoginInput {
     pub password: String,
 }
 
-#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone)]
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
 pub enum Division {
     MPO,
     FPO,

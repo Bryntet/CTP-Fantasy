@@ -297,3 +297,13 @@ pub async fn get_tournament_divisions(
 
     Ok(picks.iter().map(|p| p.clone().division.into()).collect())
 }
+
+pub async fn is_competition_added<C>(db: &C, competition_id: u32) -> Result<bool, DbErr>
+where
+    C: ConnectionTrait,
+{
+    let comp = Competition::find_by_id(competition_id as i32)
+        .one(db)
+        .await?;
+    Ok(comp.is_some())
+}

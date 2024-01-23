@@ -37,6 +37,26 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
+
+
+        manager
+            .create_table(
+                Table::create()
+                    .table(Player::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(Player::PDGANumber)
+                            .integer()
+                            .not_null()
+                            .primary_key(),
+                    )
+                    .col(ColumnDef::new(Player::FirstName).string().not_null())
+                    .col(ColumnDef::new(Player::LastName).string().not_null())
+                    .col(ColumnDef::new(Player::Avatar).string())
+
+                    .to_owned(),
+            )
+            .await?;
         manager
             .create_table(
                 Table::create()
@@ -53,29 +73,11 @@ impl MigrationTrait for Migration {
                             .custom(Division::Table)
                             .not_null(),
                     )
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .create_table(
-                Table::create()
-                    .table(Player::Table)
-                    .if_not_exists()
-                    .col(
-                        ColumnDef::new(Player::PDGANumber)
-                            .integer()
-                            .not_null()
-                            .primary_key(),
-                    )
-                    .col(ColumnDef::new(Player::FirstName).string().not_null())
-                    .col(ColumnDef::new(Player::LastName).string().not_null())
-                    .col(ColumnDef::new(Player::Avatar).string())
                     .foreign_key(
                         ForeignKey::create()
-                            .name("fk_player_pdga_number_player_division")
-                            .from(Player::Table, Player::PDGANumber)
-                            .to(PlayerDivision::Table, PlayerDivision::PlayerPDGANumber),
+                            .name("fk_player_division_to_player")
+                            .to(Player::Table, Player::PDGANumber)
+                            .from(PlayerDivision::Table, PlayerDivision::PlayerPDGANumber),
                     )
                     .to_owned(),
             )

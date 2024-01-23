@@ -1,10 +1,8 @@
 mod authenticate;
-mod externally_update_internal;
 mod mutation;
 mod query;
 mod utils;
 
-use externally_update_internal as ext_to_int;
 use std::net::{IpAddr, Ipv4Addr};
 
 use rocket_okapi::openapi_get_routes;
@@ -14,7 +12,6 @@ extern crate rocket;
 
 use authenticate::*;
 use dotenvy::dotenv;
-use ext_to_int::*;
 use mutation::*;
 use query::*;
 use rocket::fs::FileServer;
@@ -42,7 +39,6 @@ pub async fn launch() -> Rocket<Build> {
             "/api",
             openapi_get_routes![
                 create_tournament,
-                fetch_competition,
                 create_user,
                 login,
                 add_pick,
@@ -60,6 +56,7 @@ pub async fn launch() -> Rocket<Build> {
                 get_max_picks,
                 get_user_pick,
                 get_divisions,
+                add_competition
             ],
         )
         .mount(
@@ -85,5 +82,5 @@ pub async fn launch() -> Rocket<Build> {
             }),
         )
         .mount("/", FileServer::from(flutter_path))
-        .configure(config)
+        //.configure(config)
 }

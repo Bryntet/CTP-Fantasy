@@ -47,7 +47,7 @@ use service::error::GenericError::{AuthError, CookieError};
 pub(crate) async fn create_tournament(
     tournament: Json<service::dto::CreateTournament>,
     db: &State<DatabaseConnection>,
-    user: authenticate::CookieAuth,
+    user: authenticate::Authenticated,
 ) -> Result<(), GenericError> {
     dbg!("hi");
 
@@ -119,7 +119,7 @@ pub(crate) async fn create_user(
 #[openapi(tag = "Fantasy Tournament")]
 #[put("/fantasy-tournament/<fantasy_tournament_id>/user/<user_id>/picks/div/<division>/<slot>/<pdga_number>")]
 pub(crate) async fn add_pick(
-    user: authenticate::CookieAuth,
+    user: authenticate::Authenticated,
     db: &State<DatabaseConnection>,
     user_id: i32,
     fantasy_tournament_id: i32,
@@ -127,7 +127,6 @@ pub(crate) async fn add_pick(
     pdga_number: i32,
     division: service::dto::Division,
 ) -> Result<&'static str, GenericError> {
-    dbg!("hi");
     let not_permitted = UserError::NotPermitted("You are not permitted to add picks for this user");
     let db = db.inner();
     let user = user.to_user_model(db).await?;
@@ -159,7 +158,7 @@ pub(crate) async fn add_pick(
     data = "<json_picks>"
 )]
 pub(crate) async fn add_picks(
-    user: authenticate::CookieAuth,
+    user: authenticate::Authenticated,
     db: &State<DatabaseConnection>,
     user_id: i32,
     fantasy_tournament_id: i32,
@@ -185,12 +184,12 @@ pub(crate) async fn add_picks(
 #[openapi(tag = "Fantasy Tournament")]
 #[post("/fantasy-tournament/<fantasy_tournament_id>/invite/<invited_user>")]
 pub(crate) async fn invite_user(
-    user: authenticate::CookieAuth,
+    auth: authenticate::TournamentOwner,
     db: &State<DatabaseConnection>,
     fantasy_tournament_id: i32,
     invited_user: String,
 ) -> Result<String, GenericError> {
-    let user = user.to_user_model(db).await?;
+    let user = auth.user.to_user_model(db).await?;
     match service::create_invite(db, user, invited_user, fantasy_tournament_id).await {
         Ok(_) => Ok("Successfully invited user".to_string()),
         Err(e) => Err(e.into()),
@@ -200,7 +199,7 @@ pub(crate) async fn invite_user(
 #[openapi(tag = "Fantasy Tournament")]
 #[post("/fantasy-tournament/<fantasy_tournament_id>/answer-invite/<accepted>")]
 pub(crate) async fn answer_invite(
-    user: authenticate::CookieAuth,
+    user: authenticate::Authenticated,
     db: &State<DatabaseConnection>,
     fantasy_tournament_id: i32,
     accepted: bool,
@@ -210,4 +209,30 @@ pub(crate) async fn answer_invite(
         Ok(()) => Ok("Successfully answered invite".to_string()),
         Err(e) => Err(e.into()),
     }
+}
+
+#[openapi(tag = "Fantasy Tournament")]
+#[post("/fantasy-tournament/<fantasy_tournament_id>/add-competition/<competition_id>")]
+pub(crate) async fn add_competition(
+    auth: authenticate::TournamentOwner,
+    db: &State<DatabaseConnection>,
+    fantasy_tournament_id: u32,
+    competition_id: u32,
+) -> Result<String, GenericError> {
+
+    let txn = db.inner().begin().await?;
+
+    match service::dto::CompetitionInfo::from_web(competition_id).await {
+        Ok(competition) => {
+            competition.insert_in_fantasy(&txn, fantasy_tournament_id).await?;
+            competition.insert_players(&txn).await?;
+            txn.commit().await?;
+            Ok("Successfully added competition".to_string())
+        }
+        Err(e) => {
+            Err(GenericError::NotFound("Competition not found in PDGA"))
+        }
+    }
+
+
 }

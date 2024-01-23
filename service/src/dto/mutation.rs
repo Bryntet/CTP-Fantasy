@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+use crate::dto::pdga::CompetitionInfo;
 use crate::error::GenericError;
 use crate::error::PlayerError;
 use crate::{generate_cookie, get_player_division, player_exists};
@@ -9,11 +11,15 @@ use entity::prelude::{
 use entity::sea_orm_active_enums::FantasyTournamentInvitationStatus;
 use rocket::http::CookieJar;
 use rocket::request::FromParam;
-use sea_orm::ActiveValue::Set;
-use sea_orm::{ActiveModelTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait, IntoActiveModel, NotSet, TransactionTrait};
-use std::fmt::Display;
 use sea_orm::prelude::Date;
-use crate::dto::pdga::CompetitionInfo;
+use sea_orm::ActiveValue::Set;
+use sea_orm::{
+    ActiveModelTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait, IntoActiveModel,
+    NotSet, TransactionTrait,
+};
+use std::fmt::Display;
+use itertools::Itertools;
+use crate::dto::pdga::fetch_people::add_players;
 
 use super::*;
 
@@ -226,22 +232,23 @@ impl PlayerInCompetition {
     }
 }
 
-
 impl CompetitionInfo {
-    async fn insert_if_not_exists(&self, db: &sea_orm::DatabaseConnection) -> Result<(), DbErr> {
+    pub async fn insert<C>(&self, db: &C) -> Result<(), DbErr>
+    where
+        C: ConnectionTrait,
+    {
         use entity::prelude::Competition;
-        let competition = Competition::find_by_id(self.competition_id as i32)
-            .one(db)
-            .await?;
-        if competition.is_none() {
-            Competition::insert(self.active_model())
-                .exec(db)
-                .await?;
-        }
+
+        Competition::insert(self.active_model()).exec(db).await?;
+        self.insert_rounds(db).await?;
+
         Ok(())
     }
 
-    async fn insert_rounds(&self, db: &sea_orm::DatabaseConnection) -> Result<(), DbErr> {
+    pub async fn insert_rounds<C>(&self, db: &C) -> Result<(), DbErr>
+    where
+        C: ConnectionTrait,
+    {
         use entity::prelude::Round;
         for date in &self.date_range {
             if self.round(db, *date).await?.is_none() {
@@ -253,4 +260,56 @@ impl CompetitionInfo {
         Ok(())
     }
 
+    pub async fn insert_in_fantasy<C>(
+        &self,
+        db: &C,
+        fantasy_tournament_id: u32,
+    ) -> Result<(), GenericError>
+    where
+        C: ConnectionTrait,
+    {
+        use entity::prelude::{Competition, CompetitionInFantasyTournament};
+        let competition = Competition::find_by_id(self.competition_id as i32)
+            .one(db)
+            .await?;
+
+        let competition_in_fantasy =
+            CompetitionInFantasyTournament::find_by_id(self.competition_id as i32)
+                .one(db)
+                .await?;
+        if competition.is_none() {
+            self.insert(db).await?;
+        }
+        if competition_in_fantasy.is_some() {
+            Err(GenericError::Conflict("Competition already added"))
+        } else {
+            CompetitionInFantasyTournament::insert(self.fantasy_model(fantasy_tournament_id))
+                .exec(db)
+                .await?;
+            Ok(())
+        }
+    }
+
+    pub async fn insert_players<C>(&self, db: &C) -> Result<(), GenericError>
+    where
+        C: ConnectionTrait,
+    {
+        let mut players = HashSet::new();
+        for div in &self.divisions {
+            for round in 1..=self.rounds {
+                let p_vec =
+                pdga::add_players_from_competition(
+                    self.competition_id,
+                    div.to_string(),
+                    round as i32,
+                )
+                .await.unwrap_or(vec![]);
+                for p in p_vec {
+                    players.insert(p);
+                }
+            }
+        }
+        add_players(db, players.into_iter().collect_vec()).await?;
+        Ok(())
+    }
 }
