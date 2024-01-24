@@ -15,7 +15,7 @@ use sea_orm::TransactionTrait;
 
 use service::dto::FantasyPick;
 use service::dto::UserLogin;
-use service::error::GenericError::{AuthError, CookieError};
+
 
 /// # Create a fantasy tournament
 ///
@@ -214,7 +214,7 @@ pub(crate) async fn answer_invite(
 #[openapi(tag = "Fantasy Tournament")]
 #[post("/fantasy-tournament/<fantasy_tournament_id>/add-competition/<competition_id>")]
 pub(crate) async fn add_competition(
-    auth: authenticate::TournamentOwner,
+    _auth: authenticate::TournamentOwner,
     db: &State<DatabaseConnection>,
     fantasy_tournament_id: u32,
     competition_id: u32,
@@ -229,7 +229,7 @@ pub(crate) async fn add_competition(
             txn.commit().await?;
             Ok("Successfully added competition".to_string())
         }
-        Err(e) => {
+        Err(_e) => {
             Err(GenericError::NotFound("Competition not found in PDGA"))
         }
     }

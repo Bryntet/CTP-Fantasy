@@ -3,7 +3,7 @@ mod mutation;
 mod query;
 mod utils;
 
-use std::net::{IpAddr, Ipv4Addr};
+use std::net::{Ipv4Addr};
 
 use rocket_okapi::openapi_get_routes;
 
@@ -29,7 +29,7 @@ pub async fn launch() -> Rocket<Build> {
             .unwrap();
     let flutter_path = std::env::var("FLUTTER_PATH").expect("FLUTTER_PATH not set");
 
-    let config = Config {
+    let _config = Config {
         address: Ipv4Addr::new(192, 169, 21, 12).into(),
         ..Default::default()
     };

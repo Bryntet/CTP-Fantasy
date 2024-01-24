@@ -1,6 +1,6 @@
 use entity::prelude::User;
 use entity::{user, user_cookies};
-use rocket::data::Outcome;
+
 use rocket::http::{CookieJar, Status};
 use rocket::outcome::IntoOutcome;
 use rocket::serde::json::Json;
@@ -10,11 +10,10 @@ use rocket::{
     request::{self, FromRequest},
     Request, State,
 };
-use rocket_okapi::okapi::openapi3::{Object, Parameter, ParameterValue};
+
 use rocket_okapi::{
-    gen::OpenApiGenerator,
     openapi,
-    request::{OpenApiFromRequest, RequestHeaderInput},
+    request::{OpenApiFromRequest},
 };
 use sea_orm::{DatabaseConnection, DbErr, EntityTrait, ModelTrait, TransactionTrait};
 
