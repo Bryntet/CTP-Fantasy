@@ -16,7 +16,6 @@ use sea_orm::TransactionTrait;
 use service::dto::FantasyPick;
 use service::dto::UserLogin;
 
-
 /// # Create a fantasy tournament
 ///
 /// # Parameters
@@ -219,19 +218,18 @@ pub(crate) async fn add_competition(
     fantasy_tournament_id: u32,
     competition_id: u32,
 ) -> Result<String, GenericError> {
-
     let txn = db.inner().begin().await?;
 
     match service::dto::CompetitionInfo::from_web(competition_id).await {
         Ok(competition) => {
-            competition.insert_in_fantasy(&txn, fantasy_tournament_id).await?;
+            competition
+                .insert_in_fantasy(&txn, fantasy_tournament_id)
+                .await?;
             competition.insert_players(&txn).await?;
             txn.commit().await?;
             Ok("Successfully added competition".to_string())
         }
-        Err(_e) => {
-            Err(GenericError::NotFound("Competition not found in PDGA"))
-        }
+        Err(_e) => Err(GenericError::NotFound("Competition not found in PDGA")),
     }
 }
 

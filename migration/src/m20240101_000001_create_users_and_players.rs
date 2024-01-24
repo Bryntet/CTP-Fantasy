@@ -37,8 +37,6 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-
-
         manager
             .create_table(
                 Table::create()
@@ -53,7 +51,6 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Player::FirstName).string().not_null())
                     .col(ColumnDef::new(Player::LastName).string().not_null())
                     .col(ColumnDef::new(Player::Avatar).string())
-
                     .to_owned(),
             )
             .await?;

@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use crate::dto::pdga::CompetitionInfo;
 use crate::error::GenericError;
 use crate::error::PlayerError;
@@ -11,15 +10,16 @@ use entity::prelude::{
 use entity::sea_orm_active_enums::FantasyTournamentInvitationStatus;
 use rocket::http::CookieJar;
 use rocket::request::FromParam;
+use std::collections::HashSet;
 
+use crate::dto::pdga::fetch_people::add_players;
+use itertools::Itertools;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
     ActiveModelTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait, IntoActiveModel,
     NotSet, TransactionTrait,
 };
 use std::fmt::Display;
-use itertools::Itertools;
-use crate::dto::pdga::fetch_people::add_players;
 
 use super::*;
 
@@ -92,7 +92,7 @@ impl From<Division> for &sea_orm_active_enums::Division {
         match division {
             Division::MPO => &sea_orm_active_enums::Division::Mpo,
             Division::FPO => &sea_orm_active_enums::Division::Fpo,
-            Division::Unknown => Division::MPO.into()
+            Division::Unknown => Division::MPO.into(),
         }
     }
 }
@@ -101,7 +101,7 @@ impl From<Division> for sea_orm_active_enums::Division {
         match division {
             Division::MPO => sea_orm_active_enums::Division::Mpo,
             Division::FPO => sea_orm_active_enums::Division::Fpo,
-            Division::Unknown => Division::MPO.into()
+            Division::Unknown => Division::MPO.into(),
         }
     }
 }
@@ -138,7 +138,7 @@ impl Display for Division {
         let str = match self {
             Division::MPO => "Mpo".to_string(),
             Division::FPO => "Fpo".to_string(),
-            Division::Unknown => "Mpo".to_string()
+            Division::Unknown => "Mpo".to_string(),
         };
         write!(f, "{}", str)
     }
@@ -300,13 +300,13 @@ impl CompetitionInfo {
         let mut players = HashSet::new();
         for div in &self.divisions {
             for round in 1..=self.rounds {
-                let p_vec =
-                pdga::add_players_from_competition(
+                let p_vec = pdga::add_players_from_competition(
                     self.competition_id,
                     div.to_string(),
                     round as i32,
                 )
-                .await.unwrap_or(vec![]);
+                .await
+                .unwrap_or(vec![]);
                 for p in p_vec {
                     if p.pdga_number != 0 {
                         players.insert(p);

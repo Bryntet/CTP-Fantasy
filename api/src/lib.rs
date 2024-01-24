@@ -3,7 +3,7 @@ mod mutation;
 mod query;
 mod utils;
 
-use std::net::{Ipv4Addr};
+use std::net::Ipv4Addr;
 
 use rocket_okapi::openapi_get_routes;
 
@@ -20,6 +20,12 @@ use rocket_okapi::rapidoc::{make_rapidoc, GeneralConfig, HideShowConfig, RapiDoc
 use rocket_okapi::settings::UrlObject;
 use rocket_okapi::swagger_ui::{make_swagger_ui, SwaggerUIConfig};
 use service::*;
+
+#[catch(404)]
+fn general_not_found() -> &'static str {
+    "Api endpoint not found"
+}
+
 pub async fn launch() -> Rocket<Build> {
     dotenv().ok();
 
@@ -81,6 +87,7 @@ pub async fn launch() -> Rocket<Build> {
                 ..Default::default()
             }),
         )
+        .register("/api",catchers![general_not_found])
         .mount("/", FileServer::from(flutter_path))
-        //.configure(config)
+    //.configure(config)
 }

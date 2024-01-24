@@ -1,11 +1,6 @@
-
-
-use sea_orm::{DbErr};
+use sea_orm::DbErr;
 use serde::Deserialize;
 use std::collections::HashMap;
-
-
-
 
 #[derive(Deserialize, Debug)]
 struct CompetitionInfoResponse {
@@ -13,8 +8,8 @@ struct CompetitionInfoResponse {
 }
 #[derive(Deserialize, Debug)]
 struct ApiDivision {
-    #[serde(rename="Division")]
-    division: super::Division
+    #[serde(rename = "Division")]
+    division: super::Division,
 }
 #[derive(Deserialize, Debug)]
 struct ApiCompetitionInfo {
@@ -27,8 +22,6 @@ struct ApiCompetitionInfo {
     #[serde(rename = "Rounds")]
     rounds: usize,
 }
-
-
 
 #[derive(Deserialize, Debug)]
 struct Round {
@@ -45,12 +38,11 @@ pub struct CompetitionInfo {
     pub(crate) rounds: usize,
 }
 
-
-
 impl CompetitionInfo {
     pub async fn from_web(competition_id: u32) -> Result<Self, reqwest::Error> {
         let url = format!("https://www.pdga.com/apps/tournament/live-api/live_results_fetch_event.php?TournID={competition_id}");
-        let resp: Result<CompetitionInfoResponse, reqwest::Error> = reqwest::get(url).await?.json().await;
+        let resp: Result<CompetitionInfoResponse, reqwest::Error> =
+            reqwest::get(url).await?.json().await;
         match resp {
             Ok(resp) => {
                 dbg!(&resp);
@@ -62,16 +54,14 @@ impl CompetitionInfo {
                     date_range: dates,
                     competition_id,
                     rounds: info.rounds,
-                    divisions: info.divisions.into_iter().map(|d|d.division).collect(),
+                    divisions: info.divisions.into_iter().map(|d| d.division).collect(),
                 })
             }
             Err(e) => {
                 dbg!(&e);
                 Err(e)
-
             }
         }
-
     }
 }
 
@@ -85,8 +75,8 @@ fn parse_date_range(res: &CompetitionInfoResponse) -> Result<Vec<sea_orm::prelud
 
 #[cfg(test)]
 mod tests {
-    use rocket::time::Month;
     use super::*;
+    use rocket::time::Month;
 
     #[tokio::test]
     async fn test_parse_date_range() {
@@ -113,16 +103,16 @@ mod tests {
     }
 }
 
-
 pub(crate) mod fetch_people {
-    use std::hash::{Hash, Hasher};
     use crate::dto;
-    
+    use std::hash::{Hash, Hasher};
+
     use rocket_okapi::okapi::schemars;
     use rocket_okapi::okapi::schemars::JsonSchema;
-    use sea_orm::{ActiveModelTrait, ConnectionTrait, DbErr, EntityTrait, IntoActiveModel, sea_query};
+    use sea_orm::{
+        sea_query, ActiveModelTrait, ConnectionTrait, DbErr, EntityTrait, IntoActiveModel,
+    };
     use serde::Deserialize;
-    
 
     #[derive(Debug, Deserialize, JsonSchema)]
     pub struct CompetitionInfoInput {
@@ -161,7 +151,7 @@ pub(crate) mod fetch_people {
                 last_name: self.last_name,
                 avatar: self.avatar.map(|s| "https://www.pdga.com".to_string() + &s),
             }
-                .into_active_model()
+            .into_active_model()
         }
 
         fn to_division(&self) -> entity::player_division::ActiveModel {
@@ -169,7 +159,7 @@ pub(crate) mod fetch_people {
                 player_pdga_number: self.pdga_number,
                 division: self.division.clone().into(),
             }
-                .into_active_model()
+            .into_active_model()
         }
     }
 
@@ -191,17 +181,24 @@ pub(crate) mod fetch_people {
         let get_url = format!("https://www.pdga.com/apps/tournament/live-api/live_results_fetch_round.php?TournID={tour_id}&Division={div_name}&Round={round_id}");
         let response: ApiResponse = reqwest::get(&get_url).await?.json().await?;
 
-        Ok( response.data.scores )
+        Ok(response.data.scores)
     }
-    
-    pub async fn add_players<C>(db: &C, players: Vec<ApiPlayer>) -> Result<(), DbErr> where C: ConnectionTrait {
 
-        entity::player::Entity::insert_many(players.into_iter().map(|p|p.into_active_model())).on_conflict(
-            sea_query::OnConflict::column(entity::player::Column::PdgaNumber).do_nothing().to_owned()
-        ).on_empty_do_nothing().exec(db).await?;
+    pub async fn add_players<C>(db: &C, players: Vec<ApiPlayer>) -> Result<(), DbErr>
+    where
+        C: ConnectionTrait,
+    {
+        entity::player::Entity::insert_many(players.into_iter().map(|p| p.into_active_model()))
+            .on_conflict(
+                sea_query::OnConflict::column(entity::player::Column::PdgaNumber)
+                    .do_nothing()
+                    .to_owned(),
+            )
+            .on_empty_do_nothing()
+            .exec(db)
+            .await?;
         Ok(())
     }
-
 }
 
-pub(super) use fetch_people::{add_players_from_competition};
+pub(super) use fetch_people::add_players_from_competition;

@@ -2,7 +2,7 @@ mod mutation;
 mod pdga;
 mod query;
 
-use rocket::{FromFormField};
+use rocket::FromFormField;
 
 use entity::*;
 pub use pdga::CompetitionInfo;
@@ -29,7 +29,7 @@ pub struct FantasyPicks {
     pub(crate) fantasy_tournament_id: i32,
 }
 
-#[derive(Deserialize, JsonSchema, Debug, Clone)]
+#[derive(Deserialize, JsonSchema, Debug, Clone,)]
 pub struct UserLogin {
     pub username: String,
     pub password: String,

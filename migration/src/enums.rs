@@ -41,7 +41,7 @@ pub(crate) enum Competition {
     Name,
     Status,
     Rounds,
-    Placeholder
+    Placeholder,
 }
 
 #[derive(DeriveIden)]

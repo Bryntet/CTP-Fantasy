@@ -11,10 +11,7 @@ use rocket::{
     Request, State,
 };
 
-use rocket_okapi::{
-    openapi,
-    request::{OpenApiFromRequest},
-};
+use rocket_okapi::{openapi, request::OpenApiFromRequest};
 use sea_orm::{DatabaseConnection, DbErr, EntityTrait, ModelTrait, TransactionTrait};
 
 use crate::error;
@@ -36,7 +33,6 @@ pub struct TournamentOwner {
 
 impl TournamentOwner {
     async fn is_authenticated(&self, db: &DatabaseConnection) -> bool {
-
         if let Ok(Some(c)) = self.user.get_cookie(db).await {
             c.user_id == self.get_owner_id(db).await.unwrap_or(-1)
         } else {
@@ -45,7 +41,11 @@ impl TournamentOwner {
     }
 
     async fn get_owner_id(&self, db: &DatabaseConnection) -> Result<i32, GenericError> {
-        entity::fantasy_tournament::Entity::find_by_id(self.tournament_id as i32).one(db).await?.map(|c| c.owner).ok_or(UserError::InvalidUserId("User not found").into())
+        entity::fantasy_tournament::Entity::find_by_id(self.tournament_id as i32)
+            .one(db)
+            .await?
+            .map(|c| c.owner)
+            .ok_or(UserError::InvalidUserId("User not found").into())
     }
 }
 #[rocket::async_trait]
@@ -58,17 +58,24 @@ impl<'r> FromRequest<'r> for TournamentOwner {
             .state::<DatabaseConnection>()
             .expect("Database not found");
         let cookie = request.guard::<Authenticated>().await;
-        let t = cookie.map(|cookie|{
-            request
-                .param::<u32>(1).map(|t_id|t_id.map(|t_id| {
-                Self {
-                    user: cookie,
-                    tournament_id: t_id,
-                }
-            })).or_forward(Status::BadRequest)
-        }).and_then(|t|t);
+        let t = cookie
+            .map(|cookie| {
+                request
+                    .param::<u32>(1)
+                    .map(|t_id| {
+                        t_id.map(|t_id| Self {
+                            user: cookie,
+                            tournament_id: t_id,
+                        })
+                    })
+                    .or_forward(Status::BadRequest)
+            })
+            .and_then(|t| t);
         if let Some(Ok(t)) = t.succeeded() {
-            t.is_authenticated(db).await.then_some(t).or_forward(Status::Unauthorized)
+            t.is_authenticated(db)
+                .await
+                .then_some(t)
+                .or_forward(Status::Unauthorized)
         } else {
             None.or_forward(Status::BadRequest)
         }

@@ -2,7 +2,7 @@ use super::*;
 use crate::dto::pdga::CompetitionInfo;
 use crate::error::GenericError;
 
-use entity::prelude::{Round};
+use entity::prelude::Round;
 use entity::{user, user_authentication};
 use sea_orm::prelude::Date;
 use sea_orm::ActiveValue::Set;
