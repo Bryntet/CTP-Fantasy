@@ -100,7 +100,7 @@ enum ForeignKeyError {
 }
 impl ForeignKeyError {
     fn new(error: &PgDatabaseError) -> Self {
-        let msg = error.message();
+        let _msg = error.message();
         if let Some(constraint) = error.constraint() {
             if let Some(detail) = error.detail() {
                 if constraint == "fantasy_tournament_owner_fkey" {

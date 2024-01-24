@@ -1,15 +1,15 @@
 use super::*;
 use crate::dto::pdga::CompetitionInfo;
 use crate::error::GenericError;
-use crate::dto::pdga::fetch_people::CompetitionInfoInput;
-use entity::prelude::{Player, Round};
+
+use entity::prelude::{Round};
 use entity::{user, user_authentication};
 use sea_orm::prelude::Date;
 use sea_orm::ActiveValue::Set;
 use sea_orm::ColumnTrait;
 use sea_orm::DbErr;
 use sea_orm::QueryFilter;
-use sea_orm::{ConnectionTrait, DatabaseConnection, EntityTrait, ModelTrait, NotSet};
+use sea_orm::{ConnectionTrait, EntityTrait, NotSet};
 trait ToModel {
     type Model;
     fn to_model(&self) -> Self::Model;

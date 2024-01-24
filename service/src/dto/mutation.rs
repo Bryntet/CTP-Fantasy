@@ -11,7 +11,7 @@ use entity::prelude::{
 use entity::sea_orm_active_enums::FantasyTournamentInvitationStatus;
 use rocket::http::CookieJar;
 use rocket::request::FromParam;
-use sea_orm::prelude::Date;
+
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
     ActiveModelTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait, IntoActiveModel,

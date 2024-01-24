@@ -2,8 +2,8 @@ mod mutation;
 mod pdga;
 mod query;
 
-use rocket::{FromForm, FromFormField};
-use crate::dto;
+use rocket::{FromFormField};
+
 use entity::*;
 pub use pdga::CompetitionInfo;
 use rocket::serde::{Deserialize, Serialize};

@@ -1,10 +1,10 @@
-use sea_orm::ActiveValue::Set;
-use sea_orm::ColumnTrait;
-use sea_orm::{DbErr, EntityTrait, IntoActiveModel, QueryFilter};
+
+
+use sea_orm::{DbErr};
 use serde::Deserialize;
 use std::collections::HashMap;
-use rocket::FromForm;
-use rocket::time::Date;
+
+
 
 
 #[derive(Deserialize, Debug)]
@@ -117,12 +117,12 @@ mod tests {
 pub(crate) mod fetch_people {
     use std::hash::{Hash, Hasher};
     use crate::dto;
-    use dotenvy::dotenv;
+    
     use rocket_okapi::okapi::schemars;
     use rocket_okapi::okapi::schemars::JsonSchema;
-    use sea_orm::{ActiveModelTrait, ConnectionTrait, Database, DatabaseConnection, DbErr, EntityTrait, IntoActiveModel, sea_query, TransactionTrait};
+    use sea_orm::{ActiveModelTrait, ConnectionTrait, DbErr, EntityTrait, IntoActiveModel, sea_query};
     use serde::Deserialize;
-    use std::time::Duration;
+    
 
     #[derive(Debug, Deserialize, JsonSchema)]
     pub struct CompetitionInfoInput {
@@ -204,4 +204,4 @@ pub(crate) mod fetch_people {
 
 }
 
-pub(super) use fetch_people::{add_players_from_competition,add_players};
+pub(super) use fetch_people::{add_players_from_competition};
