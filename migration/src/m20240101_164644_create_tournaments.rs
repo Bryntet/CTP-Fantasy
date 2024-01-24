@@ -31,6 +31,7 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(ColumnDef::new(Competition::Rounds).integer().not_null())
+                    .col(ColumnDef::new(Competition::Placeholder).boolean().not_null())
                     .to_owned(),
             )
             .await?;

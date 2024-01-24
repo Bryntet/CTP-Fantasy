@@ -92,6 +92,7 @@ impl From<Division> for &sea_orm_active_enums::Division {
         match division {
             Division::MPO => &sea_orm_active_enums::Division::Mpo,
             Division::FPO => &sea_orm_active_enums::Division::Fpo,
+            Division::Unknown => Division::MPO.into()
         }
     }
 }
@@ -100,6 +101,7 @@ impl From<Division> for sea_orm_active_enums::Division {
         match division {
             Division::MPO => sea_orm_active_enums::Division::Mpo,
             Division::FPO => sea_orm_active_enums::Division::Fpo,
+            Division::Unknown => Division::MPO.into()
         }
     }
 }
@@ -136,6 +138,7 @@ impl Display for Division {
         let str = match self {
             Division::MPO => "Mpo".to_string(),
             Division::FPO => "Fpo".to_string(),
+            Division::Unknown => "Mpo".to_string()
         };
         write!(f, "{}", str)
     }
@@ -305,7 +308,9 @@ impl CompetitionInfo {
                 )
                 .await.unwrap_or(vec![]);
                 for p in p_vec {
-                    players.insert(p);
+                    if p.pdga_number != 0 {
+                        players.insert(p);
+                    }
                 }
             }
         }

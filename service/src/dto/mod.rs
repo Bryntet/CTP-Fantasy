@@ -1,6 +1,8 @@
 mod mutation;
 mod pdga;
 mod query;
+
+use rocket::{FromForm, FromFormField};
 use crate::dto;
 use entity::*;
 pub use pdga::CompetitionInfo;
@@ -61,10 +63,12 @@ pub struct LoginInput {
     pub password: String,
 }
 
-#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq, FromFormField)]
 pub enum Division {
     MPO,
     FPO,
+    #[serde(other)]
+    Unknown,
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug)]

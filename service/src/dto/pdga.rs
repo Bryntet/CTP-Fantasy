@@ -1,22 +1,22 @@
-use sea_orm::prelude::Date;
 use sea_orm::ActiveValue::Set;
 use sea_orm::ColumnTrait;
 use sea_orm::{DbErr, EntityTrait, IntoActiveModel, QueryFilter};
 use serde::Deserialize;
 use std::collections::HashMap;
+use rocket::FromForm;
+use rocket::time::Date;
 
 
-
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct CompetitionInfoResponse {
     data: ApiCompetitionInfo,
 }
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct ApiDivision {
     #[serde(rename="Division")]
     division: super::Division
 }
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct ApiCompetitionInfo {
     #[serde(rename = "RoundsList")]
     rounds_list: HashMap<String, Round>,
@@ -30,42 +30,52 @@ struct ApiCompetitionInfo {
 
 
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct Round {
     #[serde(rename = "Date")]
-    date: Date,
+    date: sea_orm::prelude::Date,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct CompetitionInfo {
     pub(crate) name: String,
-    pub(crate) date_range: Vec<Date>,
+    pub(crate) date_range: Vec<sea_orm::prelude::Date>,
     pub(crate) competition_id: u32,
     pub(crate) divisions: Vec<super::Division>,
-    pub(crate) rounds: usize
+    pub(crate) rounds: usize,
 }
+
+
 
 impl CompetitionInfo {
     pub async fn from_web(competition_id: u32) -> Result<Self, reqwest::Error> {
         let url = format!("https://www.pdga.com/apps/tournament/live-api/live_results_fetch_event.php?TournID={competition_id}");
+        let resp: Result<CompetitionInfoResponse, reqwest::Error> = reqwest::get(url).await?.json().await;
+        match resp {
+            Ok(resp) => {
+                dbg!(&resp);
+                let dates = parse_date_range(&resp).unwrap();
+                let info = resp.data;
 
-        let resp: CompetitionInfoResponse = reqwest::get(url).await?.json().await?;
-        let dates = parse_date_range(&resp).unwrap();
-        let info = resp.data;
+                Ok(Self {
+                    name: info.name,
+                    date_range: dates,
+                    competition_id,
+                    rounds: info.rounds,
+                    divisions: info.divisions.into_iter().map(|d|d.division).collect(),
+                })
+            }
+            Err(e) => {
+                dbg!(&e);
+                Err(e)
 
+            }
+        }
 
-        Ok(Self {
-            name: info.name,
-            date_range: dates,
-            competition_id,
-            rounds: info.rounds,
-            divisions: info.divisions.into_iter().map(|d|d.division).collect(),
-
-        })
     }
 }
 
-fn parse_date_range(res: &CompetitionInfoResponse) -> Result<Vec<Date>, DbErr> {
+fn parse_date_range(res: &CompetitionInfoResponse) -> Result<Vec<sea_orm::prelude::Date>, DbErr> {
     let mut dates = Vec::new();
     for round in res.data.rounds_list.values() {
         dates.push(round.date);
@@ -75,8 +85,8 @@ fn parse_date_range(res: &CompetitionInfoResponse) -> Result<Vec<Date>, DbErr> {
 
 #[cfg(test)]
 mod tests {
+    use rocket::time::Month;
     use super::*;
-    use sea_orm::prelude::Date;
 
     #[tokio::test]
     async fn test_parse_date_range() {
@@ -94,8 +104,10 @@ mod tests {
         dbg!(&info);
         let c_info = CompetitionInfo {
             name: "Winter Warriors at Järva DGP 1-27".to_string(),
-            date_range: vec![Date::from_ymd_opt(2024, 1, 28).unwrap()],
+            date_range: vec![sea_orm::prelude::Date::from_ymd_opt(2024, 1, 28).unwrap()],
             competition_id: 77583,
+            divisions: vec![super::super::Division::FPO, super::super::Division::MPO],
+            rounds: 0,
         };
         assert_eq!(info, c_info);
     }
@@ -108,7 +120,7 @@ pub(crate) mod fetch_people {
     use dotenvy::dotenv;
     use rocket_okapi::okapi::schemars;
     use rocket_okapi::okapi::schemars::JsonSchema;
-    use sea_orm::{ActiveModelTrait, ConnectionTrait, Database, DatabaseConnection, DbErr, EntityTrait, IntoActiveModel, TransactionTrait};
+    use sea_orm::{ActiveModelTrait, ConnectionTrait, Database, DatabaseConnection, DbErr, EntityTrait, IntoActiveModel, sea_query, TransactionTrait};
     use serde::Deserialize;
     use std::time::Duration;
 
@@ -176,14 +188,7 @@ pub(crate) mod fetch_people {
         div_name: String,
         round_id: i32,
     ) -> Result<Vec<ApiPlayer>, reqwest::Error> {
-        // Define a struct to mirror the JSON structure
-        dotenv().ok();
-
-
-        let get_url = format!("https://www.pdga.com/apps/tournament/live-api/live_results_fetch_round.php?TournID={}&Division={}&Round={}", tour_id, div_name, round_id);
-        //dbg!(&get_url);
-
-        // Directly deserialize the JSON response into the ApiResponse struct
+        let get_url = format!("https://www.pdga.com/apps/tournament/live-api/live_results_fetch_round.php?TournID={tour_id}&Division={div_name}&Round={round_id}");
         let response: ApiResponse = reqwest::get(&get_url).await?.json().await?;
 
         Ok( response.data.scores )
@@ -191,7 +196,9 @@ pub(crate) mod fetch_people {
     
     pub async fn add_players<C>(db: &C, players: Vec<ApiPlayer>) -> Result<(), DbErr> where C: ConnectionTrait {
 
-        entity::player::Entity::insert_many(players.into_iter().map(|p|p.into_active_model())).exec(db).await?;
+        entity::player::Entity::insert_many(players.into_iter().map(|p|p.into_active_model())).on_conflict(
+            sea_query::OnConflict::column(entity::player::Column::PdgaNumber).do_nothing().to_owned()
+        ).on_empty_do_nothing().exec(db).await?;
         Ok(())
     }
 

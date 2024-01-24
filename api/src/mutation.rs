@@ -233,6 +233,7 @@ pub(crate) async fn add_competition(
             Err(GenericError::NotFound("Competition not found in PDGA"))
         }
     }
-
-
 }
+
+//#[openapi(tag="Fantasy Tournament")]
+//#[post("/fantasy-tournament/<fantasy_tournament_id>/add-competition/<competition_id>/placeholder/")]

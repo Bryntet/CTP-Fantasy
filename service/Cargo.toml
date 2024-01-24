@@ -18,7 +18,7 @@ bcrypt = "0.15.0"
 rand = "0.8.4"
 rocket = "0.5.0"
 sqlx = {version =  "0.7.3", features = ["postgres"] }
-
+chrono = "0.4.32"
 [dependencies.sea-orm]
 version = "0.12.10" # sea-orm version
 features = [

@@ -3,7 +3,7 @@
 #
 #  -H 'accept: application/json'
 #  -H 'Cookie: auth=zYKuaUjVBfRHYEZhGyMOD5SIMmOMd4; Secure'
-POST http://127.0.0.1:8000/api/fantasy-tournament/1/add-competition/65206
+POST http://127.0.0.1:8000/api/fantasy-tournament/1/add-competition/76434
 accept: application/json
 Cookie: auth=KgRRn1cK6jAgleruylpluJxaj6F8Pj; Secure
 
