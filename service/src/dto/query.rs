@@ -72,7 +72,6 @@ impl FantasyPick {
         C: ConnectionTrait,
     {
         use entity::prelude::FantasyPick as FantasyPickEntity;
-        use sea_orm::{ColumnTrait, QueryFilter};
         let existing_pick = FantasyPickEntity::find()
             .filter(
                 fantasy_pick::Column::PickNumber
@@ -96,7 +95,6 @@ impl FantasyPick {
         C: ConnectionTrait,
     {
         use entity::prelude::FantasyPick as FantasyPickEntity;
-        use sea_orm::{ColumnTrait, QueryFilter};
         let existing_pick = FantasyPickEntity::find()
             .filter(
                 fantasy_pick::Column::Player

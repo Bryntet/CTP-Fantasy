@@ -4,7 +4,6 @@ use entity::{user, user_cookies};
 use rocket::http::{CookieJar, Status};
 use rocket::outcome::IntoOutcome;
 use rocket::serde::json::Json;
-use rocket::yansi::Paint;
 use rocket::{
     get,
     request::{self, FromRequest},
