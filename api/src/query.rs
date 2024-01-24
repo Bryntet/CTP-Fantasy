@@ -4,7 +4,7 @@ use rocket::serde::json::Json;
 use rocket::State;
 use rocket_okapi::openapi;
 use sea_orm::DatabaseConnection;
-use service::dto::{FantasyPick, FantasyPicks};
+use dto::{FantasyPick, FantasyPicks};
 
 use crate::authenticate;
 use service::{dto, SimpleFantasyTournament};
@@ -39,7 +39,7 @@ pub(crate) async fn get_tournament(
 pub(crate) async fn see_participants(
     db: &State<DatabaseConnection>,
     id: i32,
-) -> Result<Json<Vec<service::dto::User>>, GenericError> {
+) -> Result<Json<Vec<dto::User>>, GenericError> {
     match service::get_participants(db.inner(), id).await {
         Ok(participants) => Ok(Json(participants)),
         Err(_) => Err(UserError::InvalidUserId("Unknown user").into()),
@@ -95,7 +95,7 @@ pub(crate) async fn get_user_picks(
 pub(crate) async fn get_divisions(
     db: &State<DatabaseConnection>,
     tournament_id: i32,
-) -> Result<Json<Vec<service::dto::Division>>, GenericError> {
+) -> Result<Json<Vec<dto::Division>>, GenericError> {
     match service::get_tournament_divisions(db.inner(), tournament_id).await {
         Ok(divisions) => Ok(Json(divisions)),
         Err(_) => Err(TournamentError::NotFound("Tournament not found").into()),

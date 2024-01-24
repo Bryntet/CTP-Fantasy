@@ -67,9 +67,9 @@ pub async fn create_invite(
         invitation_status: Set(FantasyTournamentInvitationStatus::Pending),
     };
 
-    if (user_in_fantasy_tournament::Entity::insert(invite)
+    if user_in_fantasy_tournament::Entity::insert(invite)
         .exec(db)
-        .await)
+        .await
         .is_ok()
     {
         Ok(())

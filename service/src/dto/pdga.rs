@@ -76,7 +76,6 @@ fn parse_date_range(res: &CompetitionInfoResponse) -> Result<Vec<sea_orm::prelud
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rocket::time::Month;
 
     #[tokio::test]
     async fn test_parse_date_range() {

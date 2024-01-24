@@ -149,7 +149,7 @@ impl UserLogin {
         &'a self,
         db: &'a DatabaseConnection,
         cookies: &CookieJar<'_>,
-    ) -> Result<(), sea_orm::error::DbErr> {
+    ) -> Result<(), DbErr> {
         let txn = db.begin().await?;
         let user = self.active_user();
         let user_id = User::insert(user).exec(&txn).await?.last_insert_id;
@@ -164,7 +164,7 @@ impl UserLogin {
 }
 
 impl UserScore {
-    pub async fn insert(self, db: &DatabaseConnection) -> Result<(), sea_orm::error::DbErr> {
+    pub async fn insert(self, db: &DatabaseConnection) -> Result<(), DbErr> {
         FantasyScores::insert(self.into_active_model())
             .exec(db)
             .await?;
@@ -177,7 +177,7 @@ impl CreateTournament {
         &self,
         db: &DatabaseConnection,
         owner_id: i32,
-    ) -> Result<(), sea_orm::error::DbErr> {
+    ) -> Result<(), DbErr> {
         let tour = FantasyTournament::insert(self.clone().into_active_model(owner_id))
             .exec(db)
             .await?;
@@ -200,7 +200,7 @@ impl FantasyTournamentDivs {
         divisions: Vec<Division>,
         db: &DatabaseConnection,
         tournament_id: i32,
-    ) -> Result<(), sea_orm::error::DbErr> {
+    ) -> Result<(), DbErr> {
         let txn = db.begin().await?;
         for div in divisions {
             let div = fantasy_tournament_division::ActiveModel {
@@ -216,7 +216,7 @@ impl FantasyTournamentDivs {
 }
 
 impl PlayerInCompetition {
-    pub async fn insert<C>(&self, db: &C) -> Result<(), sea_orm::error::DbErr>
+    pub async fn insert<C>(&self, db: &C) -> Result<(), DbErr>
     where
         C: ConnectionTrait,
     {

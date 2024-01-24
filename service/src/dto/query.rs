@@ -118,7 +118,7 @@ impl CompetitionInfo {
         }
     }
 
-    pub(crate) fn round_active_model(&self, date: sea_orm::prelude::Date) -> round::ActiveModel {
+    pub(crate) fn round_active_model(&self, date: Date) -> round::ActiveModel {
         round::ActiveModel {
             id: NotSet,
             round_number: sea_orm::Set(1),
@@ -135,7 +135,7 @@ impl CompetitionInfo {
             .filter(
                 round::Column::Date
                     .eq::<Date>(date)
-                    .and(entity::round::Column::CompetitionId.eq(self.competition_id as i32)),
+                    .and(round::Column::CompetitionId.eq(self.competition_id as i32)),
             )
             .one(db)
             .await
