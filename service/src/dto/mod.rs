@@ -29,7 +29,7 @@ pub struct FantasyPicks {
     pub(crate) fantasy_tournament_id: i32,
 }
 
-#[derive(Deserialize, JsonSchema, Debug, Clone,)]
+#[derive(Deserialize, JsonSchema, Debug, Clone)]
 pub struct UserLogin {
     pub username: String,
     pub password: String,

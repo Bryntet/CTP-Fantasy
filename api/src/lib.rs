@@ -87,7 +87,7 @@ pub async fn launch() -> Rocket<Build> {
                 ..Default::default()
             }),
         )
-        .register("/api",catchers![general_not_found])
+        .register("/api", catchers![general_not_found])
         .mount("/", FileServer::from(flutter_path))
     //.configure(config)
 }

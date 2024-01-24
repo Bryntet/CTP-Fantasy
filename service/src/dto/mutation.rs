@@ -16,8 +16,8 @@ use crate::dto::pdga::fetch_people::add_players;
 use itertools::Itertools;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
-    ActiveModelTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait,
-    NotSet, TransactionTrait,
+    ActiveModelTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait, NotSet,
+    TransactionTrait,
 };
 use std::fmt::Display;
 
