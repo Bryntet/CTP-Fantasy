@@ -43,7 +43,7 @@ pub(crate) enum Competition {
     Rounds,
     Placeholder,
 }
-
+#[allow(clippy::enum_variant_names)]
 #[derive(DeriveIden)]
 pub(crate) enum Round {
     Table,
