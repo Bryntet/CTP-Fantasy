@@ -1,15 +1,17 @@
+use bcrypt::verify;
+use rocket_okapi::okapi::schemars;
+use rocket_okapi::okapi::schemars::JsonSchema;
+use sea_orm::{DatabaseConnection, DbErr, EntityTrait};
+use sea_orm::entity::prelude::*;
+
+use dto::InvitationStatus;
+use entity::*;
+use entity::prelude::*;
+use entity::sea_orm_active_enums::Division;
+
 use crate::dto;
 use crate::dto::FantasyPicks;
 use crate::error::GenericError;
-use bcrypt::verify;
-use dto::InvitationStatus;
-use entity::prelude::*;
-use entity::sea_orm_active_enums::Division;
-use entity::*;
-use rocket_okapi::okapi::schemars;
-use rocket_okapi::okapi::schemars::JsonSchema;
-use sea_orm::entity::prelude::*;
-use sea_orm::{DatabaseConnection, DbErr, EntityTrait};
 
 pub enum Auth {
     Password(String),
@@ -306,4 +308,8 @@ where
         .one(db)
         .await?;
     Ok(comp.is_some())
+}
+
+pub async fn active_rounds<C>(db: &C) -> Result<Vec<round::Model>, DbErr> where C: ConnectionTrait {
+    Round::find().filter(round::Column::Date.between(chrono::Utc::now().date_naive(), chrono::Utc::now().date_naive() + chrono::Duration::days(1))).all(db).await
 }

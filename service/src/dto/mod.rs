@@ -5,7 +5,7 @@ mod query;
 use rocket::FromFormField;
 
 use entity::*;
-pub use pdga::CompetitionInfo;
+pub use pdga::{CompetitionInfo,get_round_information};
 use rocket::serde::{Deserialize, Serialize};
 use rocket_okapi::okapi::schemars::{self, JsonSchema};
 

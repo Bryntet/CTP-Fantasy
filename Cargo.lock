@@ -765,6 +765,7 @@ dependencies = [
  "rocket",
  "sea-orm",
  "serde",
+ "service",
  "tokio",
 ]
 
