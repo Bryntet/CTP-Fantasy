@@ -64,12 +64,12 @@ pub(crate) async fn create_tournament(
             } else if msg.contains("violates unique constraint") {
                 Err(TournamentError::TournamentNameConflict("Username already taken").into())
             } else {
-                Err(GenericError::UnknownError("Unknown error").into())
+                Err(GenericError::UnknownError("Unknown error"))
             }
         }
         Err(e) => {
             dbg!(e);
-            Err(GenericError::UnknownError("Unknown error").into())
+            Err(GenericError::UnknownError("Unknown error"))
         }
     }
 }
