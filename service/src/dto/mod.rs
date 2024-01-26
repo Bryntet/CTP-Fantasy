@@ -5,10 +5,19 @@ mod query;
 use rocket::FromFormField;
 
 use entity::*;
-pub use pdga::{CompetitionInfo,get_round_information};
+
+pub use pdga::{CompetitionInfo, RoundInformation};
 use rocket::serde::{Deserialize, Serialize};
 use rocket_okapi::okapi::schemars::{self, JsonSchema};
 
+pub mod traits {
+    pub use super::mutation::InsertCompetition;
+}
+pub struct PhantomCompetition {
+    name: String,
+    competition_id: Option<u32>,
+    start_date: chrono::NaiveDate,
+}
 #[derive(Deserialize, JsonSchema, Clone)]
 pub struct CreateTournament {
     pub name: String,
@@ -67,13 +76,14 @@ pub struct LoginInput {
 pub enum Division {
     MPO,
     FPO,
+
     #[serde(other)]
     Unknown,
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug)]
 pub struct FantasyTournamentDivs {
-    pub(crate) divisions: Vec<Division>,
+    pub(crate) division77146s: Vec<Division>,
 }
 
 #[derive(Deserialize, JsonSchema, Debug)]

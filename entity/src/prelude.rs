@@ -6,6 +6,8 @@ pub use super::fantasy_pick::Entity as FantasyPick;
 pub use super::fantasy_scores::Entity as FantasyScores;
 pub use super::fantasy_tournament::Entity as FantasyTournament;
 pub use super::fantasy_tournament_division::Entity as FantasyTournamentDivision;
+pub use super::phantom_competition::Entity as PhantomCompetition;
+pub use super::phantom_competition_in_fantasy_tournament::Entity as PhantomCompetitionInFantasyTournament;
 pub use super::player::Entity as Player;
 pub use super::player_division::Entity as PlayerDivision;
 pub use super::player_in_competition::Entity as PlayerInCompetition;

@@ -1,10 +1,10 @@
 use crate::error::UserError;
 use crate::error::{GenericError, TournamentError};
+use dto::{FantasyPick, FantasyPicks};
 use rocket::serde::json::Json;
 use rocket::State;
 use rocket_okapi::openapi;
 use sea_orm::DatabaseConnection;
-use dto::{FantasyPick, FantasyPicks};
 
 use crate::authenticate;
 use service::{dto, SimpleFantasyTournament};

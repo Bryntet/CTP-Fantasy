@@ -31,15 +31,23 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(ColumnDef::new(Competition::Rounds).integer().not_null())
-                    .col(
-                        ColumnDef::new(Competition::Placeholder)
-                            .boolean()
-                            .not_null(),
-                    )
                     .to_owned(),
             )
             .await?;
-
+        manager
+            .create_table(
+                Table::create()
+                    .table(PhantomCompetition::Table)
+                    .col(
+                        ColumnDef::new(PhantomCompetition::Id)
+                            .integer()
+                            .primary_key(),
+                    )
+                    .col(ColumnDef::new(PhantomCompetition::Name).string().not_null())
+                    .col(ColumnDef::new(PhantomCompetition::Date).date().not_null())
+                    .to_owned(),
+            )
+            .await?;
         manager
             .create_table(
                 Table::create()
@@ -78,7 +86,7 @@ impl MigrationTrait for Migration {
                     .col(
                         ColumnDef::new(PlayerRoundScore::Id)
                             .integer()
-                            .not_null()
+                            .auto_increment()
                             .primary_key(),
                     )
                     .col(
@@ -132,7 +140,7 @@ impl MigrationTrait for Migration {
                     .col(
                         ColumnDef::new(PlayerInCompetition::Id)
                             .integer()
-                            .not_null()
+                            .auto_increment()
                             .primary_key(),
                     )
                     .col(
@@ -224,6 +232,51 @@ impl MigrationTrait for Migration {
                             .integer()
                             .not_null()
                             .default(10),
+                    )
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_table(
+                Table::create()
+                    .table(PhantomCompetitionInFantasyTournament::Table)
+                    .col(
+                        ColumnDef::new(PhantomCompetitionInFantasyTournament::Id)
+                            .integer()
+                            .primary_key(),
+                    )
+                    .col(
+                        ColumnDef::new(PhantomCompetitionInFantasyTournament::FantasyTournamentId)
+                            .integer()
+                            .not_null(),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_phantom_competition_in_fantasy_tournament_tournament")
+                            .from(
+                                PhantomCompetitionInFantasyTournament::Table,
+                                PhantomCompetitionInFantasyTournament::FantasyTournamentId,
+                            )
+                            .to(FantasyTournament::Table, FantasyTournament::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
+                    )
+                    .col(
+                        ColumnDef::new(PhantomCompetitionInFantasyTournament::PhantomCompetitionId)
+                            .integer()
+                            .not_null(),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name(
+                                "fk_phantom_competition_in_fantasy_tournament_phantom_competition",
+                            )
+                            .from(
+                                PhantomCompetitionInFantasyTournament::Table,
+                                PhantomCompetitionInFantasyTournament::PhantomCompetitionId,
+                            )
+                            .to(PhantomCompetition::Table, PhantomCompetition::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
                     )
                     .to_owned(),
             )
@@ -336,6 +389,7 @@ impl MigrationTrait for Migration {
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         drop_table!(PlayerInCompetition, manager);
         drop_table!(PlayerRoundScore, manager);
+        drop_table!(PhantomCompetition, manager);
         drop_table!(Competition, manager);
         drop_type!(CompetitionStatus, manager);
         drop_table!(FantasyTournament, manager);

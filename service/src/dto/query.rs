@@ -118,19 +118,20 @@ impl CompetitionInfo {
         }
     }
 
-    pub(crate) fn round_active_model(&self, date: Date) -> round::ActiveModel {
+    pub(crate) fn round_active_model(&self, round_number: usize, date: Date) -> round::ActiveModel {
         round::ActiveModel {
             id: NotSet,
-            round_number: sea_orm::Set(1),
+            round_number: sea_orm::Set(round_number as i32),
             competition_id: sea_orm::Set(self.competition_id as i32),
             date: sea_orm::Set(date),
         }
     }
 
-    pub(crate) async fn round<C>(&self, db: &C, date: Date) -> Result<Option<round::Model>, DbErr>
-    where
-        C: ConnectionTrait,
-    {
+    pub(crate) async fn round(
+        &self,
+        db: &impl ConnectionTrait,
+        date: Date,
+    ) -> Result<Option<round::Model>, DbErr> {
         Round::find()
             .filter(
                 round::Column::Date
@@ -149,6 +150,22 @@ impl CompetitionInfo {
             id: NotSet,
             competition_id: Set(self.competition_id as i32),
             fantasy_tournament_id: Set(fantasy_tournament_id as i32),
+        }
+    }
+
+    pub async fn is_in_db(&self, db: &impl ConnectionTrait) -> Result<bool, DbErr> {
+        competition::Entity::find_by_id(self.competition_id as i32)
+            .one(db)
+            .await
+            .map(|x| x.is_some())
+    }
+}
+impl PhantomCompetition {
+    pub(crate) fn active_model(&self) -> phantom_competition::ActiveModel {
+        phantom_competition::ActiveModel {
+            id: NotSet,
+            name: Set(self.name.clone()),
+            date: Set(self.start_date),
         }
     }
 }

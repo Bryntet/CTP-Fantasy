@@ -1,39 +1,40 @@
-use crate::dto::pdga::CompetitionInfo;
+use std::collections::HashSet;
+use std::fmt::Display;
+
+use bcrypt::{hash, DEFAULT_COST};
+use itertools::Itertools;
+use rocket::http::hyper::body::HttpBody;
+use rocket::http::CookieJar;
+use rocket::request::FromParam;
+use sea_orm::ActiveValue::Set;
+use sea_orm::{
+    ActiveModelTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait, ModelTrait, NotSet,
+    TransactionTrait,
+};
+
+use entity::fantasy_pick;
+use entity::prelude::{
+    FantasyScores, FantasyTournament, PhantomCompetitionInFantasyTournament, User,
+    UserAuthentication, UserInFantasyTournament,
+};
+use entity::sea_orm_active_enums::FantasyTournamentInvitationStatus;
+
+use crate::dto::pdga::add_players;
 use crate::error::GenericError;
 use crate::error::PlayerError;
 use crate::{generate_cookie, get_player_division, player_exists};
-use bcrypt::{hash, DEFAULT_COST};
-use entity::fantasy_pick;
-use entity::prelude::{
-    FantasyScores, FantasyTournament, User, UserAuthentication, UserInFantasyTournament,
-};
-use entity::sea_orm_active_enums::FantasyTournamentInvitationStatus;
-use rocket::http::CookieJar;
-use rocket::request::FromParam;
-use std::collections::HashSet;
 
-use crate::dto::pdga::fetch_people::add_players;
-use itertools::Itertools;
-use sea_orm::ActiveValue::Set;
-use sea_orm::{
-    ActiveModelTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait, NotSet,
-    TransactionTrait,
-};
-use std::fmt::Display;
-
+use super::pdga::CompetitionInfo;
 use super::*;
 
 impl FantasyPick {
-    pub async fn change_or_insert<C>(
+    pub async fn change_or_insert(
         &self,
-        db: &C,
+        db: &impl ConnectionTrait,
         user_id: i32,
         tournament_id: i32,
         div: Division,
-    ) -> Result<(), GenericError>
-    where
-        C: ConnectionTrait,
-    {
+    ) -> Result<(), GenericError> {
         if player_exists(db, self.pdga_number).await {
             if get_player_division(db, self.pdga_number)
                 .await?
@@ -64,10 +65,12 @@ impl FantasyPick {
         }
     }
 
-    async fn insert<C>(&self, db: &C, user_id: i32, tournament_id: i32) -> Result<(), GenericError>
-    where
-        C: ConnectionTrait,
-    {
+    async fn insert(
+        &self,
+        db: &impl ConnectionTrait,
+        user_id: i32,
+        tournament_id: i32,
+    ) -> Result<(), GenericError> {
         match get_player_division(db, self.pdga_number).await {
             Ok(division) => {
                 let division = division.first().unwrap_or(Division::MPO.into()).to_owned();
@@ -96,6 +99,7 @@ impl From<Division> for &sea_orm_active_enums::Division {
         }
     }
 }
+
 impl From<Division> for sea_orm_active_enums::Division {
     fn from(division: Division) -> Self {
         match division {
@@ -173,11 +177,7 @@ impl UserScore {
 }
 
 impl CreateTournament {
-    pub async fn insert(
-        &self,
-        db: &DatabaseConnection,
-        owner_id: i32,
-    ) -> Result<(), DbErr> {
+    pub async fn insert(&self, db: &DatabaseConnection, owner_id: i32) -> Result<(), DbErr> {
         let tour = FantasyTournament::insert(self.clone().into_active_model(owner_id))
             .exec(db)
             .await?;
@@ -216,10 +216,7 @@ impl FantasyTournamentDivs {
 }
 
 impl PlayerInCompetition {
-    pub async fn insert<C>(&self, db: &C) -> Result<(), DbErr>
-    where
-        C: ConnectionTrait,
-    {
+    pub async fn insert(&self, db: &impl ConnectionTrait) -> Result<(), DbErr> {
         let player = self.active_model();
         player.save(db).await?;
         Ok(())
@@ -235,78 +232,106 @@ impl PlayerInCompetition {
     }
 }
 
-impl CompetitionInfo {
-    pub async fn insert<C>(&self, db: &C) -> Result<(), DbErr>
-    where
-        C: ConnectionTrait,
-    {
-        use entity::prelude::Competition;
-
-        Competition::insert(self.active_model()).exec(db).await?;
-        self.insert_rounds(db).await?;
-
-        Ok(())
-    }
-
-    pub async fn insert_rounds<C>(&self, db: &C) -> Result<(), DbErr>
-    where
-        C: ConnectionTrait,
-    {
-        use entity::prelude::Round;
-        for date in &self.date_range {
-            if self.round(db, *date).await?.is_none() {
-                Round::insert(self.round_active_model(*date))
-                    .exec(db)
-                    .await?;
-            }
-        }
-        Ok(())
-    }
-
-    pub async fn insert_in_fantasy<C>(
+pub trait InsertCompetition {
+    async fn insert_in_db(&self, db: &impl ConnectionTrait) -> Result<(), DbErr>;
+    async fn insert_in_fantasy(
         &self,
-        db: &C,
+        db: &impl ConnectionTrait,
         fantasy_tournament_id: u32,
-    ) -> Result<(), GenericError>
-    where
-        C: ConnectionTrait,
-    {
-        use entity::prelude::{Competition, CompetitionInFantasyTournament};
-        let competition = Competition::find_by_id(self.competition_id as i32)
-            .one(db)
-            .await?;
+    ) -> Result<(), GenericError>;
+}
 
-        let competition_in_fantasy =
-            CompetitionInFantasyTournament::find_by_id(self.competition_id as i32)
-                .one(db)
-                .await?;
-        if competition.is_none() {
-            self.insert(db).await?;
-        }
-        if competition_in_fantasy.is_some() {
-            Err(GenericError::Conflict("Competition already added"))
-        } else {
-            CompetitionInFantasyTournament::insert(self.fantasy_model(fantasy_tournament_id))
-                .exec(db)
-                .await?;
-            Ok(())
-        }
+impl InsertCompetition for PhantomCompetition {
+    async fn insert_in_db(&self, db: &impl ConnectionTrait) -> Result<(), DbErr> {
+        use entity::prelude::PhantomCompetition;
+        PhantomCompetition::insert(self.active_model())
+            .exec(db)
+            .await?;
+        Ok(())
     }
 
-    pub async fn insert_players<C>(&self, db: &C) -> Result<(), GenericError>
-    where
-        C: ConnectionTrait,
-    {
+    async fn insert_in_fantasy(
+        &self,
+        db: &impl ConnectionTrait,
+        fantasy_tournament_id: u32,
+    ) -> Result<(), GenericError> {
+        match PhantomCompetitionInFantasyTournament::insert(
+            phantom_competition_in_fantasy_tournament::ActiveModel {
+                id: NotSet,
+                phantom_competition_id: Set(self.competition_id.unwrap() as i32),
+                fantasy_tournament_id: Set(fantasy_tournament_id as i32),
+            },
+        )
+        .exec(db)
+        .await
+        {
+            Ok(_) => Ok(()),
+            Err(e) => Err(GenericError::Conflict("Competition already added")),
+        }
+    }
+}
+
+impl InsertCompetition for CompetitionInfo {
+    async fn insert_in_db(&self, db: &impl ConnectionTrait) -> Result<(), DbErr> {
+        self.active_model().insert(db).await?;
+        self.insert_rounds(db).await?;
+        Ok(())
+    }
+
+    async fn insert_in_fantasy(
+        &self,
+        db: &impl ConnectionTrait,
+        fantasy_tournament_id: u32,
+    ) -> Result<(), GenericError> {
+        use entity::prelude::{Competition, CompetitionInFantasyTournament};
+        match Competition::find_by_id(self.competition_id as i32)
+            .one(db)
+            .await?
+        {
+            Some(c) => {
+                match c
+                    .find_related(CompetitionInFantasyTournament)
+                    .one(db)
+                    .await?
+                {
+                    Some(_) => Err(GenericError::Conflict("Competition already added")),
+                    None => {
+                        CompetitionInFantasyTournament::insert(
+                            self.fantasy_model(fantasy_tournament_id),
+                        )
+                        .exec(db)
+                        .await?;
+                        Ok(())
+                    }
+                }
+            }
+            None => Err(GenericError::NotFound("Competition not found in PDGA")),
+        }
+    }
+}
+
+impl CompetitionInfo {
+    pub async fn insert_rounds(&self, db: &impl ConnectionTrait) -> Result<(), DbErr> {
+        use entity::prelude::Round;
+        Round::insert_many(
+            self.date_range
+                .iter()
+                .enumerate()
+                .map(|(i, d)| self.round_active_model(i + 1, *d)),
+        )
+        .exec(db)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn insert_players(&self, db: &impl ConnectionTrait) -> Result<(), GenericError> {
         let mut players = HashSet::new();
         for div in &self.divisions {
             for round in 1..=self.rounds {
-                let p_vec = pdga::add_players_from_competition(
-                    self.competition_id,
-                    div.to_string(),
-                    round as i32,
-                )
-                .await
-                .unwrap_or(vec![]);
+                let p_vec =
+                    pdga::get_players_from_api(self.competition_id, div.to_string(), round as i32)
+                        .await
+                        .unwrap_or(vec![]);
                 for p in p_vec {
                     if p.pdga_number != 0 {
                         players.insert(p);

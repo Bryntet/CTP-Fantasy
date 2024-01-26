@@ -41,8 +41,24 @@ pub(crate) enum Competition {
     Name,
     Status,
     Rounds,
-    Placeholder,
 }
+
+#[derive(DeriveIden)]
+pub(crate) enum PhantomCompetition {
+    Table,
+    Id,
+    Name,
+    Date,
+}
+
+#[derive(DeriveIden)]
+pub(crate) enum PhantomCompetitionInFantasyTournament {
+    Table,
+    Id,
+    PhantomCompetitionId,
+    FantasyTournamentId,
+}
+
 #[allow(clippy::enum_variant_names)]
 #[derive(DeriveIden)]
 pub(crate) enum Round {

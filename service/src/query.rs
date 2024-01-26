@@ -1,13 +1,13 @@
 use bcrypt::verify;
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
-use sea_orm::{DatabaseConnection, DbErr, EntityTrait};
 use sea_orm::entity::prelude::*;
+use sea_orm::{DatabaseConnection, DbErr, EntityTrait};
 
 use dto::InvitationStatus;
-use entity::*;
 use entity::prelude::*;
 use entity::sea_orm_active_enums::Division;
+use entity::*;
 
 use crate::dto;
 use crate::dto::FantasyPicks;
@@ -54,17 +54,14 @@ pub async fn authenticate(
     }
 }
 
-pub async fn player_exists<C>(db: &C, player_id: i32) -> bool
-where
-    C: ConnectionTrait,
-{
+pub async fn player_exists(db: &impl ConnectionTrait, player_id: i32) -> bool {
     Player::find_by_id(player_id).one(db).await.is_ok()
 }
 
-pub async fn get_player_division<C>(db: &C, player_id: i32) -> Result<Vec<Division>, DbErr>
-where
-    C: ConnectionTrait,
-{
+pub async fn get_player_division(
+    db: &impl ConnectionTrait,
+    player_id: i32,
+) -> Result<Vec<Division>, DbErr> {
     let player_division = PlayerDivision::find_by_id(player_id).all(db).await?;
 
     let divs = player_division
@@ -300,16 +297,22 @@ pub async fn get_tournament_divisions(
     Ok(picks.iter().map(|p| p.clone().division.into()).collect())
 }
 
-pub async fn is_competition_added<C>(db: &C, competition_id: u32) -> Result<bool, DbErr>
-where
-    C: ConnectionTrait,
-{
+pub async fn is_competition_added(
+    db: &impl ConnectionTrait,
+    competition_id: u32,
+) -> Result<bool, DbErr> {
     let comp = Competition::find_by_id(competition_id as i32)
         .one(db)
         .await?;
     Ok(comp.is_some())
 }
 
-pub async fn active_rounds<C>(db: &C) -> Result<Vec<round::Model>, DbErr> where C: ConnectionTrait {
-    Round::find().filter(round::Column::Date.between(chrono::Utc::now().date_naive(), chrono::Utc::now().date_naive() + chrono::Duration::days(1))).all(db).await
+pub async fn active_rounds(db: &impl ConnectionTrait) -> Result<Vec<round::Model>, DbErr> {
+    let start = chrono::Utc::now().date_naive() - chrono::Duration::days(1);
+    let end = chrono::Utc::now().date_naive() + chrono::Duration::days(1);
+    //  dbg!(&start, &end);
+    Round::find()
+        .filter(round::Column::Date.between(start, end))
+        .all(db)
+        .await
 }

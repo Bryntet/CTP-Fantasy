@@ -13,8 +13,7 @@ use rocket_okapi::openapi;
 use rocket::http::CookieJar;
 use sea_orm::TransactionTrait;
 
-use service::dto::FantasyPick;
-use service::dto::UserLogin;
+use service::dto::{traits::InsertCompetition, FantasyPick, UserLogin};
 
 /// # Create a fantasy tournament
 ///
@@ -209,7 +208,6 @@ pub(crate) async fn answer_invite(
         Err(e) => Err(e.into()),
     }
 }
-
 #[openapi(tag = "Fantasy Tournament")]
 #[post("/fantasy-tournament/<fantasy_tournament_id>/add-competition/<competition_id>")]
 pub(crate) async fn add_competition(
@@ -222,6 +220,9 @@ pub(crate) async fn add_competition(
 
     match service::dto::CompetitionInfo::from_web(competition_id).await {
         Ok(competition) => {
+            if !competition.is_in_db(&txn).await? {
+                competition.insert_in_db(&txn).await?;
+            }
             competition
                 .insert_in_fantasy(&txn, fantasy_tournament_id)
                 .await?;

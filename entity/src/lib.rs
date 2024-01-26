@@ -8,6 +8,8 @@ pub mod fantasy_pick;
 pub mod fantasy_scores;
 pub mod fantasy_tournament;
 pub mod fantasy_tournament_division;
+pub mod phantom_competition;
+pub mod phantom_competition_in_fantasy_tournament;
 pub mod player;
 pub mod player_division;
 pub mod player_in_competition;
