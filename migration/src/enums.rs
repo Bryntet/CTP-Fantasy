@@ -19,10 +19,11 @@ pub(crate) enum Player {
 }
 
 #[derive(DeriveIden)]
-pub(crate) enum PlayerDivision {
+pub(crate) enum PlayerDivisionInFantasyTournament {
     Table,
     PlayerPDGANumber,
     Division,
+    FantasyTournamentId,
 }
 
 #[derive(Iden, EnumIter, Deserialize)]
@@ -97,6 +98,7 @@ pub(crate) enum PlayerRoundScore {
     CompetitionId,
     Round,
     Score,
+    Division,
 }
 
 #[derive(DeriveIden)]

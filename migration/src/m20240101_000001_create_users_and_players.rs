@@ -54,37 +54,12 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
-        manager
-            .create_table(
-                Table::create()
-                    .table(PlayerDivision::Table)
-                    .if_not_exists()
-                    .col(
-                        ColumnDef::new(PlayerDivision::PlayerPDGANumber)
-                            .integer()
-                            .not_null()
-                            .primary_key(),
-                    )
-                    .col(
-                        ColumnDef::new(PlayerDivision::Division)
-                            .custom(Division::Table)
-                            .not_null(),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk_player_division_to_player")
-                            .to(Player::Table, Player::PDGANumber)
-                            .from(PlayerDivision::Table, PlayerDivision::PlayerPDGANumber),
-                    )
-                    .to_owned(),
-            )
-            .await?;
+
         Ok(())
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         drop_table!(Player, manager);
-        drop_table!(PlayerDivision, manager);
         drop_table!(User, manager);
         drop_type!(Division, manager);
         Ok(())

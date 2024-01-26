@@ -1,8 +1,12 @@
 use std::hash::{Hash, Hasher};
 
+use entity::fantasy_tournament_division;
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
-use sea_orm::{sea_query, ConnectionTrait, DbErr, EntityTrait, IntoActiveModel};
+use sea_orm::ActiveValue::Set;
+use sea_orm::{
+    sea_query, ActiveModelTrait, ConnectionTrait, DbErr, EntityTrait, IntoActiveModel, NotSet,
+};
 use serde::Deserialize;
 
 use crate::dto;
@@ -50,12 +54,37 @@ impl ApiPlayer {
         .into_active_model()
     }
 
-    fn to_division(&self) -> entity::player_division::ActiveModel {
-        entity::player_division::Model {
+    fn to_division(
+        &self,
+        fantasy_tournament_id: i32,
+    ) -> entity::player_division_in_fantasy_tournament::ActiveModel {
+        entity::player_division_in_fantasy_tournament::Model {
             player_pdga_number: self.pdga_number,
+            fantasy_tournament_id,
             division: self.division.clone().into(),
         }
         .into_active_model()
+    }
+
+    async fn save_div(
+        &self,
+        db: &impl ConnectionTrait,
+        fantasy_tournament_id: i32,
+    ) -> Result<(), DbErr> {
+        entity::player_division_in_fantasy_tournament::Entity::insert(
+            self.to_division(fantasy_tournament_id),
+        )
+        .on_conflict(
+            sea_query::OnConflict::column(
+                entity::player_division_in_fantasy_tournament::Column::PlayerPdgaNumber,
+            )
+            .do_nothing()
+            .to_owned(),
+        )
+        .on_empty_do_nothing()
+        .exec(db)
+        .await?;
+        Ok(())
     }
 }
 
@@ -80,8 +109,12 @@ pub async fn get_players_from_api(
     Ok(response.data.scores)
 }
 
-pub async fn add_players(db: &impl ConnectionTrait, players: Vec<ApiPlayer>) -> Result<(), DbErr> {
-    entity::player::Entity::insert_many(players.into_iter().map(|p| p.into_active_model()))
+pub async fn add_players(
+    db: &impl ConnectionTrait,
+    players: Vec<ApiPlayer>,
+    fantasy_tournament_id: Option<i32>,
+) -> Result<(), DbErr> {
+    entity::player::Entity::insert_many(players.clone().into_iter().map(|p| p.into_active_model()))
         .on_conflict(
             sea_query::OnConflict::column(entity::player::Column::PdgaNumber)
                 .do_nothing()
@@ -90,5 +123,16 @@ pub async fn add_players(db: &impl ConnectionTrait, players: Vec<ApiPlayer>) -> 
         .on_empty_do_nothing()
         .exec(db)
         .await?;
+    if let Some(fantasy_tournament_id) = fantasy_tournament_id {
+        let res = entity::player_division_in_fantasy_tournament::Entity::insert_many(
+            players
+                .into_iter()
+                .map(|p| p.to_division(fantasy_tournament_id)),
+        )
+        .do_nothing()
+        .exec(db)
+        .await?;
+        dbg!(res);
+    }
     Ok(())
 }

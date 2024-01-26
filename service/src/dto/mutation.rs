@@ -9,12 +9,12 @@ use rocket::request::FromParam;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
     ActiveModelTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait, ModelTrait, NotSet,
-    TransactionTrait,
+    QueryFilter, Related, TransactionTrait,
 };
 
 use entity::fantasy_pick;
 use entity::prelude::{
-    FantasyScores, FantasyTournament, PhantomCompetitionInFantasyTournament, User,
+    Competition, FantasyScores, FantasyTournament, PhantomCompetitionInFantasyTournament, User,
     UserAuthentication, UserInFantasyTournament,
 };
 use entity::sea_orm_active_enums::FantasyTournamentInvitationStatus;
@@ -22,7 +22,7 @@ use entity::sea_orm_active_enums::FantasyTournamentInvitationStatus;
 use crate::dto::pdga::add_players;
 use crate::error::GenericError;
 use crate::error::PlayerError;
-use crate::{generate_cookie, get_player_division, player_exists};
+use crate::{generate_cookie, get_player_division_in_competition, player_exists};
 
 use super::pdga::CompetitionInfo;
 use super::*;
@@ -36,28 +36,38 @@ impl FantasyPick {
         div: Division,
     ) -> Result<(), GenericError> {
         if player_exists(db, self.pdga_number).await {
-            if get_player_division(db, self.pdga_number)
-                .await?
-                .contains(div.clone().into())
+            if let Ok(Some(players_division)) =
+                super::super::get_player_division_in_tournament(db, self.pdga_number, tournament_id)
+                    .await
             {
-                let person_in_slot =
-                    Self::player_in_slot(db, user_id, tournament_id, self.slot, div.into()).await?;
+                if players_division.eq(&div) {
+                    let person_in_slot =
+                        Self::player_in_slot(db, user_id, tournament_id, self.slot, div.into())
+                            .await?;
 
-                if let Some(player) = person_in_slot {
-                    let player: fantasy_pick::ActiveModel = player.into();
-                    player.delete(db).await?;
-                }
+                    if let Some(player) = person_in_slot {
+                        let player: fantasy_pick::ActiveModel = player.into();
+                        player.delete(db).await?;
+                    }
 
-                if let Some(player) =
-                    Self::player_already_chosen(db, user_id, tournament_id, self.pdga_number)
-                        .await?
-                {
-                    let player: fantasy_pick::ActiveModel = player.into();
-                    player.delete(db).await?;
+                    if let Some(player) =
+                        Self::player_already_chosen(db, user_id, tournament_id, self.pdga_number)
+                            .await?
+                    {
+                        let player: fantasy_pick::ActiveModel = player.into();
+                        player.delete(db).await?;
+                    }
+                    self.insert(db, user_id, tournament_id, players_division)
+                        .await?;
+                    Ok(())
+                } else {
+                    dbg!("wrong division");
+                    Err(PlayerError::WrongDivision.into())
                 }
-                self.insert(db, user_id, tournament_id).await?;
-                Ok(())
             } else {
+                dbg!(div);
+
+                dbg!("Player does not have division?");
                 Err(PlayerError::WrongDivision.into())
             }
         } else {
@@ -70,23 +80,18 @@ impl FantasyPick {
         db: &impl ConnectionTrait,
         user_id: i32,
         tournament_id: i32,
+        division: Division,
     ) -> Result<(), GenericError> {
-        match get_player_division(db, self.pdga_number).await {
-            Ok(division) => {
-                let division = division.first().unwrap_or(Division::MPO.into()).to_owned();
-                let pick = fantasy_pick::ActiveModel {
-                    id: NotSet,
-                    user: Set(user_id),
-                    pick_number: Set(self.slot),
-                    player: Set(self.pdga_number),
-                    fantasy_tournament_id: Set(tournament_id),
-                    division: Set(division),
-                };
-                pick.save(db).await?;
-                Ok(())
-            }
-            Err(e) => Err(e.into()),
-        }
+        let pick = fantasy_pick::ActiveModel {
+            id: NotSet,
+            user: Set(user_id),
+            pick_number: Set(self.slot),
+            player: Set(self.pdga_number),
+            fantasy_tournament_id: Set(tournament_id),
+            division: Set(division.into()),
+        };
+        pick.save(db).await?;
+        Ok(())
     }
 }
 
@@ -324,7 +329,11 @@ impl CompetitionInfo {
         Ok(())
     }
 
-    pub async fn insert_players(&self, db: &impl ConnectionTrait) -> Result<(), GenericError> {
+    pub async fn insert_players(
+        &self,
+        db: &impl ConnectionTrait,
+        fantasy_tournament_id: Option<i32>,
+    ) -> Result<(), GenericError> {
         let mut players = HashSet::new();
         for div in &self.divisions {
             for round in 1..=self.rounds {
@@ -339,7 +348,7 @@ impl CompetitionInfo {
                 }
             }
         }
-        add_players(db, players.into_iter().collect_vec()).await?;
+        add_players(db, players.into_iter().collect_vec(), fantasy_tournament_id).await?;
         Ok(())
     }
 }

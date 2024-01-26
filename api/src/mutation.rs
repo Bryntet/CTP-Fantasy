@@ -133,6 +133,7 @@ pub(crate) async fn add_pick(
         .await
         .unwrap_or(false)
     {
+        dbg!("hi");
         if user.id != user_id {
             return Err(not_permitted.into());
         }
@@ -141,6 +142,8 @@ pub(crate) async fn add_pick(
             pdga_number,
             name: None,
         };
+        dbg!(&division);
+
         pick.change_or_insert(db, user.id, fantasy_tournament_id, division)
             .await?;
         Ok("Successfully added pick")
@@ -226,7 +229,9 @@ pub(crate) async fn add_competition(
             competition
                 .insert_in_fantasy(&txn, fantasy_tournament_id)
                 .await?;
-            competition.insert_players(&txn).await?;
+            competition
+                .insert_players(&txn, Some(fantasy_tournament_id as i32))
+                .await?;
             txn.commit().await?;
             Ok("Successfully added competition".to_string())
         }

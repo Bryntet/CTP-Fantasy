@@ -2,7 +2,7 @@ use bcrypt::verify;
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
 use sea_orm::entity::prelude::*;
-use sea_orm::{DatabaseConnection, DbErr, EntityTrait};
+use sea_orm::{DatabaseConnection, DbErr, EntityTrait, QueryOrder};
 
 use dto::InvitationStatus;
 use entity::prelude::*;
@@ -11,7 +11,7 @@ use entity::*;
 
 use crate::dto;
 use crate::dto::FantasyPicks;
-use crate::error::GenericError;
+use crate::error::{GenericError, PlayerError};
 
 pub enum Auth {
     Password(String),
@@ -58,17 +58,20 @@ pub async fn player_exists(db: &impl ConnectionTrait, player_id: i32) -> bool {
     Player::find_by_id(player_id).one(db).await.is_ok()
 }
 
-pub async fn get_player_division(
+pub async fn get_player_division_in_competition(
     db: &impl ConnectionTrait,
     player_id: i32,
-) -> Result<Vec<Division>, DbErr> {
-    let player_division = PlayerDivision::find_by_id(player_id).all(db).await?;
-
-    let divs = player_division
-        .iter()
-        .map(|pd| pd.clone().division)
-        .collect();
-    Ok(divs)
+    competition_id: i32,
+) -> Result<Option<dto::Division>, DbErr> {
+    PlayerInCompetition::find()
+        .filter(
+            player_in_competition::Column::CompetitionId
+                .eq(competition_id)
+                .and(player_in_competition::Column::PdgaNumber.eq(player_id)),
+        )
+        .one(db)
+        .await
+        .map(|p| p.map(|p| p.division.into()))
 }
 
 #[derive(serde::Serialize, serde::Deserialize, JsonSchema, Debug)]
@@ -315,4 +318,47 @@ pub async fn active_rounds(db: &impl ConnectionTrait) -> Result<Vec<round::Model
         .filter(round::Column::Date.between(start, end))
         .all(db)
         .await
+}
+
+pub async fn get_player_division_in_tournament(
+    db: &impl ConnectionTrait,
+    player_id: i32,
+    tournament_id: i32,
+) -> Result<Option<dto::Division>, DbErr> {
+    let res = PlayerDivisionInFantasyTournament::find()
+        .filter(
+            player_division_in_fantasy_tournament::Column::PlayerPdgaNumber
+                .eq(player_id)
+                .and(
+                    player_division_in_fantasy_tournament::Column::FantasyTournamentId
+                        .eq(tournament_id),
+                ),
+        )
+        .one(db)
+        .await
+        .map(|p| p.map(|p| p.division.into()));
+    dbg!(&res);
+    res
+}
+
+pub async fn get_player_positions_in_round(
+    db: &impl ConnectionTrait,
+    competition_id: i32,
+    round: i32,
+    division: Division,
+) -> Result<Vec<player_round_score::Model>, DbErr> {
+    let mut player_round_scores = PlayerRoundScore::find()
+        .filter(
+            player_round_score::Column::CompetitionId
+                .eq(competition_id)
+                .and(player_round_score::Column::Round.eq(round))
+                .and(player_round_score::Column::Division.eq(division)),
+        )
+        .all(db)
+        .await?;
+
+    player_round_scores.sort_by(|a, b| a.score.cmp(&b.score));
+    player_round_scores.reverse();
+
+    Ok(player_round_scores)
 }

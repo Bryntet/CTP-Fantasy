@@ -5,55 +5,44 @@ use sea_orm::entity::prelude::*;
 use serde::Deserialize;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Deserialize)]
-#[sea_orm(table_name = "player_round_score")]
+#[sea_orm(table_name = "player_division_in_fantasy_tournament")]
 #[serde(rename_all = "PascalCase")]
 pub struct Model {
-    #[sea_orm(primary_key)]
-    pub id: i32,
-    pub pdga_number: i32,
-    pub competition_id: i32,
-    pub round: i32,
-    pub score: i32,
+    #[sea_orm(primary_key, auto_increment = false)]
+    pub player_pdga_number: i32,
+    pub fantasy_tournament_id: i32,
     pub division: Division,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(
-        belongs_to = "super::competition::Entity",
-        from = "Column::CompetitionId",
-        to = "super::competition::Column::Id",
+        belongs_to = "super::fantasy_tournament::Entity",
+        from = "Column::FantasyTournamentId",
+        to = "super::fantasy_tournament::Column::Id",
         on_update = "NoAction",
-        on_delete = "Cascade"
+        on_delete = "NoAction"
     )]
-    Competition,
+    FantasyTournament,
     #[sea_orm(
         belongs_to = "super::player::Entity",
-        from = "Column::PdgaNumber",
+        from = "Column::PlayerPdgaNumber",
         to = "super::player::Column::PdgaNumber",
         on_update = "NoAction",
-        on_delete = "Cascade"
+        on_delete = "NoAction"
     )]
     Player,
-    #[sea_orm(has_many = "super::player_in_competition::Entity")]
-    PlayerInCompetition,
 }
 
-impl Related<super::competition::Entity> for Entity {
+impl Related<super::fantasy_tournament::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::Competition.def()
+        Relation::FantasyTournament.def()
     }
 }
 
 impl Related<super::player::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Player.def()
-    }
-}
-
-impl Related<super::player_in_competition::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::PlayerInCompetition.def()
     }
 }
 

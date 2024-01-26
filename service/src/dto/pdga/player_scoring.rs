@@ -86,13 +86,12 @@ impl PlayerScore {
         competition_id: i32,
         div: &entity::sea_orm_active_enums::Division,
     ) -> Result<(), DbErr> {
-        self.round_score_active_model(db, round, competition_id)
+        self.round_score_active_model(db, round, competition_id, div.clone())
             .await
             .save(db)
             .await?;
         self.make_sure_player_in_competition(db, competition_id, div)
             .await?;
-
         Ok(())
     }
 
@@ -101,6 +100,7 @@ impl PlayerScore {
         db: &impl ConnectionTrait,
         round: i32,
         competition_id: i32,
+        division: entity::sea_orm_active_enums::Division,
     ) -> ActiveModel {
         let existing_score = player_round_score::Entity::find()
             .filter(player_round_score::Column::PdgaNumber.eq(self.pdga_number))
@@ -119,6 +119,7 @@ impl PlayerScore {
                 competition_id: Set(competition_id),
                 round: Set(round),
                 score: Set(self.round_score as i32),
+                division: Set(division),
             },
         }
     }

@@ -6,10 +6,13 @@ use rand::distributions::Alphanumeric;
 use rand::Rng;
 use rocket::http::{Cookie, CookieJar};
 use sea_orm::ActiveValue::*;
-use sea_orm::{ActiveModelTrait, DatabaseConnection, DbErr, EntityTrait, IntoActiveModel};
+use sea_orm::{
+    ActiveModelTrait, DatabaseConnection, DbErr, EntityTrait, IntoActiveModel, ModelTrait,
+};
 use sea_orm::{ColumnTrait, QueryFilter};
 
 use crate::error::InviteError;
+use crate::query;
 
 pub async fn generate_cookie(
     db: &DatabaseConnection,

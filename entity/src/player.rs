@@ -18,8 +18,8 @@ pub struct Model {
 pub enum Relation {
     #[sea_orm(has_many = "super::fantasy_pick::Entity")]
     FantasyPick,
-    #[sea_orm(has_many = "super::player_division::Entity")]
-    PlayerDivision,
+    #[sea_orm(has_many = "super::player_division_in_fantasy_tournament::Entity")]
+    PlayerDivisionInFantasyTournament,
     #[sea_orm(has_many = "super::player_in_competition::Entity")]
     PlayerInCompetition,
     #[sea_orm(has_many = "super::player_round_score::Entity")]
@@ -32,9 +32,9 @@ impl Related<super::fantasy_pick::Entity> for Entity {
     }
 }
 
-impl Related<super::player_division::Entity> for Entity {
+impl Related<super::player_division_in_fantasy_tournament::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::PlayerDivision.def()
+        Relation::PlayerDivisionInFantasyTournament.def()
     }
 }
 

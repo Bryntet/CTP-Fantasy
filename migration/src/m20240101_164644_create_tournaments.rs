@@ -113,6 +113,11 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(PlayerRoundScore::Round).integer().not_null())
                     .col(ColumnDef::new(PlayerRoundScore::Score).integer().not_null())
+                    .col(
+                        ColumnDef::new(PlayerRoundScore::Division)
+                            .custom(Division::Table)
+                            .not_null(),
+                    )
                     .index(
                         Index::create()
                             .name("unique_pdga_tournament_round")
@@ -189,8 +194,8 @@ impl MigrationTrait for Migration {
                             .to(
                                 PlayerRoundScore::Table,
                                 (
-                                    PlayerInCompetition::CompetitionId,
-                                    PlayerInCompetition::PDGANumber,
+                                    PlayerRoundScore::CompetitionId,
+                                    PlayerRoundScore::PDGANumber,
                                 ),
                             )
                             .on_delete(ForeignKeyAction::Cascade),
@@ -322,7 +327,55 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
-
+        manager
+            .create_table(
+                Table::create()
+                    .table(PlayerDivisionInFantasyTournament::Table)
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(PlayerDivisionInFantasyTournament::PlayerPDGANumber)
+                            .integer()
+                            .not_null()
+                            .primary_key(),
+                    )
+                    .col(
+                        ColumnDef::new(PlayerDivisionInFantasyTournament::FantasyTournamentId)
+                            .integer()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(PlayerDivisionInFantasyTournament::Division)
+                            .custom(Division::Table)
+                            .not_null(),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_player_division_to_player")
+                            .to(Player::Table, Player::PDGANumber)
+                            .from(
+                                PlayerDivisionInFantasyTournament::Table,
+                                PlayerDivisionInFantasyTournament::PlayerPDGANumber,
+                            ),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_player_division_to_fantasy_tournament")
+                            .from(
+                                PlayerDivisionInFantasyTournament::Table,
+                                PlayerDivisionInFantasyTournament::FantasyTournamentId,
+                            )
+                            .to(FantasyTournament::Table, FantasyTournament::Id),
+                    )
+                    .index(
+                        Index::create()
+                            .name("idx_player_division_to_player")
+                            .col(PlayerDivisionInFantasyTournament::PlayerPDGANumber)
+                            .col(PlayerDivisionInFantasyTournament::FantasyTournamentId)
+                            .unique(),
+                    )
+                    .to_owned(),
+            )
+            .await?;
         manager
             .create_table(
                 Table::create()
@@ -394,8 +447,10 @@ impl MigrationTrait for Migration {
         drop_type!(CompetitionStatus, manager);
         drop_table!(FantasyTournament, manager);
         drop_table!(FantasyTournamentDivision, manager);
+        drop_table!(PlayerDivisionInFantasyTournament, manager);
         drop_table!(CompetitionInFantasyTournament, manager);
         drop_table!(Round, manager);
+
         /*manager.drop_foreign_key(
             ForeignKey::drop()
                 .name("fk_competition_to_competition_in_tournament").to_owned()
