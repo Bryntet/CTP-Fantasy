@@ -3,7 +3,7 @@ mod mutation;
 mod query;
 mod utils;
 
-use std::net::Ipv4Addr;
+
 
 use rocket_okapi::openapi_get_routes;
 
@@ -15,9 +15,9 @@ use dotenvy::dotenv;
 use mutation::*;
 use query::*;
 use rocket::fs::FileServer;
-use rocket::{Build, Config, Rocket};
-use rocket::config::TlsConfig;
-use rocket::figment::Profile;
+use rocket::{Build, Rocket};
+
+
 use rocket_okapi::rapidoc::{make_rapidoc, GeneralConfig, HideShowConfig, RapiDocConfig};
 use rocket_okapi::settings::UrlObject;
 use rocket_okapi::swagger_ui::{make_swagger_ui, SwaggerUIConfig};
