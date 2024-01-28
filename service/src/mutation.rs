@@ -7,8 +7,7 @@ use rand::Rng;
 use rocket::http::{Cookie, CookieJar};
 use sea_orm::ActiveValue::*;
 use sea_orm::{
-    ActiveModelTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait, IntoActiveModel,
-    ModelTrait, TransactionTrait,
+    ActiveModelTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait, IntoActiveModel, TransactionTrait,
 };
 use sea_orm::{ColumnTrait, QueryFilter};
 

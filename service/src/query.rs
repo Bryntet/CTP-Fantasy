@@ -2,7 +2,7 @@ use bcrypt::verify;
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
 use sea_orm::entity::prelude::*;
-use sea_orm::{DatabaseConnection, DbErr, EntityTrait, QueryOrder};
+use sea_orm::{DatabaseConnection, DbErr, EntityTrait};
 
 use dto::InvitationStatus;
 use entity::prelude::*;
@@ -11,7 +11,7 @@ use entity::*;
 
 use crate::dto;
 use crate::dto::FantasyPicks;
-use crate::error::{GenericError, PlayerError};
+use crate::error::{GenericError};
 
 pub enum Auth {
     Password(String),

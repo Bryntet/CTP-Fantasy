@@ -1,16 +1,13 @@
-use crate::dto::pdga::add_players;
+
 use crate::dto::Division;
 use entity::player_round_score;
 use entity::player_round_score::ActiveModel;
-use entity::prelude::{
-    Competition, CompetitionInFantasyTournament, FantasyTournament, PlayerRoundScore, Round,
-};
+
 use itertools::Itertools;
 use sea_orm::ActiveValue::Set;
-use sea_orm::{sea_query, TransactionTrait};
+use sea_orm::{sea_query};
 use sea_orm::{
-    ActiveModelTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait, IntoActiveModel,
-    ModelTrait, NotSet,
+    ActiveModelTrait, ConnectionTrait, DbErr, EntityTrait, IntoActiveModel, NotSet,
 };
 use sea_orm::{ColumnTrait, QueryFilter};
 use serde_derive::Deserialize;

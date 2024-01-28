@@ -3,18 +3,17 @@ use std::fmt::Display;
 
 use bcrypt::{hash, DEFAULT_COST};
 use itertools::Itertools;
-use rocket::http::hyper::body::HttpBody;
+
 use rocket::http::CookieJar;
 use rocket::request::FromParam;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
-    ActiveModelTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait, ModelTrait, NotSet,
-    QueryFilter, Related, TransactionTrait,
+    ActiveModelTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait, ModelTrait, NotSet, Related, TransactionTrait,
 };
 
 use entity::fantasy_pick;
 use entity::prelude::{
-    Competition, FantasyScores, FantasyTournament, PhantomCompetitionInFantasyTournament, User,
+    FantasyScores, FantasyTournament, PhantomCompetitionInFantasyTournament, User,
     UserAuthentication, UserInFantasyTournament,
 };
 use entity::sea_orm_active_enums::FantasyTournamentInvitationStatus;
@@ -22,7 +21,7 @@ use entity::sea_orm_active_enums::FantasyTournamentInvitationStatus;
 use crate::dto::pdga::add_players;
 use crate::error::GenericError;
 use crate::error::PlayerError;
-use crate::{generate_cookie, get_player_division_in_competition, player_exists};
+use crate::{generate_cookie, player_exists};
 
 use super::pdga::CompetitionInfo;
 use super::*;
@@ -271,7 +270,7 @@ impl InsertCompetition for PhantomCompetition {
         .await
         {
             Ok(_) => Ok(()),
-            Err(e) => Err(GenericError::Conflict("Competition already added")),
+            Err(_e) => Err(GenericError::Conflict("Competition already added")),
         }
     }
 }

@@ -1,11 +1,11 @@
 use std::hash::{Hash, Hasher};
 
-use entity::fantasy_tournament_division;
+
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
-use sea_orm::ActiveValue::Set;
+
 use sea_orm::{
-    sea_query, ActiveModelTrait, ConnectionTrait, DbErr, EntityTrait, IntoActiveModel, NotSet,
+    sea_query, ActiveModelTrait, ConnectionTrait, DbErr, EntityTrait, IntoActiveModel,
 };
 use serde::Deserialize;
 

@@ -8,13 +8,13 @@ pub use fetch_people::get_players_from_api;
 
 pub use get_competition::CompetitionInfo;
 
-use sea_orm::{DatabaseConnection, ModelTrait, TransactionTrait};
+use sea_orm::{DatabaseConnection, TransactionTrait};
 
 async fn update_all_active(db: &DatabaseConnection) -> Result<(), DbErr> {
     let txn = db.begin().await?;
 
     let active_rounds = super::super::query::active_rounds(&txn).await?;
-    active_rounds.iter().for_each(|r| {});
+    active_rounds.iter().for_each(|_r| {});
 
     Ok(())
 }
