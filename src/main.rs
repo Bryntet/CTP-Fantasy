@@ -1,9 +1,9 @@
 use api::launch;
 use dotenvy::dotenv;
-use sea_orm::{DatabaseConnection, IntoActiveModel, TransactionTrait};
-use service::dto::Division;
+use sea_orm::{DatabaseConnection};
+
 use std::time::Duration;
-use tokio::time::interval;
+
 
 #[rocket::main]
 async fn main() -> Result<(), rocket::Error> {
