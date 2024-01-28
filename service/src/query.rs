@@ -362,3 +362,21 @@ pub async fn get_player_positions_in_round(
 
     Ok(player_round_scores)
 }
+enum CompetitionLevel {
+    Major,
+    Playoff,
+    ElitePlus,
+    Elite,
+    Silver,
+}
+impl CompetitionLevel {
+    fn multiplier(&self) -> f32 {
+        match self {
+            CompetitionLevel::Major => 2.0,
+            CompetitionLevel::Playoff => 1.5,
+            CompetitionLevel::ElitePlus => 1.25,
+            CompetitionLevel::Elite => 1.0,
+            CompetitionLevel::Silver => 0.5,
+        }
+    }
+}

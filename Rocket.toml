@@ -1,0 +1,11 @@
+[default]
+cli_colors = true
+address = "127.0.0.1"
+
+[release.tls]
+certs = "/ssl/cert.pem"
+key = "/ssl/cert.key"
+
+[release]
+address = "192.168.3.3"
+port = 443

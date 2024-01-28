@@ -120,22 +120,16 @@ impl MigrationTrait for Migration {
                     )
                     .index(
                         Index::create()
-                            .name("unique_pdga_tournament_round")
+                            .name("unique_round_score_competition_round")
                             .col(PlayerRoundScore::PDGANumber)
                             .col(PlayerRoundScore::CompetitionId)
                             .col(PlayerRoundScore::Round)
                             .unique(),
                     )
-                    .index(
-                        Index::create()
-                            .name("unique_tournament_round_score")
-                            .col(PlayerRoundScore::CompetitionId)
-                            .col(PlayerRoundScore::PDGANumber)
-                            .unique(),
-                    )
                     .to_owned(),
             )
             .await?;
+
 
         manager
             .create_table(
@@ -166,39 +160,16 @@ impl MigrationTrait for Migration {
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .from(
-                                PlayerInCompetition::Table,
-                                PlayerInCompetition::CompetitionId,
-                            )
+                            .from(PlayerInCompetition::Table, PlayerInCompetition::CompetitionId)
                             .to(Competition::Table, Competition::Id)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
-                    // Add unique constraint
                     .index(
                         Index::create()
-                            .name("unique_pdga_tournament_id")
+                            .name("unique_pdga_competition_id")
                             .col(PlayerInCompetition::PDGANumber)
                             .col(PlayerInCompetition::CompetitionId)
                             .unique(),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .name("fk_player_in_competition_player_round_score")
-                            .from(
-                                PlayerInCompetition::Table,
-                                (
-                                    PlayerInCompetition::CompetitionId,
-                                    PlayerInCompetition::PDGANumber,
-                                ),
-                            )
-                            .to(
-                                PlayerRoundScore::Table,
-                                (
-                                    PlayerRoundScore::CompetitionId,
-                                    PlayerRoundScore::PDGANumber,
-                                ),
-                            )
-                            .on_delete(ForeignKeyAction::Cascade),
                     )
                     .col(
                         ColumnDef::new(PlayerInCompetition::Division)
@@ -208,6 +179,7 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
+
 
         manager
             .create_table(

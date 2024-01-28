@@ -35,8 +35,6 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     Player,
-    #[sea_orm(has_many = "super::player_in_competition::Entity")]
-    PlayerInCompetition,
 }
 
 impl Related<super::competition::Entity> for Entity {
@@ -48,12 +46,6 @@ impl Related<super::competition::Entity> for Entity {
 impl Related<super::player::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Player.def()
-    }
-}
-
-impl Related<super::player_in_competition::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::PlayerInCompetition.def()
     }
 }
 

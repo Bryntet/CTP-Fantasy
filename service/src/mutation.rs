@@ -7,12 +7,13 @@ use rand::Rng;
 use rocket::http::{Cookie, CookieJar};
 use sea_orm::ActiveValue::*;
 use sea_orm::{
-    ActiveModelTrait, DatabaseConnection, DbErr, EntityTrait, IntoActiveModel, ModelTrait,
+    ActiveModelTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait, IntoActiveModel,
+    ModelTrait, TransactionTrait,
 };
 use sea_orm::{ColumnTrait, QueryFilter};
 
 use crate::error::InviteError;
-use crate::query;
+use crate::{dto, query};
 
 pub async fn generate_cookie(
     db: &DatabaseConnection,
@@ -109,5 +110,32 @@ pub async fn answer_invite(
         Ok(())
     } else {
         Err(InviteError::UserNotFound)
+    }
+}
+
+pub async fn update_round(db: &impl ConnectionTrait, round: round::Model) {
+    if let Ok(round_info) = dto::RoundInformation::new(
+        round.competition_id as usize,
+        round.round_number as usize,
+        dto::Division::MPO,
+    )
+    .await
+    {
+        if let Err(e) = round_info.update_all(db).await {
+            dbg!(e);
+        }
+    }
+}
+
+
+pub async fn update_rounds(db: &DatabaseConnection) {
+    let rounds = query::active_rounds(db).await.unwrap();
+    for round in rounds {
+        if let Ok(txn) = db.begin().await {
+            update_round(&txn, round).await;
+            if let Err(e) = txn.commit().await {
+                dbg!(e);
+            }
+        }
     }
 }

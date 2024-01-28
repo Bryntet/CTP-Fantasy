@@ -33,14 +33,6 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     Player,
-    #[sea_orm(
-        belongs_to = "super::player_round_score::Entity",
-        from = "(Column::CompetitionId, Column::CompetitionId, Column::PdgaNumber, Column::PdgaNumber)",
-        to = "(super::player_round_score::Column::PdgaNumber, super::player_round_score::Column::CompetitionId, super::player_round_score::Column::PdgaNumber, super::player_round_score::Column::CompetitionId)",
-        on_update = "NoAction",
-        on_delete = "Cascade"
-    )]
-    PlayerRoundScore,
 }
 
 impl Related<super::competition::Entity> for Entity {
@@ -52,12 +44,6 @@ impl Related<super::competition::Entity> for Entity {
 impl Related<super::player::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Player.def()
-    }
-}
-
-impl Related<super::player_round_score::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::PlayerRoundScore.def()
     }
 }
 

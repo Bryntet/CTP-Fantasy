@@ -64,7 +64,7 @@ impl From<ApiPlayerInRound> for PlayerScore {
             hole_scores: p
                 .hole_scores
                 .iter()
-                .map(|s| s.parse::<u32>().unwrap())
+                .filter_map(|s| s.parse::<u32>().ok())
                 .collect(),
         }
     }
@@ -86,41 +86,50 @@ impl PlayerScore {
         competition_id: i32,
         div: &entity::sea_orm_active_enums::Division,
     ) -> Result<(), DbErr> {
+        if let Some(score_update) =
         self.round_score_active_model(db, round, competition_id, div.clone())
-            .await
-            .save(db)
-            .await?;
+            .await {
+            score_update.save(db).await?;
+        }
         self.make_sure_player_in_competition(db, competition_id, div)
             .await?;
         Ok(())
     }
 
+
+    /// Returns ActiveModel if score is changed, otherwise None
     async fn round_score_active_model(
         &self,
         db: &impl ConnectionTrait,
         round: i32,
         competition_id: i32,
         division: entity::sea_orm_active_enums::Division,
-    ) -> ActiveModel {
+    ) -> Option<ActiveModel> {
         let existing_score = player_round_score::Entity::find()
             .filter(player_round_score::Column::PdgaNumber.eq(self.pdga_number))
             .filter(player_round_score::Column::Round.eq(round))
             .one(db)
             .await;
+
         match existing_score {
             Ok(Some(score)) => {
-                let mut score = score.into_active_model();
-                score.score = Set(self.round_score as i32);
-                score
+                if score.score != self.round_score as i32 {
+                    let mut score = score.into_active_model();
+                    score.score = Set(self.round_score as i32);
+                    Some(score)
+                } else {
+                    None
+                }
             }
-            Err(_) | Ok(None) => ActiveModel {
+            Err(_) | Ok(None) => Some(ActiveModel {
                 id: NotSet,
                 pdga_number: Set(self.pdga_number),
                 competition_id: Set(competition_id),
                 round: Set(round),
                 score: Set(self.round_score as i32),
                 division: Set(division),
-            },
+            }),
+
         }
     }
 

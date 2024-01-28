@@ -35,24 +35,5 @@ async fn main() -> Result<(), rocket::Error> {
 }
 
 async fn check_active_rounds(db: &DatabaseConnection) {
-    if let Ok(rounds) = service::query::active_rounds(db).await {
-        for round in rounds {
-            if let Ok(txn) = db.begin().await {
-                if let Ok(round_info) = service::dto::RoundInformation::new(
-                    round.competition_id as usize,
-                    round.round_number as usize,
-                    Division::MPO,
-                )
-                .await
-                {
-                    if let Err(e) = round_info.update_all(&txn).await {
-                        dbg!(e);
-                    }
-                }
-                if let Err(e) = txn.commit().await {
-                    dbg!(e);
-                }
-            }
-        }
-    }
+    service::mutation::update_rounds(db).await;
 }

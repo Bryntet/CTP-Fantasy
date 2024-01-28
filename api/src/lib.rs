@@ -16,6 +16,8 @@ use mutation::*;
 use query::*;
 use rocket::fs::FileServer;
 use rocket::{Build, Config, Rocket};
+use rocket::config::TlsConfig;
+use rocket::figment::Profile;
 use rocket_okapi::rapidoc::{make_rapidoc, GeneralConfig, HideShowConfig, RapiDocConfig};
 use rocket_okapi::settings::UrlObject;
 use rocket_okapi::swagger_ui::{make_swagger_ui, SwaggerUIConfig};
@@ -35,10 +37,7 @@ pub async fn launch() -> Rocket<Build> {
             .unwrap();
     let flutter_path = std::env::var("FLUTTER_PATH").expect("FLUTTER_PATH not set");
 
-    let _config = Config {
-        address: Ipv4Addr::new(192, 169, 21, 12).into(),
-        ..Default::default()
-    };
+
     rocket::build()
         .manage(db)
         .mount(
@@ -89,5 +88,5 @@ pub async fn launch() -> Rocket<Build> {
         )
         .register("/api", catchers![general_not_found])
         .mount("/", FileServer::from(flutter_path))
-    //.configure(config)
+        //.configure(release_config)
 }
