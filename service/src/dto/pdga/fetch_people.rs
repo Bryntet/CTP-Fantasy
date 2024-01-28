@@ -5,7 +5,7 @@ use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
 
 use sea_orm::{
-    sea_query, ActiveModelTrait, ConnectionTrait, DbErr, EntityTrait, IntoActiveModel,
+    sea_query, ConnectionTrait, DbErr, EntityTrait, IntoActiveModel,
 };
 use serde::Deserialize;
 
@@ -66,7 +66,7 @@ impl ApiPlayer {
         .into_active_model()
     }
 
-    async fn save_div(
+    /*async fn save_div(
         &self,
         db: &impl ConnectionTrait,
         fantasy_tournament_id: i32,
@@ -85,7 +85,7 @@ impl ApiPlayer {
         .exec(db)
         .await?;
         Ok(())
-    }
+    }*/
 }
 
 #[derive(Debug, Deserialize)]

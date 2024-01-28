@@ -8,7 +8,7 @@ use rocket::http::CookieJar;
 use rocket::request::FromParam;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
-    ActiveModelTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait, ModelTrait, NotSet, Related, TransactionTrait,
+    ActiveModelTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait, ModelTrait, NotSet, TransactionTrait,
 };
 
 use entity::fantasy_pick;

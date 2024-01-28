@@ -1,7 +1,8 @@
 
 use std::env;
-
 fn main() {
+    dotenvy::dotenv().ok();
+
     // List of required environment variables
     let required_vars = ["DATABASE_URL", "FLUTTER_PATH"];
 

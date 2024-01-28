@@ -21,3 +21,6 @@ service = {path = "./service" }
 
 [workspace]
 members = [".", "entity", "migration", "service", "api"]
+
+[build-dependencies]
+dotenvy = "0.15.7"
