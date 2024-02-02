@@ -1,14 +1,11 @@
-
 use crate::dto::Division;
 use entity::player_round_score;
 use entity::player_round_score::ActiveModel;
 
 use itertools::Itertools;
+use sea_orm::sea_query;
 use sea_orm::ActiveValue::Set;
-use sea_orm::{sea_query};
-use sea_orm::{
-    ActiveModelTrait, ConnectionTrait, DbErr, EntityTrait, IntoActiveModel, NotSet,
-};
+use sea_orm::{ActiveModelTrait, ConnectionTrait, DbErr, EntityTrait, IntoActiveModel, NotSet};
 use sea_orm::{ColumnTrait, QueryFilter};
 use serde_derive::Deserialize;
 
@@ -83,16 +80,17 @@ impl PlayerScore {
         competition_id: i32,
         div: &entity::sea_orm_active_enums::Division,
     ) -> Result<(), DbErr> {
-        if let Some(score_update) =
-        self.round_score_active_model(db, round, competition_id, div.clone())
-            .await {
+        if let Some(score_update) = self
+            .round_score_active_model(db, round, competition_id, div.clone())
+            .await
+        {
+            dbg!(&score_update);
             score_update.save(db).await?;
         }
         self.make_sure_player_in_competition(db, competition_id, div)
             .await?;
         Ok(())
     }
-
 
     /// Returns ActiveModel if score is changed, otherwise None
     async fn round_score_active_model(
@@ -126,7 +124,6 @@ impl PlayerScore {
                 score: Set(self.round_score as i32),
                 division: Set(division),
             }),
-
         }
     }
 

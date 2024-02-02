@@ -16,7 +16,7 @@ tokio = "1.35.1"
 rocket_okapi = "0.8.0"
 bcrypt = "0.15.0"
 rand = "0.8.4"
-rocket = "0.5.0"
+rocket = { version = "0.5.0", features = ["secrets"] }
 sqlx = {version =  "0.7.3", features = ["postgres"] }
 chrono = "0.4.32"
 [dependencies.sea-orm]

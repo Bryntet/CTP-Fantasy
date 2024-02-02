@@ -7,7 +7,8 @@ use rand::Rng;
 use rocket::http::{Cookie, CookieJar};
 use sea_orm::ActiveValue::*;
 use sea_orm::{
-    ActiveModelTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait, IntoActiveModel, TransactionTrait,
+    ActiveModelTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait, IntoActiveModel,
+    TransactionTrait,
 };
 use sea_orm::{ColumnTrait, QueryFilter};
 
@@ -31,12 +32,16 @@ pub async fn generate_cookie(
     };
     UserCookies::insert(user_cookie).exec(db).await?;
 
+    #[cfg(debug_assertions)]
+    let secure = false;
+    #[cfg(not(debug_assertions))]
+    let secure = true;
+
     let cookie: Cookie<'static> = Cookie::build(("auth".to_string(), random_value.clone()))
-        .secure(false)
-        //.same_site(rocket::http::SameSite::None)
+        .secure(secure)
         .build();
 
-    cookies.add(cookie);
+    cookies.add_private(cookie);
     Ok(())
 }
 
@@ -120,15 +125,19 @@ pub async fn update_round(db: &impl ConnectionTrait, round: round::Model) {
     )
     .await
     {
+        dbg!(&round_info);
         if let Err(e) = round_info.update_all(db).await {
             dbg!(e);
         }
     }
 }
 
-
-pub async fn update_rounds(db: &DatabaseConnection) {
+pub async fn update_active_rounds(db: &DatabaseConnection) {
     let rounds = query::active_rounds(db).await.unwrap();
+    update_rounds(db, rounds).await;
+}
+
+pub async fn update_rounds(db: &DatabaseConnection, rounds: Vec<round::Model>) {
     for round in rounds {
         if let Ok(txn) = db.begin().await {
             update_round(&txn, round).await;

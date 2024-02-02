@@ -14,6 +14,15 @@ impl MigrationTrait for Migration {
         manager
             .create_type(
                 Type::create()
+                    .as_enum(CompetitionLevel::Table)
+                    .values(CompetitionLevel::iter())
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_type(
+                Type::create()
                     .as_enum(CompetitionStatus::Table)
                     .values(CompetitionStatus::iter().skip(1))
                     .to_owned(),
@@ -31,6 +40,11 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(ColumnDef::new(Competition::Rounds).integer().not_null())
+                    .col(
+                        ColumnDef::new(Competition::Level)
+                            .custom(CompetitionLevel::Table)
+                            .not_null(),
+                    )
                     .to_owned(),
             )
             .await?;
@@ -45,6 +59,11 @@ impl MigrationTrait for Migration {
                     )
                     .col(ColumnDef::new(PhantomCompetition::Name).string().not_null())
                     .col(ColumnDef::new(PhantomCompetition::Date).date().not_null())
+                    .col(
+                        ColumnDef::new(PhantomCompetition::Level)
+                            .custom(CompetitionLevel::Table)
+                            .not_null(),
+                    )
                     .to_owned(),
             )
             .await?;
@@ -130,7 +149,6 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
-
         manager
             .create_table(
                 Table::create()
@@ -160,7 +178,10 @@ impl MigrationTrait for Migration {
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .from(PlayerInCompetition::Table, PlayerInCompetition::CompetitionId)
+                            .from(
+                                PlayerInCompetition::Table,
+                                PlayerInCompetition::CompetitionId,
+                            )
                             .to(Competition::Table, Competition::Id)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
@@ -179,7 +200,6 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
-
 
         manager
             .create_table(
@@ -422,6 +442,7 @@ impl MigrationTrait for Migration {
         drop_table!(PlayerDivisionInFantasyTournament, manager);
         drop_table!(CompetitionInFantasyTournament, manager);
         drop_table!(Round, manager);
+        drop_type!(CompetitionLevel, manager);
 
         /*manager.drop_foreign_key(
             ForeignKey::drop()

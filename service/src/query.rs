@@ -1,8 +1,9 @@
 use bcrypt::verify;
+use itertools::Itertools;
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
 use sea_orm::entity::prelude::*;
-use sea_orm::{DatabaseConnection, DbErr, EntityTrait};
+use sea_orm::{DatabaseConnection, DbErr, EntityTrait, SelectorTrait};
 
 use dto::InvitationStatus;
 use entity::prelude::*;
@@ -11,7 +12,7 @@ use entity::*;
 
 use crate::dto;
 use crate::dto::FantasyPicks;
-use crate::error::{GenericError};
+use crate::error::GenericError;
 
 pub enum Auth {
     Password(String),
@@ -212,6 +213,7 @@ pub async fn get_user_pick_in_tournament(
             slot: pick.pick_number,
             pdga_number: pick.player,
             name: get_player_name(db, pick.player).await.ok(),
+            avatar: get_player_face(db, pick.player).await?,
         })
     } else {
         Err(GenericError::NotFound("Pick not found"))
@@ -222,6 +224,18 @@ async fn get_player_name(db: &DatabaseConnection, player_id: i32) -> Result<Stri
     let player = Player::find_by_id(player_id).one(db).await?;
     if let Some(player) = player {
         Ok(player.first_name + " " + &player.last_name)
+    } else {
+        Err(GenericError::NotFound("Player not found"))
+    }
+}
+
+async fn get_player_face(
+    db: &DatabaseConnection,
+    player_id: i32,
+) -> Result<Option<String>, GenericError> {
+    let player = Player::find_by_id(player_id).one(db).await?;
+    if let Some(player) = player {
+        Ok(player.avatar)
     } else {
         Err(GenericError::NotFound("Player not found"))
     }
@@ -249,14 +263,21 @@ pub async fn get_user_picks_in_tournament(
         picks: {
             let mut out = Vec::new();
             for p in &picks {
+                let a: (Option<String>, Option<String>) =
+                    if let Ok(Some(related_player)) = p.find_related(Player).one(db).await {
+                        (
+                            Some(related_player.first_name + " " + &related_player.last_name),
+                            related_player.avatar,
+                        )
+                    } else {
+                        (None, None)
+                    };
+
                 out.push(dto::FantasyPick {
                     slot: p.pick_number,
                     pdga_number: p.player,
-                    name: if let Ok(Some(p)) = p.find_related(Player).one(db).await {
-                        Some(p.first_name + " " + &p.last_name)
-                    } else {
-                        None
-                    },
+                    name: a.0,
+                    avatar: a.1,
                 })
             }
             out
@@ -325,7 +346,7 @@ pub async fn get_player_division_in_tournament(
     player_id: i32,
     tournament_id: i32,
 ) -> Result<Option<dto::Division>, DbErr> {
-    let res = PlayerDivisionInFantasyTournament::find()
+    PlayerDivisionInFantasyTournament::find()
         .filter(
             player_division_in_fantasy_tournament::Column::PlayerPdgaNumber
                 .eq(player_id)
@@ -336,9 +357,7 @@ pub async fn get_player_division_in_tournament(
         )
         .one(db)
         .await
-        .map(|p| p.map(|p| p.division.into()));
-    dbg!(&res);
-    res
+        .map(|p| p.map(|p| p.division.into()))
 }
 
 pub async fn get_player_positions_in_round(
@@ -362,21 +381,79 @@ pub async fn get_player_positions_in_round(
 
     Ok(player_round_scores)
 }
-enum CompetitionLevel {
-    Major,
-    Playoff,
-    ElitePlus,
-    Elite,
-    Silver,
+
+pub async fn get_rounds_in_competition(
+    db: &impl ConnectionTrait,
+    competition_id: i32,
+) -> Result<Vec<round::Model>, DbErr> {
+    Round::find()
+        .filter(round::Column::CompetitionId.eq(competition_id))
+        .all(db)
+        .await
 }
-impl CompetitionLevel {
-    fn multiplier(&self) -> f32 {
-        match self {
-            CompetitionLevel::Major => 2.0,
-            CompetitionLevel::Playoff => 1.5,
-            CompetitionLevel::ElitePlus => 1.25,
-            CompetitionLevel::Elite => 1.0,
-            CompetitionLevel::Silver => 0.5,
-        }
+
+fn apply_score(index: usize) -> usize {
+    match index {
+        1 => 100,
+        2 => 85,
+        3 => 75,
+        4 => 69,
+        5 => 64,
+        6 => 60,
+        7 => 57,
+        8..=20 => 54 - (index - 8) * 2,
+        21..=48 => 50 - index,
+        _ => 2,
+    }
+}
+
+pub fn apply_scores(scores: Vec<player_round_score::Model>) -> Vec<player_round_score::Model> {
+    scores
+        .into_iter()
+        .sorted_by(|a, b| a.score.cmp(&b.score))
+        .enumerate()
+        .map(|(idx, mut s)| {
+            s.score = apply_score(idx) as i32;
+            s
+        })
+        .collect()
+}
+
+async fn find_who_owns_player(
+    db: &impl ConnectionTrait,
+    round_score: player_round_score::Model,
+    tournament: fantasy_tournament::Model,
+) -> Result<user::Model, GenericError> {
+    let pick = FantasyPick::find()
+        .filter(fantasy_pick::Column::Player.eq(round_score.pdga_number))
+        .filter(fantasy_pick::Column::FantasyTournamentId.eq(tournament.id))
+        .one(db)
+        .await
+        .map(|p| p.ok_or(GenericError::NotFound("Pick not found")))
+        .map_err(|e| {
+            dbg!(e);
+            GenericError::UnknownError("Pick not found due to unknown database error")
+        })??;
+
+    User::find_by_id(pick.user)
+        .one(db)
+        .await
+        .map(|u| u.ok_or(GenericError::NotFound("User not found")))
+        .map_err(|e| {
+            dbg!(e);
+            GenericError::UnknownError("User not found due to unknown database error")
+        })?
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_apply_scores() {
+        let scores = vec![10, 100, 85, 75, 69];
+
+        let result = apply_scores(scores);
+        assert_eq!(result.map, vec![100, 85, 75, 69]);
     }
 }

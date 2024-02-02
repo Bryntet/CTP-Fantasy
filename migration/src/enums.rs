@@ -42,6 +42,22 @@ pub(crate) enum Competition {
     Name,
     Status,
     Rounds,
+    Level,
+}
+
+#[derive(Iden, EnumIter)]
+pub(crate) enum CompetitionLevel {
+    Table,
+    #[iden = "Major"]
+    Major,
+    #[iden = "Playoff"]
+    Playoff,
+    #[iden = "ElitePlus"]
+    ElitePlus,
+    #[iden = "Elite"]
+    Elite,
+    #[iden = "Silver"]
+    Silver,
 }
 
 #[derive(DeriveIden)]
@@ -50,6 +66,7 @@ pub(crate) enum PhantomCompetition {
     Id,
     Name,
     Date,
+    Level,
 }
 
 #[derive(DeriveIden)]
@@ -134,7 +151,7 @@ pub(crate) enum FantasyScores {
     Id,
     User,
     Score,
-    Ranking,
+    RoundScoreId,
     FantasyTournamentId,
 }
 

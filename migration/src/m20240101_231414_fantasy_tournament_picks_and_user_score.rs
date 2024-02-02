@@ -99,7 +99,21 @@ impl MigrationTrait for Migration {
                             .col(FantasyScores::FantasyTournamentId)
                             .unique(),
                     )
-                    .col(ColumnDef::new(FantasyScores::Ranking).integer().not_null())
+                    .col(
+                        ColumnDef::new(FantasyScores::RoundScoreId)
+                            .integer()
+                            .not_null(),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .from(FantasyScores::Table, FantasyScores::RoundScoreId)
+                            .to(PlayerRoundScore::Table, PlayerRoundScore::Id),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .from(FantasyScores::Table, FantasyScores::FantasyTournamentId)
+                            .to(FantasyTournament::Table, FantasyTournament::Id),
+                    )
                     .to_owned(),
             )
             .await?;

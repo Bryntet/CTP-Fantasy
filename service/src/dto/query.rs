@@ -1,15 +1,18 @@
-use super::*;
-use crate::dto::pdga::CompetitionInfo;
-use crate::error::GenericError;
-
-use entity::prelude::Round;
-use entity::{user, user_authentication};
 use sea_orm::prelude::Date;
 use sea_orm::ActiveValue::Set;
 use sea_orm::ColumnTrait;
 use sea_orm::DbErr;
 use sea_orm::QueryFilter;
 use sea_orm::{ConnectionTrait, EntityTrait, NotSet};
+
+use entity::prelude::Round;
+use entity::{user, user_authentication};
+
+use crate::dto::pdga::CompetitionInfo;
+use crate::error::GenericError;
+
+use super::*;
+
 trait ToModel {
     type Model;
     fn to_model(&self) -> Self::Model;
@@ -109,12 +112,16 @@ impl FantasyPick {
 }
 
 impl CompetitionInfo {
-    pub(crate) fn active_model(&self) -> competition::ActiveModel {
+    pub(crate) fn active_model(
+        &self,
+        level: entity::sea_orm_active_enums::CompetitionLevel,
+    ) -> competition::ActiveModel {
         competition::ActiveModel {
             id: Set(self.competition_id as i32),
             status: Set(sea_orm_active_enums::CompetitionStatus::NotStarted),
             name: Set(self.name.clone()),
             rounds: Set(self.date_range.len() as i32),
+            level: Set(level),
         }
     }
 
@@ -161,11 +168,39 @@ impl CompetitionInfo {
     }
 }
 impl PhantomCompetition {
-    pub(crate) fn active_model(&self) -> phantom_competition::ActiveModel {
+    pub(crate) fn active_model(
+        &self,
+        level: sea_orm_active_enums::CompetitionLevel,
+    ) -> phantom_competition::ActiveModel {
         phantom_competition::ActiveModel {
             id: NotSet,
             name: Set(self.name.clone()),
             date: Set(self.start_date),
+            level: Set(level),
+        }
+    }
+}
+
+impl From<CompetitionLevel> for sea_orm_active_enums::CompetitionLevel {
+    fn from(level: CompetitionLevel) -> Self {
+        match level {
+            CompetitionLevel::Major => sea_orm_active_enums::CompetitionLevel::Major,
+            CompetitionLevel::Playoff => sea_orm_active_enums::CompetitionLevel::Playoff,
+            CompetitionLevel::ElitePlus => sea_orm_active_enums::CompetitionLevel::ElitePlus,
+            CompetitionLevel::Elite => sea_orm_active_enums::CompetitionLevel::Elite,
+            CompetitionLevel::Silver => sea_orm_active_enums::CompetitionLevel::Silver,
+        }
+    }
+}
+
+impl CompetitionLevel {
+    fn multiplier(&self) -> f32 {
+        match self {
+            CompetitionLevel::Major => 2.0,
+            CompetitionLevel::Playoff => 1.5,
+            CompetitionLevel::ElitePlus => 1.25,
+            CompetitionLevel::Elite => 1.0,
+            CompetitionLevel::Silver => 0.5,
         }
     }
 }

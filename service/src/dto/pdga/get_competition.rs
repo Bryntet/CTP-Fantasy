@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use sea_orm::DbErr;
 use serde_derive::Deserialize;
 use std::collections::HashMap;
@@ -34,7 +35,7 @@ struct Round {
 pub struct CompetitionInfo {
     pub(crate) name: String,
     pub(crate) date_range: Vec<sea_orm::prelude::Date>,
-    pub(crate) competition_id: u32,
+    pub competition_id: u32,
     pub(crate) divisions: Vec<super::super::Division>,
     pub(crate) rounds: usize,
     pub(crate) highest_completed_round: Option<usize>,
@@ -51,14 +52,21 @@ impl CompetitionInfo {
                 let dates = parse_date_range(&resp).unwrap();
                 let info = resp.data;
 
-                Ok(Self {
+                let out = Self {
                     name: info.name,
                     date_range: dates,
                     competition_id,
                     rounds: info.rounds,
-                    divisions: info.divisions.into_iter().map(|d| d.division).collect(),
+                    divisions: info
+                        .divisions
+                        .into_iter()
+                        .dedup_by(|a, b| a.division.eq(&b.division))
+                        .map(|d| d.division)
+                        .collect(),
                     highest_completed_round: info.highest_completed_round,
-                })
+                };
+                dbg!(&out);
+                Ok(out)
             }
             Err(e) => {
                 dbg!(&e);

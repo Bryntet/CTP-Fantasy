@@ -8,7 +8,8 @@ use rocket::http::CookieJar;
 use rocket::request::FromParam;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
-    ActiveModelTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait, ModelTrait, NotSet, TransactionTrait,
+    ActiveModelTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait, ModelTrait, NotSet,
+    TransactionTrait,
 };
 
 use entity::fantasy_pick;
@@ -237,7 +238,11 @@ impl PlayerInCompetition {
 }
 
 pub trait InsertCompetition {
-    async fn insert_in_db(&self, db: &impl ConnectionTrait) -> Result<(), DbErr>;
+    async fn insert_in_db(
+        &self,
+        db: &impl ConnectionTrait,
+        level: sea_orm_active_enums::CompetitionLevel,
+    ) -> Result<(), DbErr>;
     async fn insert_in_fantasy(
         &self,
         db: &impl ConnectionTrait,
@@ -246,9 +251,13 @@ pub trait InsertCompetition {
 }
 
 impl InsertCompetition for PhantomCompetition {
-    async fn insert_in_db(&self, db: &impl ConnectionTrait) -> Result<(), DbErr> {
+    async fn insert_in_db(
+        &self,
+        db: &impl ConnectionTrait,
+        level: sea_orm_active_enums::CompetitionLevel,
+    ) -> Result<(), DbErr> {
         use entity::prelude::PhantomCompetition;
-        PhantomCompetition::insert(self.active_model())
+        PhantomCompetition::insert(self.active_model(level))
             .exec(db)
             .await?;
         Ok(())
@@ -276,8 +285,12 @@ impl InsertCompetition for PhantomCompetition {
 }
 
 impl InsertCompetition for CompetitionInfo {
-    async fn insert_in_db(&self, db: &impl ConnectionTrait) -> Result<(), DbErr> {
-        self.active_model().insert(db).await?;
+    async fn insert_in_db(
+        &self,
+        db: &impl ConnectionTrait,
+        level: entity::sea_orm_active_enums::CompetitionLevel,
+    ) -> Result<(), DbErr> {
+        self.active_model(level).insert(db).await?;
         self.insert_rounds(db).await?;
         Ok(())
     }
@@ -325,6 +338,7 @@ impl CompetitionInfo {
         )
         .exec(db)
         .await?;
+
         Ok(())
     }
 

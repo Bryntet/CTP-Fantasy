@@ -3,8 +3,6 @@ mod mutation;
 mod query;
 mod utils;
 
-
-
 use rocket_okapi::openapi_get_routes;
 
 #[macro_use]
@@ -16,7 +14,6 @@ use mutation::*;
 use query::*;
 use rocket::fs::FileServer;
 use rocket::{Build, Rocket};
-
 
 use rocket_okapi::rapidoc::{make_rapidoc, GeneralConfig, HideShowConfig, RapiDocConfig};
 use rocket_okapi::settings::UrlObject;
@@ -37,7 +34,6 @@ pub async fn launch() -> Rocket<Build> {
             .unwrap();
     let flutter_path = std::env::var("FLUTTER_PATH").expect("FLUTTER_PATH not set");
 
-
     rocket::build()
         .manage(db)
         .mount(
@@ -54,6 +50,7 @@ pub async fn launch() -> Rocket<Build> {
                 answer_invite,
                 get_user_picks,
                 check_cookie,
+                check_cookie_failed,
                 logout,
                 get_my_id,
                 get_tournament,
@@ -61,7 +58,7 @@ pub async fn launch() -> Rocket<Build> {
                 get_max_picks,
                 get_user_pick,
                 get_divisions,
-                add_competition
+                add_competition,
             ],
         )
         .mount(
@@ -88,5 +85,5 @@ pub async fn launch() -> Rocket<Build> {
         )
         .register("/api", catchers![general_not_found])
         .mount("/", FileServer::from(flutter_path))
-        //.configure(release_config)
+    //.configure(release_config)
 }

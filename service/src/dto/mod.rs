@@ -1,11 +1,14 @@
+pub mod forms;
 mod mutation;
 mod pdga;
 mod query;
 
-use rocket::FromFormField;
+use rocket::request::FromParam;
+use rocket::{FromForm, FromFormField};
 
 use entity::*;
 
+use crate::error::GenericError;
 pub use pdga::{CompetitionInfo, RoundInformation};
 use rocket::serde::{Deserialize, Serialize};
 use rocket_okapi::okapi::schemars::{self, JsonSchema};
@@ -30,6 +33,7 @@ pub struct FantasyPick {
     pub slot: i32,
     pub pdga_number: i32,
     pub name: Option<String>,
+    pub avatar: Option<String>,
 }
 #[derive(serde::Serialize, serde::Deserialize, JsonSchema, Debug)]
 pub struct FantasyPicks {
@@ -91,4 +95,22 @@ pub struct PlayerInCompetition {
     pub pdga_number: i32,
     pub division: Division,
     pub competition_id: i32,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq, FromFormField)]
+pub enum CompetitionLevel {
+    Major,
+    Playoff,
+    ElitePlus,
+    Elite,
+    Silver,
+}
+
+impl FromParam<'_> for CompetitionLevel {
+    type Error = GenericError;
+
+    fn from_param(param: &'_ str) -> Result<Self, Self::Error> {
+        serde_json::from_str(param)
+            .map_err(|_| GenericError::BadRequest("Invalid competition level"))
+    }
 }

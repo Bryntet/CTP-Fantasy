@@ -27,6 +27,8 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     Competition,
+    #[sea_orm(has_many = "super::fantasy_scores::Entity")]
+    FantasyScores,
     #[sea_orm(
         belongs_to = "super::player::Entity",
         from = "Column::PdgaNumber",
@@ -40,6 +42,12 @@ pub enum Relation {
 impl Related<super::competition::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Competition.def()
+    }
+}
+
+impl Related<super::fantasy_scores::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::FantasyScores.def()
     }
 }
 

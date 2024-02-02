@@ -1,9 +1,8 @@
 use api::launch;
 use dotenvy::dotenv;
-use sea_orm::{DatabaseConnection};
+use sea_orm::DatabaseConnection;
 
 use std::time::Duration;
-
 
 #[rocket::main]
 async fn main() -> Result<(), rocket::Error> {
@@ -35,5 +34,5 @@ async fn main() -> Result<(), rocket::Error> {
 }
 
 async fn check_active_rounds(db: &DatabaseConnection) {
-    service::mutation::update_rounds(db).await;
+    service::mutation::update_active_rounds(db).await;
 }

@@ -28,8 +28,10 @@ pub enum GenericError {
     CheckError(&'static str),
     #[response(status = 404)]
     NotFound(&'static str),
-    #[response(status = 400)]
+    #[response(status = 409)]
     Conflict(&'static str),
+    #[response(status = 400)]
+    BadRequest(&'static str),
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Responder)]

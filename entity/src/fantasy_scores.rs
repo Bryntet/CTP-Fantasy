@@ -12,7 +12,7 @@ pub struct Model {
     pub user: i32,
     pub fantasy_tournament_id: i32,
     pub score: i32,
-    pub ranking: i32,
+    pub round_score_id: i32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -26,6 +26,22 @@ pub enum Relation {
     )]
     Competition,
     #[sea_orm(
+        belongs_to = "super::fantasy_tournament::Entity",
+        from = "Column::FantasyTournamentId",
+        to = "super::fantasy_tournament::Column::Id",
+        on_update = "NoAction",
+        on_delete = "NoAction"
+    )]
+    FantasyTournament,
+    #[sea_orm(
+        belongs_to = "super::player_round_score::Entity",
+        from = "Column::RoundScoreId",
+        to = "super::player_round_score::Column::Id",
+        on_update = "NoAction",
+        on_delete = "NoAction"
+    )]
+    PlayerRoundScore,
+    #[sea_orm(
         belongs_to = "super::user::Entity",
         from = "Column::User",
         to = "super::user::Column::Id",
@@ -38,6 +54,18 @@ pub enum Relation {
 impl Related<super::competition::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Competition.def()
+    }
+}
+
+impl Related<super::fantasy_tournament::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::FantasyTournament.def()
+    }
+}
+
+impl Related<super::player_round_score::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::PlayerRoundScore.def()
     }
 }
 

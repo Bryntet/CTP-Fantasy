@@ -1,3 +1,4 @@
+use rocket::form::Form;
 use rocket::serde::json::Json;
 use rocket::State;
 
@@ -13,7 +14,7 @@ use rocket_okapi::openapi;
 use rocket::http::CookieJar;
 use sea_orm::TransactionTrait;
 
-use service::dto::{traits::InsertCompetition, FantasyPick, UserLogin};
+use service::dto::{forms, traits::InsertCompetition, CompetitionLevel, FantasyPick, UserLogin};
 
 /// # Create a fantasy tournament
 ///
@@ -141,6 +142,7 @@ pub(crate) async fn add_pick(
             slot,
             pdga_number,
             name: None,
+            avatar: None,
         };
         dbg!(&division);
 
@@ -212,30 +214,48 @@ pub(crate) async fn answer_invite(
     }
 }
 #[openapi(tag = "Fantasy Tournament")]
-#[post("/fantasy-tournament/<fantasy_tournament_id>/add-competition/<competition_id>")]
+#[post(
+    "/fantasy-tournament/<fantasy_tournament_id>/competition/add",
+    data = "<competition>"
+)]
 pub(crate) async fn add_competition(
     _auth: authenticate::TournamentOwner,
     db: &State<DatabaseConnection>,
     fantasy_tournament_id: u32,
-    competition_id: u32,
+    competition: Json<forms::AddCompetition>,
 ) -> Result<String, GenericError> {
-    let txn = db.inner().begin().await?;
-
-    match service::dto::CompetitionInfo::from_web(competition_id).await {
+    let txn = db.begin().await?;
+    let competition_input = competition.into_inner();
+    match service::dto::CompetitionInfo::from_web(competition_input.competition_id).await {
         Ok(competition) => {
             if !competition.is_in_db(&txn).await? {
-                competition.insert_in_db(&txn).await?;
+                competition
+                    .insert_in_db(&txn, competition_input.level.into())
+                    .await?;
             }
-            competition
+            if let Err(e) = competition
                 .insert_in_fantasy(&txn, fantasy_tournament_id)
-                .await?;
+                .await
+            {
+                dbg!(&e);
+                Err(e)?
+            }
             competition
                 .insert_players(&txn, Some(fantasy_tournament_id as i32))
                 .await?;
             txn.commit().await?;
+            let rounds = service::get_rounds_in_competition(
+                db.inner(),
+                competition_input.competition_id as i32,
+            )
+            .await?;
+            service::mutation::update_rounds(db, rounds).await;
             Ok("Successfully added competition".to_string())
         }
-        Err(_e) => Err(GenericError::NotFound("Competition not found in PDGA")),
+        Err(e) => {
+            dbg!(e);
+            Err(GenericError::NotFound("Competition not found in PDGA"))
+        }
     }
 }
 

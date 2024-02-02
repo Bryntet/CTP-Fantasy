@@ -1,4 +1,3 @@
-
 use std::env;
 fn main() {
     dotenvy::dotenv().ok();
@@ -11,9 +10,12 @@ fn main() {
             Ok(value) => {
                 println!("{} is set to {}", var, value);
                 // You can use the value here as needed
-            },
+            }
             Err(_) => {
-                println!("cargo:warning=Required environment variable {} is not set.", var);
+                println!(
+                    "cargo:warning=Required environment variable {} is not set.",
+                    var
+                );
             }
         }
     }

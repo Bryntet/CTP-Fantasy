@@ -1,12 +1,9 @@
 use std::hash::{Hash, Hasher};
 
-
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
 
-use sea_orm::{
-    sea_query, ConnectionTrait, DbErr, EntityTrait, IntoActiveModel,
-};
+use sea_orm::{sea_query, ConnectionTrait, DbErr, EntityTrait, IntoActiveModel};
 use serde::Deserialize;
 
 use crate::dto;
@@ -120,7 +117,7 @@ pub async fn add_players(
                 .do_nothing()
                 .to_owned(),
         )
-        .on_empty_do_nothing()
+        .do_nothing()
         .exec(db)
         .await?;
     if let Some(fantasy_tournament_id) = fantasy_tournament_id {

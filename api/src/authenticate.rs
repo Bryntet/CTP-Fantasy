@@ -67,7 +67,7 @@ impl<'r> FromRequest<'r> for TournamentOwner {
                             tournament_id: t_id,
                         })
                     })
-                    .or_forward(Status::BadRequest)
+                    .or_forward(Status::NotFound)
             })
             .and_then(|t| t);
         if let Some(Ok(t)) = t.succeeded() {
@@ -111,7 +111,7 @@ impl Authenticated {
     }
 
     fn remove_from_jar(cookies: &CookieJar<'_>) {
-        cookies.remove("auth");
+        cookies.remove_private("auth");
     }
 
     pub async fn remove_cookie(
@@ -169,16 +169,19 @@ impl<'a> FromRequest<'a> for Authenticated {
             .rocket()
             .state::<DatabaseConnection>()
             .expect("Database not found");
-        let c = request.cookies().get("auth").map(|c| c.value());
 
-        let a: request::Outcome<&str, Self::Error> = c.or_forward(Status::Unauthorized);
+        let c: request::Outcome<String, Self::Error> = request
+            .cookies()
+            .get_private("auth")
+            .map(|c| c.value().to_owned())
+            .or_forward(Status::BadRequest);
 
-        let res = if let Some(c_string) = a.succeeded() {
+        if let Some(c_string) = c.succeeded() {
             Authenticated::new_checked(c_string.to_string(), db).await
         } else {
             None
-        };
-        res.or_forward(Status::Unauthorized)
+        }
+        .or_forward(Status::Unauthorized)
     }
 }
 
@@ -211,14 +214,14 @@ impl<'a> FromRequest<'a> for Authenticated {
 
 #[openapi(tag = "User")]
 #[get("/check-cookie")]
-pub async fn check_cookie(
-    db: &State<DatabaseConnection>,
-    user_cookie: Authenticated,
-) -> Result<&'static str, GenericError> {
-    match user_cookie.is_valid(db.inner()).await {
-        true => Ok("Cookie is valid"),
-        false => Err(AuthError::Invalid("Cookie is invalid").into()),
-    }
+pub async fn check_cookie(_user_cookie: Authenticated) -> &'static str {
+    "Authenticated"
+}
+
+#[openapi(tag = "User")]
+#[get("/check-cookie", rank = 2)]
+pub fn check_cookie_failed() -> GenericError {
+    AuthError::Invalid("Cookie is invalid").into()
 }
 
 /// # Login

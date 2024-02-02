@@ -4,6 +4,22 @@ use sea_orm::entity::prelude::*;
 use serde::Deserialize;
 
 #[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize)]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "competition_level")]
+pub enum CompetitionLevel {
+    #[sea_orm(string_value = "Elite")]
+    Elite,
+    #[sea_orm(string_value = "ElitePlus")]
+    ElitePlus,
+    #[sea_orm(string_value = "Major")]
+    Major,
+    #[sea_orm(string_value = "Playoff")]
+    Playoff,
+    #[sea_orm(string_value = "Silver")]
+    Silver,
+    #[sea_orm(string_value = "competition_level")]
+    CompetitionLevel,
+}
+#[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum, Deserialize)]
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "competition_status")]
 pub enum CompetitionStatus {
     #[sea_orm(string_value = "Finished")]
