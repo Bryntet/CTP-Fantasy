@@ -14,7 +14,7 @@ use rocket_okapi::openapi;
 use rocket::http::CookieJar;
 use sea_orm::TransactionTrait;
 
-use service::dto::{forms, traits::InsertCompetition, CompetitionLevel, FantasyPick, UserLogin};
+use service::dto::{forms, traits::InsertCompetition, FantasyPick, UserLogin};
 
 /// # Create a fantasy tournament
 ///
@@ -82,7 +82,7 @@ pub(crate) async fn create_tournament(
 /// - `password` - The password of the user to create
 #[openapi(tag = "User")]
 #[post("/create-user", format = "json", data = "<user>")]
-pub(crate) async fn create_user(
+pub async fn create_user(
     user: Json<UserLogin>,
     db: &State<DatabaseConnection>,
     cookies: &CookieJar<'_>,
@@ -231,24 +231,39 @@ pub(crate) async fn add_competition(
             if !competition.is_in_db(&txn).await? {
                 competition
                     .insert_in_db(&txn, competition_input.level.into())
-                    .await?;
-            }
-            if let Err(e) = competition
-                .insert_in_fantasy(&txn, fantasy_tournament_id)
-                .await
-            {
-                dbg!(&e);
-                Err(e)?
+                    .await
+                    .map_err(|e| {
+                        dbg!(&e);
+                        e
+                    })?
             }
             competition
+                .insert_in_fantasy(&txn, fantasy_tournament_id)
+                .await
+                .map_err(|e| {
+                    dbg!(&e);
+                    e
+                })?;
+            competition
                 .insert_players(&txn, Some(fantasy_tournament_id as i32))
-                .await?;
-            txn.commit().await?;
+                .await
+                .map_err(|e| {
+                    dbg!(&e);
+                    e
+                })?;
+            txn.commit().await.map_err(|e| {
+                dbg!(&e);
+                e
+            })?;
             let rounds = service::get_rounds_in_competition(
                 db.inner(),
                 competition_input.competition_id as i32,
             )
-            .await?;
+            .await
+            .map_err(|e| {
+                dbg!(&e);
+                e
+            })?;
             service::mutation::update_rounds(db, rounds).await;
             Ok("Successfully added competition".to_string())
         }

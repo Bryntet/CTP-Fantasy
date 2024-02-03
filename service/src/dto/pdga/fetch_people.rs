@@ -119,17 +119,24 @@ pub async fn add_players(
         )
         .do_nothing()
         .exec(db)
-        .await?;
+        .await
+        .map_err(|e| {
+            dbg!(&e);
+            e
+        })?;
     if let Some(fantasy_tournament_id) = fantasy_tournament_id {
-        let res = entity::player_division_in_fantasy_tournament::Entity::insert_many(
+        entity::player_division_in_fantasy_tournament::Entity::insert_many(
             players
                 .into_iter()
                 .map(|p| p.to_division(fantasy_tournament_id)),
         )
         .do_nothing()
         .exec(db)
-        .await?;
-        dbg!(res);
+        .await
+        .map_err(|e| {
+            dbg!(&e);
+            e
+        })?;
     }
     Ok(())
 }

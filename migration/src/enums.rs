@@ -114,7 +114,7 @@ pub(crate) enum PlayerRoundScore {
     PDGANumber,
     CompetitionId,
     Round,
-    Score,
+    Throws,
     Division,
 }
 

@@ -16,6 +16,8 @@ async fn main() -> Result<(), rocket::Error> {
     let mut round_update_interval = tokio::time::interval(Duration::from_secs(30));
     let mut event_status_check_interval = tokio::time::interval(Duration::from_secs(120));
 
+    launch(false).await.launch().await.unwrap();
+
     tokio::spawn(async move {
         loop {
             check_active_rounds(&db).await;
@@ -29,7 +31,6 @@ async fn main() -> Result<(), rocket::Error> {
         }
     });
 
-    launch().await.launch().await?;
     Ok(())
 }
 

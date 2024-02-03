@@ -10,6 +10,7 @@
       <sourceFolder url="file://$MODULE_DIR$/service/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/api/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/dto/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/tests" isTestSource="true" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

@@ -131,7 +131,7 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade),
                     )
                     .col(ColumnDef::new(PlayerRoundScore::Round).integer().not_null())
-                    .col(ColumnDef::new(PlayerRoundScore::Score).integer().not_null())
+                    .col(ColumnDef::new(PlayerRoundScore::Throws).integer().not_null())
                     .col(
                         ColumnDef::new(PlayerRoundScore::Division)
                             .custom(Division::Table)

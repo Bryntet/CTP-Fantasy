@@ -1,14 +1,14 @@
 use bcrypt::verify;
-use itertools::Itertools;
-use rocket_okapi::okapi::schemars;
-use rocket_okapi::okapi::schemars::JsonSchema;
-use sea_orm::entity::prelude::*;
-use sea_orm::{DatabaseConnection, DbErr, EntityTrait, SelectorTrait};
-
 use dto::InvitationStatus;
 use entity::prelude::*;
 use entity::sea_orm_active_enums::Division;
 use entity::*;
+use itertools::Itertools;
+use rocket_okapi::okapi::schemars;
+use rocket_okapi::okapi::schemars::JsonSchema;
+use sea_orm::entity::prelude::*;
+use sea_orm::ActiveValue::{NotSet, Set};
+use sea_orm::{DatabaseConnection, DbErr, EntityTrait, SelectorTrait};
 
 use crate::dto;
 use crate::dto::FantasyPicks;
@@ -376,7 +376,7 @@ pub async fn get_player_positions_in_round(
         .all(db)
         .await?;
 
-    player_round_scores.sort_by(|a, b| a.score.cmp(&b.score));
+    player_round_scores.sort_by(|a, b| a.throws.cmp(&b.throws));
     player_round_scores.reverse();
 
     Ok(player_round_scores)
@@ -392,7 +392,7 @@ pub async fn get_rounds_in_competition(
         .await
 }
 
-fn apply_score(index: usize) -> usize {
+pub(crate) fn apply_score(index: usize) -> usize {
     match index {
         1 => 100,
         2 => 85,
@@ -410,23 +410,23 @@ fn apply_score(index: usize) -> usize {
 pub fn apply_scores(scores: Vec<player_round_score::Model>) -> Vec<player_round_score::Model> {
     scores
         .into_iter()
-        .sorted_by(|a, b| a.score.cmp(&b.score))
+        .sorted_by(|a, b| a.throws.cmp(&b.throws))
         .enumerate()
         .map(|(idx, mut s)| {
-            s.score = apply_score(idx) as i32;
+            s.throws = apply_score(idx) as i32;
             s
         })
         .collect()
 }
 
-async fn find_who_owns_player(
+pub(crate) async fn find_who_owns_player(
     db: &impl ConnectionTrait,
-    round_score: player_round_score::Model,
-    tournament: fantasy_tournament::Model,
+    round_score: &player_round_score::Model,
+    fantasy_id: i32,
 ) -> Result<user::Model, GenericError> {
     let pick = FantasyPick::find()
         .filter(fantasy_pick::Column::Player.eq(round_score.pdga_number))
-        .filter(fantasy_pick::Column::FantasyTournamentId.eq(tournament.id))
+        .filter(fantasy_pick::Column::FantasyTournamentId.eq(fantasy_id))
         .one(db)
         .await
         .map(|p| p.ok_or(GenericError::NotFound("Pick not found")))

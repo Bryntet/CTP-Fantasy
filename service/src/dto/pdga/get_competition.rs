@@ -48,7 +48,6 @@ impl CompetitionInfo {
             reqwest::get(url).await?.json().await;
         match resp {
             Ok(resp) => {
-                dbg!(&resp);
                 let dates = parse_date_range(&resp).unwrap();
                 let info = resp.data;
 

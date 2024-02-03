@@ -1,11 +1,8 @@
 use super::CompetitionLevel;
-use super::FromForm;
 use super::{schemars, JsonSchema};
-use rocket::request::FromParam;
-use rocket::FromFormField;
-use serde_derive::Deserialize;
+use serde_derive::{Deserialize, Serialize};
 
-#[derive(Debug, JsonSchema, Deserialize)]
+#[derive(Debug, JsonSchema,Serialize, Deserialize)]
 pub struct AddCompetition {
     pub competition_id: u32,
     pub level: CompetitionLevel,

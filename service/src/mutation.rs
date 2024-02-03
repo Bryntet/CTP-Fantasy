@@ -12,7 +12,7 @@ use sea_orm::{
 };
 use sea_orm::{ColumnTrait, QueryFilter};
 
-use crate::error::InviteError;
+use crate::error::{GenericError, InviteError};
 use crate::{dto, query};
 
 pub async fn generate_cookie(
@@ -117,19 +117,26 @@ pub async fn answer_invite(
     }
 }
 
-pub async fn update_round(db: &impl ConnectionTrait, round: round::Model) {
-    if let Ok(round_info) = dto::RoundInformation::new(
+pub async fn update_round(
+    db: &impl ConnectionTrait,
+    round: round::Model,
+) -> Result<(), GenericError> {
+    let round_info = dto::RoundInformation::new(
         round.competition_id as usize,
         round.round_number as usize,
         dto::Division::MPO,
     )
     .await
-    {
-        dbg!(&round_info);
-        if let Err(e) = round_info.update_all(db).await {
-            dbg!(e);
-        }
-    }
+    .map_err(|e| {
+        dbg!(&e);
+        GenericError::UnknownError("HELP")
+    })?;
+
+    round_info.update_all(db).await.map_err(|e| {
+        dbg!(&e);
+        GenericError::UnknownError("HELP")
+    })?;
+    Ok(())
 }
 
 pub async fn update_active_rounds(db: &DatabaseConnection) {

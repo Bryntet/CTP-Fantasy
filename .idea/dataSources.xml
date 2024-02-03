@@ -8,5 +8,12 @@
       <jdbc-url>jdbc:postgresql://localhost:5432/ctp_fantasy_test</jdbc-url>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
+    <data-source source="LOCAL" name="dev_ctp_fantasy@localhost" uuid="b42ac4fc-bd59-421d-80db-25a6c0666f17">
+      <driver-ref>postgresql</driver-ref>
+      <synchronize>true</synchronize>
+      <jdbc-driver>org.postgresql.Driver</jdbc-driver>
+      <jdbc-url>jdbc:postgresql://localhost:5432/dev_ctp_fantasy</jdbc-url>
+      <working-dir>$ProjectFileDir$</working-dir>
+    </data-source>
   </component>
 </project>

@@ -1,44 +1,54 @@
-mod authenticate;
-mod mutation;
-mod query;
-mod utils;
-
-use rocket_okapi::openapi_get_routes;
-
 #[macro_use]
-extern crate rocket;
+pub extern crate rocket;
 
-use authenticate::*;
 use dotenvy::dotenv;
-use mutation::*;
-use query::*;
 use rocket::fs::FileServer;
-use rocket::{Build, Rocket};
-
+use rocket::{Build, Rocket, Route};
+use rocket_okapi::openapi_get_routes;
 use rocket_okapi::rapidoc::{make_rapidoc, GeneralConfig, HideShowConfig, RapiDocConfig};
 use rocket_okapi::settings::UrlObject;
 use rocket_okapi::swagger_ui::{make_swagger_ui, SwaggerUIConfig};
+use sea_orm::{ConnectOptions, Database, DatabaseConnection};
+
+use authenticate::*;
+use mutation::*;
+use query::*;
 use service::*;
+
+pub mod authenticate;
+pub mod mutation;
+pub mod query;
+pub mod utils;
+
+pub mod endpoints {
+    pub use super::authenticate;
+    pub use super::mutation;
+    pub use super::query;
+    pub use super::utils;
+}
 
 #[catch(404)]
 fn general_not_found() -> &'static str {
     "Api endpoint not found"
 }
 
-pub async fn launch() -> Rocket<Build> {
-    dotenv().ok();
+async fn get_db(mock: bool) -> DatabaseConnection {
+    let url = if mock {
+        std::env::var("DEV_DATABASE_URL").expect("DEV_DATABASE_URL not set")
+    } else {
+        std::env::var("DATABASE_URL").expect("DATABASE_URL not set")
+    };
 
-    let db =
-        sea_orm::Database::connect(std::env::var("DATABASE_URL").expect("DATABASE_URL not set"))
-            .await
-            .unwrap();
-    let flutter_path = std::env::var("FLUTTER_PATH").expect("FLUTTER_PATH not set");
+    let mut opt = ConnectOptions::new(url);
+    if mock {
+        opt.sqlx_logging(true);
+    }
 
-    rocket::build()
-        .manage(db)
-        .mount(
-            "/api",
-            openapi_get_routes![
+    Database::connect(opt).await.expect("CAN'T CONNECT TO DB")
+}
+
+pub fn routes() -> Vec<Route> {
+    openapi_get_routes![
                 create_tournament,
                 create_user,
                 login,
@@ -59,7 +69,19 @@ pub async fn launch() -> Rocket<Build> {
                 get_user_pick,
                 get_divisions,
                 add_competition,
-            ],
+            ]
+}
+
+pub async fn launch(mock: bool) -> Rocket<Build> {
+    dotenv().ok();
+
+    let flutter_path = std::env::var("FLUTTER_PATH").expect("FLUTTER_PATH not set");
+
+    rocket::build()
+        .manage(get_db(mock).await)
+        .mount(
+            "/api",
+            routes(),
         )
         .mount(
             "/api/swagger",
@@ -69,7 +91,7 @@ pub async fn launch() -> Rocket<Build> {
             }),
         )
         .mount(
-            "/api/",
+            "/api",
             make_rapidoc(&RapiDocConfig {
                 general: GeneralConfig {
                     spec_urls: vec![UrlObject::new("General", "./openapi.json")],

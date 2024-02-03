@@ -43,9 +43,26 @@ impl UserScore {
             id: NotSet,
             user: Set(self.user),
             score: Set(self.score),
-            ranking: Set(self.ranking),
             fantasy_tournament_id: Set(self.fantasy_tournament_id),
+            round_score_id: Default::default(),
         }
+    }
+
+    pub async fn from_tournament_and_round_score(
+        db: &impl ConnectionTrait,
+        mut score: player_round_score::Model,
+        index: usize,
+        fantasy_id: i32,
+    ) -> Result<Self, GenericError> {
+        score.throws = crate::query::apply_score(index) as i32;
+        let user = crate::query::find_who_owns_player(db, &score, fantasy_id).await?;
+
+        Ok(Self {
+            user: user.id,
+            score: score.throws,
+            round_score_id: score.id,
+            fantasy_tournament_id: fantasy_id,
+        })
     }
 }
 

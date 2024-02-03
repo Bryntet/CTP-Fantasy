@@ -4,7 +4,7 @@ mod pdga;
 mod query;
 
 use rocket::request::FromParam;
-use rocket::{FromForm, FromFormField};
+use rocket::FromFormField;
 
 use entity::*;
 
@@ -21,7 +21,7 @@ pub struct PhantomCompetition {
     competition_id: Option<u32>,
     start_date: chrono::NaiveDate,
 }
-#[derive(Deserialize, JsonSchema, Clone)]
+#[derive(Serialize, Deserialize, JsonSchema, Clone)]
 pub struct CreateTournament {
     pub name: String,
     pub max_picks_per_user: Option<i32>,
@@ -42,7 +42,7 @@ pub struct FantasyPicks {
     pub(crate) fantasy_tournament_id: i32,
 }
 
-#[derive(Deserialize, JsonSchema, Debug, Clone)]
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone)]
 pub struct UserLogin {
     pub username: String,
     pub password: String,
@@ -52,7 +52,7 @@ pub struct UserLogin {
 pub struct UserScore {
     pub user: i32,
     pub score: i32,
-    pub ranking: i32,
+    pub round_score_id: i32,
     pub fantasy_tournament_id: i32,
 }
 

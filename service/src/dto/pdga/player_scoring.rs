@@ -7,7 +7,8 @@ use sea_orm::sea_query;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{ActiveModelTrait, ConnectionTrait, DbErr, EntityTrait, IntoActiveModel, NotSet};
 use sea_orm::{ColumnTrait, QueryFilter};
-use serde_derive::Deserialize;
+use serde::{de, Deserialize, Deserializer};
+use serde::de::Unexpected;
 
 #[derive(Deserialize)]
 enum Unit {
@@ -35,8 +36,10 @@ pub struct Hole {
     pub par: u32,
     #[serde(rename = "HoleOrdinal")]
     pub hole_number: u32,
-    pub length: u32,
+    pub length: Option<u32>,
 }
+
+
 
 #[derive(Deserialize)]
 #[serde(rename_all = "PascalCase")]
@@ -48,7 +51,23 @@ pub struct ApiPlayerInRound {
     pub round_score: u32,
     #[serde(rename = "RoundtoPar")]
     pub round_to_par: i32,
+    #[serde(deserialize_with = "bool_from_int")]
+    pub round_started: bool,
 }
+fn bool_from_int<'de, D>(deserializer: D) -> Result<bool, D::Error>
+    where
+        D: Deserializer<'de>,
+{
+    match u8::deserialize(deserializer)? {
+        0 => Ok(false),
+        1 => Ok(true),
+        other => Err(de::Error::invalid_value(
+            Unexpected::Unsigned(other as u64),
+            &"zero or one",
+        )),
+    }
+}
+
 impl From<ApiPlayerInRound> for PlayerScore {
     fn from(p: ApiPlayerInRound) -> Self {
         Self {
@@ -84,11 +103,17 @@ impl PlayerScore {
             .round_score_active_model(db, round, competition_id, div.clone())
             .await
         {
-            dbg!(&score_update);
-            score_update.save(db).await?;
+            score_update.save(db).await.map_err(|e| {
+                dbg!(&e);
+                e
+            })?;
         }
         self.make_sure_player_in_competition(db, competition_id, div)
-            .await?;
+            .await
+            .map_err(|e| {
+                dbg!(&e);
+                e
+            })?;
         Ok(())
     }
 
@@ -104,13 +129,17 @@ impl PlayerScore {
             .filter(player_round_score::Column::PdgaNumber.eq(self.pdga_number))
             .filter(player_round_score::Column::Round.eq(round))
             .one(db)
-            .await;
+            .await
+            .map_err(|e| {
+                dbg!(&e);
+                e
+            });
 
         match existing_score {
             Ok(Some(score)) => {
-                if score.score != self.round_score as i32 {
+                if score.throws != self.round_score as i32 {
                     let mut score = score.into_active_model();
-                    score.score = Set(self.round_score as i32);
+                    score.throws = Set(self.round_score as i32);
                     Some(score)
                 } else {
                     None
@@ -121,7 +150,7 @@ impl PlayerScore {
                 pdga_number: Set(self.pdga_number),
                 competition_id: Set(competition_id),
                 round: Set(round),
-                score: Set(self.round_score as i32),
+                throws: Set(self.round_score as i32),
                 division: Set(division),
             }),
         }
@@ -194,7 +223,7 @@ impl
             .map(|h| Hole {
                 par: h.par,
                 hole_number: h.hole_number,
-                length: fix_length(h.length, &layout.unit),
+                length: h.length.map(|l|fix_length(l,&layout.unit)),
             })
             .collect_vec();
 
@@ -208,6 +237,7 @@ impl
             players: round_from_api
                 .scores
                 .into_iter()
+                .filter(|p| p.round_started)
                 .map(|p| p.into())
                 .collect(),
             course_length: length,
@@ -237,7 +267,13 @@ impl RoundInformation {
         let div_str = div.to_string().to_uppercase();
         let url = format!("https://www.pdga.com/apps/tournament/live-api/live_results_fetch_round.php?TournID={competition_id}&Round={round}&Division={div_str}");
         //dbg!(&url);
-        let resp: ApiRes = reqwest::get(url).await?.json().await?;
+        let resp: ApiRes = reqwest::get(url).await.map_err(|e|{
+            dbg!(&e);
+            e
+        })?.json().await.map_err(|e|{
+            dbg!(&e);
+            e
+        })?;
         Ok((resp.data, competition_id, round, div.into()).into())
     }
 
@@ -250,7 +286,11 @@ impl RoundInformation {
                     self.competition_id as i32,
                     &self.div,
                 )
-                .await?;
+                .await
+                .map_err(|e| {
+                    dbg!(&e);
+                    e
+                })?;
         }
         Ok(())
     }

@@ -361,7 +361,12 @@ impl CompetitionInfo {
                 }
             }
         }
-        add_players(db, players.into_iter().collect_vec(), fantasy_tournament_id).await?;
+        add_players(db, players.into_iter().collect_vec(), fantasy_tournament_id)
+            .await
+            .map_err(|e| {
+                dbg!(&e);
+                e
+            })?;
         Ok(())
     }
 }

@@ -13,7 +13,7 @@ pub struct Model {
     pub pdga_number: i32,
     pub competition_id: i32,
     pub round: i32,
-    pub score: i32,
+    pub throws: i32,
     pub division: Division,
 }
 
