@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::fmt::Display;
 
 use bcrypt::{hash, DEFAULT_COST};
@@ -8,18 +7,18 @@ use rocket::http::CookieJar;
 use rocket::request::FromParam;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
-    ActiveModelTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait, ModelTrait, NotSet,
-    TransactionTrait,
+    sea_query, ActiveModelTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait,
+    ModelTrait, NotSet, TransactionTrait,
 };
 
 use entity::fantasy_pick;
 use entity::prelude::{
-    FantasyScores, FantasyTournament, PhantomCompetitionInFantasyTournament, User,
-    UserAuthentication, UserInFantasyTournament,
+    FantasyTournament, PhantomCompetitionInFantasyTournament, PlayerRoundScore, User,
+    UserAuthentication, UserCompetitionScoreInFantasyTournament, UserInFantasyTournament,
 };
 use entity::sea_orm_active_enums::FantasyTournamentInvitationStatus;
 
-use crate::dto::pdga::add_players;
+use crate::dto::pdga::{add_players, ApiPlayer};
 use crate::error::GenericError;
 use crate::error::PlayerError;
 use crate::{generate_cookie, player_exists};
@@ -65,8 +64,6 @@ impl FantasyPick {
                     Err(PlayerError::WrongDivision.into())
                 }
             } else {
-                dbg!(div);
-
                 dbg!("Player does not have division?");
                 Err(PlayerError::WrongDivision.into())
             }
@@ -137,7 +134,10 @@ impl From<&str> for Division {
         match division {
             "MPO" => Division::MPO,
             "FPO" => Division::FPO,
-            _ => Division::MPO,
+            _ => {
+                dbg!("Unknown division, defaulting to MPO");
+                Division::MPO
+            }
         }
     }
 }
@@ -147,7 +147,10 @@ impl Display for Division {
         let str = match self {
             Division::MPO => "Mpo".to_string(),
             Division::FPO => "Fpo".to_string(),
-            Division::Unknown => "Mpo".to_string(),
+            Division::Unknown => {
+                dbg!("Unknown division, defaulting to MPO");
+                "Mpo".to_string()
+            }
         };
         write!(f, "{}", str)
     }
@@ -173,8 +176,8 @@ impl UserLogin {
 }
 
 impl UserScore {
-    pub async fn insert(self, db: &DatabaseConnection) -> Result<(), DbErr> {
-        FantasyScores::insert(self.into_active_model())
+    pub async fn insert(self, db: &DatabaseConnection, competition_id: i32) -> Result<(), DbErr> {
+        UserCompetitionScoreInFantasyTournament::insert(self.into_active_model(competition_id))
             .exec(db)
             .await?;
         Ok(())
@@ -347,26 +350,55 @@ impl CompetitionInfo {
         db: &impl ConnectionTrait,
         fantasy_tournament_id: Option<i32>,
     ) -> Result<(), GenericError> {
-        let mut players = HashSet::new();
-        for div in &self.divisions {
-            for round in 1..=self.rounds {
-                let p_vec =
-                    pdga::get_players_from_api(self.competition_id, div.to_string(), round as i32)
-                        .await
-                        .unwrap_or(vec![]);
-                for p in p_vec {
-                    if p.pdga_number != 0 {
-                        players.insert(p);
-                    }
-                }
-            }
-        }
-        add_players(db, players.into_iter().collect_vec(), fantasy_tournament_id)
+        let players = self.get_all_player_scores().await?;
+        add_players(db, players, fantasy_tournament_id)
             .await
             .map_err(|e| {
                 dbg!(&e);
                 e
             })?;
+        Ok(())
+    }
+
+    pub async fn save_user_scores(
+        &self,
+        db: &impl ConnectionTrait,
+        fantasy_tournament_id: u32,
+    ) -> Result<(), GenericError> {
+        let user_scores = self.get_user_scores(db, fantasy_tournament_id).await?;
+        dbg!(&user_scores);
+        if !user_scores.is_empty() {
+            user_scores.iter().for_each(|s| {
+                dbg!(&s.competition_id);
+            });
+            user_competition_score_in_fantasy_tournament::Entity::insert_many(
+                user_scores
+                    .into_iter()
+                    .map(|p| p.into_active_model(self.competition_id as i32))
+                    .dedup_by(|a, b| {
+                        let cmp = a.user == b.user;
+                        if cmp {
+                            dbg!(&a, &b);
+                        }
+                        cmp
+                    }),
+            )
+            .on_conflict(
+                sea_query::OnConflict::columns(vec![
+                    user_competition_score_in_fantasy_tournament::Column::FantasyTournamentId,
+                    user_competition_score_in_fantasy_tournament::Column::User,
+                    user_competition_score_in_fantasy_tournament::Column::CompetitionId,
+                ])
+                .update_column(user_competition_score_in_fantasy_tournament::Column::Score)
+                .to_owned(),
+            )
+            .exec(db)
+            .await
+            .map_err(|e| {
+                dbg!(&e);
+                e
+            })?;
+        }
         Ok(())
     }
 }

@@ -3,7 +3,6 @@
 pub use super::competition::Entity as Competition;
 pub use super::competition_in_fantasy_tournament::Entity as CompetitionInFantasyTournament;
 pub use super::fantasy_pick::Entity as FantasyPick;
-pub use super::fantasy_scores::Entity as FantasyScores;
 pub use super::fantasy_tournament::Entity as FantasyTournament;
 pub use super::fantasy_tournament_division::Entity as FantasyTournamentDivision;
 pub use super::phantom_competition::Entity as PhantomCompetition;
@@ -15,5 +14,6 @@ pub use super::player_round_score::Entity as PlayerRoundScore;
 pub use super::round::Entity as Round;
 pub use super::user::Entity as User;
 pub use super::user_authentication::Entity as UserAuthentication;
+pub use super::user_competition_score_in_fantasy_tournament::Entity as UserCompetitionScoreInFantasyTournament;
 pub use super::user_cookies::Entity as UserCookies;
 pub use super::user_in_fantasy_tournament::Entity as UserInFantasyTournament;

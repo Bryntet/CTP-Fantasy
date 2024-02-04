@@ -21,25 +21,19 @@ pub struct Model {
 pub enum Relation {
     #[sea_orm(has_many = "super::competition_in_fantasy_tournament::Entity")]
     CompetitionInFantasyTournament,
-    #[sea_orm(has_many = "super::fantasy_scores::Entity")]
-    FantasyScores,
     #[sea_orm(has_many = "super::player_in_competition::Entity")]
     PlayerInCompetition,
     #[sea_orm(has_many = "super::player_round_score::Entity")]
     PlayerRoundScore,
     #[sea_orm(has_many = "super::round::Entity")]
     Round,
+    #[sea_orm(has_many = "super::user_competition_score_in_fantasy_tournament::Entity")]
+    UserCompetitionScoreInFantasyTournament,
 }
 
 impl Related<super::competition_in_fantasy_tournament::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::CompetitionInFantasyTournament.def()
-    }
-}
-
-impl Related<super::fantasy_scores::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::FantasyScores.def()
     }
 }
 
@@ -58,6 +52,12 @@ impl Related<super::player_round_score::Entity> for Entity {
 impl Related<super::round::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Round.def()
+    }
+}
+
+impl Related<super::user_competition_score_in_fantasy_tournament::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::UserCompetitionScoreInFantasyTournament.def()
     }
 }
 

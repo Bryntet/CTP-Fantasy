@@ -68,51 +68,67 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    .table(FantasyScores::Table)
+                    .table(UserCompetitionScoreInFantasyTournament::Table)
                     .col(
-                        ColumnDef::new(FantasyScores::Id)
+                        ColumnDef::new(UserCompetitionScoreInFantasyTournament::Id)
                             .integer()
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(ColumnDef::new(FantasyScores::User).integer().not_null())
+                    .col(
+                        ColumnDef::new(UserCompetitionScoreInFantasyTournament::User)
+                            .integer()
+                            .not_null(),
+                    )
                     .foreign_key(
                         ForeignKey::create()
-                            .from(FantasyScores::Table, FantasyScores::User)
+                            .from(
+                                UserCompetitionScoreInFantasyTournament::Table,
+                                UserCompetitionScoreInFantasyTournament::User,
+                            )
                             .to(User::Table, User::Id),
                     )
                     .col(
-                        ColumnDef::new(FantasyScores::FantasyTournamentId)
+                        ColumnDef::new(
+                            UserCompetitionScoreInFantasyTournament::FantasyTournamentId,
+                        )
+                        .integer()
+                        .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(UserCompetitionScoreInFantasyTournament::Score)
                             .integer()
                             .not_null(),
                     )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .from(FantasyScores::Table, FantasyScores::FantasyTournamentId)
-                            .to(Competition::Table, Competition::Id),
+                    .col(
+                        ColumnDef::new(UserCompetitionScoreInFantasyTournament::CompetitionId)
+                            .integer()
+                            .not_null(),
                     )
-                    .col(ColumnDef::new(FantasyScores::Score).integer().not_null())
                     .index(
                         Index::create()
                             .name("fantasy_scores_user_tournament")
-                            .col(FantasyScores::User)
-                            .col(FantasyScores::FantasyTournamentId)
+                            .col(UserCompetitionScoreInFantasyTournament::User)
+                            .col(UserCompetitionScoreInFantasyTournament::FantasyTournamentId)
+                            .col(UserCompetitionScoreInFantasyTournament::CompetitionId)
                             .unique(),
                     )
-                    .col(
-                        ColumnDef::new(FantasyScores::RoundScoreId)
-                            .integer()
-                            .not_null(),
-                    )
                     .foreign_key(
                         ForeignKey::create()
-                            .from(FantasyScores::Table, FantasyScores::RoundScoreId)
-                            .to(PlayerRoundScore::Table, PlayerRoundScore::Id),
-                    )
-                    .foreign_key(
-                        ForeignKey::create()
-                            .from(FantasyScores::Table, FantasyScores::FantasyTournamentId)
+                            .from(
+                                UserCompetitionScoreInFantasyTournament::Table,
+                                UserCompetitionScoreInFantasyTournament::FantasyTournamentId,
+                            )
                             .to(FantasyTournament::Table, FantasyTournament::Id),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fantasy_scores_competition")
+                            .from(
+                                UserCompetitionScoreInFantasyTournament::Table,
+                                UserCompetitionScoreInFantasyTournament::CompetitionId,
+                            )
+                            .to(Competition::Table, Competition::Id),
                     )
                     .to_owned(),
             )
@@ -122,7 +138,7 @@ impl MigrationTrait for Migration {
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         drop_table!(FantasyPick, manager);
-        drop_table!(FantasyScores, manager);
+        drop_table!(UserCompetitionScoreInFantasyTournament, manager);
         Ok(())
     }
 }

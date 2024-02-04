@@ -49,27 +49,28 @@ async fn get_db(mock: bool) -> DatabaseConnection {
 
 pub fn routes() -> Vec<Route> {
     openapi_get_routes![
-                create_tournament,
-                create_user,
-                login,
-                add_pick,
-                add_picks,
-                see_tournaments,
-                see_participants,
-                invite_user,
-                answer_invite,
-                get_user_picks,
-                check_cookie,
-                check_cookie_failed,
-                logout,
-                get_my_id,
-                get_tournament,
-                logout_all,
-                get_max_picks,
-                get_user_pick,
-                get_divisions,
-                add_competition,
-            ]
+        create_tournament,
+        create_user,
+        login,
+        add_pick,
+        add_picks,
+        see_tournaments,
+        see_participants,
+        invite_user,
+        answer_invite,
+        get_user_picks,
+        check_cookie,
+        check_cookie_failed,
+        logout,
+        get_my_id,
+        get_tournament,
+        logout_all,
+        get_max_picks,
+        get_user_pick,
+        get_divisions,
+        add_competition,
+        force_refresh_competitions
+    ]
 }
 
 pub async fn launch(mock: bool) -> Rocket<Build> {
@@ -79,10 +80,7 @@ pub async fn launch(mock: bool) -> Rocket<Build> {
 
     rocket::build()
         .manage(get_db(mock).await)
-        .mount(
-            "/api",
-            routes(),
-        )
+        .mount("/api", routes())
         .mount(
             "/api/swagger",
             make_swagger_ui(&SwaggerUIConfig {

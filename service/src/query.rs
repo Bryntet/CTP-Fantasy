@@ -11,7 +11,7 @@ use sea_orm::ActiveValue::{NotSet, Set};
 use sea_orm::{DatabaseConnection, DbErr, EntityTrait, SelectorTrait};
 
 use crate::dto;
-use crate::dto::FantasyPicks;
+use crate::dto::{CompetitionLevel, FantasyPicks};
 use crate::error::GenericError;
 
 pub enum Auth {
@@ -161,8 +161,11 @@ pub async fn get_participants(
         if let Some(participant) = participant.find_related(User).one(db).await? {
             out_things.push(
                 participant
-                    .find_related(FantasyScores)
-                    .filter(fantasy_scores::Column::FantasyTournamentId.eq(tournament_id))
+                    .find_related(UserCompetitionScoreInFantasyTournament)
+                    .filter(
+                        user_competition_score_in_fantasy_tournament::Column::FantasyTournamentId
+                            .eq(tournament_id),
+                    )
                     .one(db)
                     .await?
                     .map(|score| dto::User {
@@ -392,68 +395,29 @@ pub async fn get_rounds_in_competition(
         .await
 }
 
-pub(crate) fn apply_score(index: usize) -> usize {
-    match index {
-        1 => 100,
-        2 => 85,
-        3 => 75,
-        4 => 69,
-        5 => 64,
-        6 => 60,
-        7 => 57,
-        8..=20 => 54 - (index - 8) * 2,
-        21..=48 => 50 - index,
-        _ => 2,
-    }
-}
-
-pub fn apply_scores(scores: Vec<player_round_score::Model>) -> Vec<player_round_score::Model> {
-    scores
-        .into_iter()
-        .sorted_by(|a, b| a.throws.cmp(&b.throws))
-        .enumerate()
-        .map(|(idx, mut s)| {
-            s.throws = apply_score(idx) as i32;
-            s
-        })
-        .collect()
-}
-
-pub(crate) async fn find_who_owns_player(
+pub async fn get_competitions_in_fantasy_tournament(
     db: &impl ConnectionTrait,
-    round_score: &player_round_score::Model,
-    fantasy_id: i32,
-) -> Result<user::Model, GenericError> {
-    let pick = FantasyPick::find()
-        .filter(fantasy_pick::Column::Player.eq(round_score.pdga_number))
-        .filter(fantasy_pick::Column::FantasyTournamentId.eq(fantasy_id))
-        .one(db)
-        .await
-        .map(|p| p.ok_or(GenericError::NotFound("Pick not found")))
-        .map_err(|e| {
-            dbg!(e);
-            GenericError::UnknownError("Pick not found due to unknown database error")
-        })??;
-
-    User::find_by_id(pick.user)
-        .one(db)
-        .await
-        .map(|u| u.ok_or(GenericError::NotFound("User not found")))
-        .map_err(|e| {
-            dbg!(e);
-            GenericError::UnknownError("User not found due to unknown database error")
-        })?
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_apply_scores() {
-        let scores = vec![10, 100, 85, 75, 69];
-
-        let result = apply_scores(scores);
-        assert_eq!(result.map, vec![100, 85, 75, 69]);
+    fantasy_tournament_id: i32,
+) -> Result<Vec<entity::competition::Model>, GenericError> {
+    let competitions = CompetitionInFantasyTournament::find()
+        .filter(
+            competition_in_fantasy_tournament::Column::FantasyTournamentId
+                .eq(fantasy_tournament_id),
+        )
+        .all(db)
+        .await?;
+    let mut out_things = Vec::new();
+    for competition in competitions {
+        competition
+            .find_related(Competition)
+            .one(db)
+            .await
+            .map(|c| c.map(|c| out_things.push(c)))
+            .map_err(|e| {
+                dbg!(&e);
+                e
+            })?;
     }
+    dbg!(&out_things);
+    Ok(out_things)
 }

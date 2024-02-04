@@ -52,8 +52,9 @@ pub struct UserLogin {
 pub struct UserScore {
     pub user: i32,
     pub score: i32,
-    pub round_score_id: i32,
-    pub fantasy_tournament_id: i32,
+    pub competition_id: u32,
+    pub pdga_num: u32,
+    pub fantasy_tournament_id: u32,
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug)]
@@ -80,7 +81,6 @@ pub struct LoginInput {
 pub enum Division {
     MPO,
     FPO,
-
     #[serde(other)]
     Unknown,
 }

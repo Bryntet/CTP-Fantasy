@@ -116,6 +116,7 @@ pub(crate) enum PlayerRoundScore {
     Round,
     Throws,
     Division,
+    Placement,
 }
 
 #[derive(DeriveIden)]
@@ -146,12 +147,12 @@ pub(crate) enum FantasyPick {
     Division,
 }
 #[derive(DeriveIden)]
-pub(crate) enum FantasyScores {
+pub(crate) enum UserCompetitionScoreInFantasyTournament {
     Table,
     Id,
     User,
     Score,
-    RoundScoreId,
+    CompetitionId,
     FantasyTournamentId,
 }
 

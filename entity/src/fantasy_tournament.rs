@@ -20,8 +20,6 @@ pub enum Relation {
     CompetitionInFantasyTournament,
     #[sea_orm(has_many = "super::fantasy_pick::Entity")]
     FantasyPick,
-    #[sea_orm(has_many = "super::fantasy_scores::Entity")]
-    FantasyScores,
     #[sea_orm(has_many = "super::fantasy_tournament_division::Entity")]
     FantasyTournamentDivision,
     #[sea_orm(has_many = "super::phantom_competition_in_fantasy_tournament::Entity")]
@@ -36,6 +34,8 @@ pub enum Relation {
         on_delete = "Cascade"
     )]
     User,
+    #[sea_orm(has_many = "super::user_competition_score_in_fantasy_tournament::Entity")]
+    UserCompetitionScoreInFantasyTournament,
     #[sea_orm(has_many = "super::user_in_fantasy_tournament::Entity")]
     UserInFantasyTournament,
 }
@@ -49,12 +49,6 @@ impl Related<super::competition_in_fantasy_tournament::Entity> for Entity {
 impl Related<super::fantasy_pick::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::FantasyPick.def()
-    }
-}
-
-impl Related<super::fantasy_scores::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::FantasyScores.def()
     }
 }
 
@@ -79,6 +73,12 @@ impl Related<super::player_division_in_fantasy_tournament::Entity> for Entity {
 impl Related<super::user::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::User.def()
+    }
+}
+
+impl Related<super::user_competition_score_in_fantasy_tournament::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::UserCompetitionScoreInFantasyTournament.def()
     }
 }
 

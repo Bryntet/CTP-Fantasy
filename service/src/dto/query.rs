@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use sea_orm::prelude::Date;
 use sea_orm::ActiveValue::Set;
 use sea_orm::ColumnTrait;
@@ -8,7 +9,7 @@ use sea_orm::{ConnectionTrait, EntityTrait, NotSet};
 use entity::prelude::Round;
 use entity::{user, user_authentication};
 
-use crate::dto::pdga::CompetitionInfo;
+use crate::dto::pdga::{ApiPlayer, CompetitionInfo, PlayerScore};
 use crate::error::GenericError;
 
 use super::*;
@@ -38,31 +39,17 @@ impl UserLogin {
 }
 
 impl UserScore {
-    pub fn into_active_model(self) -> fantasy_scores::ActiveModel {
-        fantasy_scores::ActiveModel {
+    pub fn into_active_model(
+        self,
+        competition_id: i32,
+    ) -> user_competition_score_in_fantasy_tournament::ActiveModel {
+        user_competition_score_in_fantasy_tournament::ActiveModel {
             id: NotSet,
             user: Set(self.user),
             score: Set(self.score),
-            fantasy_tournament_id: Set(self.fantasy_tournament_id),
-            round_score_id: Default::default(),
+            fantasy_tournament_id: Set(self.fantasy_tournament_id as i32),
+            competition_id: Set(competition_id),
         }
-    }
-
-    pub async fn from_tournament_and_round_score(
-        db: &impl ConnectionTrait,
-        mut score: player_round_score::Model,
-        index: usize,
-        fantasy_id: i32,
-    ) -> Result<Self, GenericError> {
-        score.throws = crate::query::apply_score(index) as i32;
-        let user = crate::query::find_who_owns_player(db, &score, fantasy_id).await?;
-
-        Ok(Self {
-            user: user.id,
-            score: score.throws,
-            round_score_id: score.id,
-            fantasy_tournament_id: fantasy_id,
-        })
     }
 }
 
@@ -151,7 +138,7 @@ impl CompetitionInfo {
         }
     }
 
-    pub(crate) async fn round(
+    pub(crate) async fn get_round(
         &self,
         db: &impl ConnectionTrait,
         date: Date,
@@ -183,6 +170,69 @@ impl CompetitionInfo {
             .await
             .map(|x| x.is_some())
     }
+
+    pub(super) async fn get_all_player_scores(&self) -> Result<Vec<ApiPlayer>, GenericError> {
+        let mut players: Vec<ApiPlayer> = Vec::new();
+        for div in &self.divisions {
+            for round in 1..=self.rounds {
+                players.extend(self.get_players_wrapper(round, div).await);
+            }
+        }
+        Ok(players)
+    }
+
+    async fn get_players_wrapper(&self, round: u8, div: &Division) -> Vec<ApiPlayer> {
+        pdga::get_players_from_api(self.competition_id, div, round as i32)
+            .await
+            .map_err(|e| {
+                dbg!(&e);
+                e
+            })
+            .unwrap_or_default()
+    }
+
+    pub(super) async fn get_current_player_scores(&self) -> Result<Vec<ApiPlayer>, GenericError> {
+        let mut players: Vec<ApiPlayer> = Vec::new();
+        for div in &self.divisions {
+            let round = if let Some(highest) = self.highest_completed_round {
+                if highest == self.rounds {
+                    highest
+                } else {
+                    let temp = self.get_players_wrapper(highest + 1, div).await;
+                    if temp.iter().any(|p| p.round_started) {
+                        highest + 1
+                    } else {
+                        highest
+                    }
+                }
+            } else {
+                self.highest_completed_round.unwrap_or(1)
+            };
+            players.extend(self.get_players_wrapper(round, div).await);
+        }
+        Ok(players)
+    }
+
+    pub(super) async fn get_user_scores(
+        &self,
+        db: &impl ConnectionTrait,
+        fantasy_tournament_id: u32,
+    ) -> Result<Vec<UserScore>, GenericError> {
+        let mut user_scores: Vec<UserScore> = Vec::new();
+        if let Ok(players) = self.get_current_player_scores().await {
+            for player in players {
+                let a = PlayerScore::from(player)
+                    .get_user_fantasy_score(db, fantasy_tournament_id, self.competition_id)
+                    .await;
+                if let Ok(Some(score)) = a {
+                    user_scores.push(score);
+                } else {
+                    //                    dbg!(a);
+                }
+            }
+        }
+        Ok(user_scores)
+    }
 }
 impl PhantomCompetition {
     pub(crate) fn active_model(
@@ -211,7 +261,7 @@ impl From<CompetitionLevel> for sea_orm_active_enums::CompetitionLevel {
 }
 
 impl CompetitionLevel {
-    fn multiplier(&self) -> f32 {
+    pub(crate) fn multiplier(&self) -> f32 {
         match self {
             CompetitionLevel::Major => 2.0,
             CompetitionLevel::Playoff => 1.5,

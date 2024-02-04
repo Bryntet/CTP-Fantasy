@@ -1,14 +1,17 @@
-use crate::dto::Division;
-use entity::player_round_score;
+use crate::dto::{Division, UserScore};
 use entity::player_round_score::ActiveModel;
+use entity::{fantasy_pick, player_round_score, user};
 
+use crate::dto::pdga::ApiPlayer;
+use crate::error::GenericError;
+use entity::prelude::{FantasyPick, User};
 use itertools::Itertools;
-use sea_orm::sea_query;
 use sea_orm::ActiveValue::Set;
+use sea_orm::{sea_query, ModelTrait};
 use sea_orm::{ActiveModelTrait, ConnectionTrait, DbErr, EntityTrait, IntoActiveModel, NotSet};
 use sea_orm::{ColumnTrait, QueryFilter};
-use serde::{de, Deserialize, Deserializer};
 use serde::de::Unexpected;
+use serde::{de, Deserialize, Deserializer};
 
 #[derive(Deserialize)]
 enum Unit {
@@ -39,56 +42,13 @@ pub struct Hole {
     pub length: Option<u32>,
 }
 
-
-
-#[derive(Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct ApiPlayerInRound {
-    #[serde(rename = "PDGANum")]
-    pub pdga_number: i32,
-    pub name: String,
-    pub hole_scores: Vec<String>,
-    pub round_score: u32,
-    #[serde(rename = "RoundtoPar")]
-    pub round_to_par: i32,
-    #[serde(deserialize_with = "bool_from_int")]
-    pub round_started: bool,
-}
-fn bool_from_int<'de, D>(deserializer: D) -> Result<bool, D::Error>
-    where
-        D: Deserializer<'de>,
-{
-    match u8::deserialize(deserializer)? {
-        0 => Ok(false),
-        1 => Ok(true),
-        other => Err(de::Error::invalid_value(
-            Unexpected::Unsigned(other as u64),
-            &"zero or one",
-        )),
-    }
-}
-
-impl From<ApiPlayerInRound> for PlayerScore {
-    fn from(p: ApiPlayerInRound) -> Self {
-        Self {
-            pdga_number: p.pdga_number,
-            round_score: p.round_score,
-            round_to_par: p.round_to_par,
-            hole_scores: p
-                .hole_scores
-                .iter()
-                .filter_map(|s| s.parse::<u32>().ok())
-                .collect(),
-        }
-    }
-}
-
 #[derive(Debug)]
 pub struct PlayerScore {
     pub pdga_number: i32,
     pub hole_scores: Vec<u32>,
-    pub round_score: u32,
+    pub throws: u8,
     pub round_to_par: i32,
+    pub placement: u8,
 }
 
 impl PlayerScore {
@@ -137,9 +97,9 @@ impl PlayerScore {
 
         match existing_score {
             Ok(Some(score)) => {
-                if score.throws != self.round_score as i32 {
+                if score.throws != self.throws as i32 {
                     let mut score = score.into_active_model();
-                    score.throws = Set(self.round_score as i32);
+                    score.throws = Set(self.throws as i32);
                     Some(score)
                 } else {
                     None
@@ -150,8 +110,9 @@ impl PlayerScore {
                 pdga_number: Set(self.pdga_number),
                 competition_id: Set(competition_id),
                 round: Set(round),
-                throws: Set(self.round_score as i32),
+                throws: Set(self.throws as i32),
                 division: Set(division),
+                placement: Set(self.placement as i32),
             }),
         }
     }
@@ -182,12 +143,81 @@ impl PlayerScore {
 
         Ok(())
     }
+
+    fn get_user_score(&self) -> u8 {
+        match self.placement {
+            1 => 100,
+            2 => 85,
+            3 => 75,
+            4 => 69,
+            5 => 64,
+            6 => 60,
+            7 => 57,
+            8..=20 => 54 - (self.placement - 8) * 2,
+            21..=48 => 50 - self.placement,
+            49..=50 => 2,
+            _ => 0,
+        }
+    }
+
+    pub(crate) async fn get_user_fantasy_score(
+        &self,
+        db: &impl ConnectionTrait,
+        fantasy_tournament_id: u32,
+        competition_id: u32,
+    ) -> Result<Option<UserScore>, GenericError> {
+        let score = self.get_user_score() as i32;
+        if score > 0 {
+            if let Ok(Some(user)) = self.get_user(db, fantasy_tournament_id).await.map_err(|e| {
+                dbg!(&e);
+                e
+            }) {
+                Ok(Some(UserScore {
+                    user: user.id,
+                    score,
+                    competition_id,
+                    pdga_num: self.pdga_number as u32,
+                    fantasy_tournament_id,
+                }))
+            } else {
+                //                dbg!(self);
+                Ok(None)
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
+    async fn get_user(
+        &self,
+        db: &impl ConnectionTrait,
+        fantasy_id: u32,
+    ) -> Result<Option<user::Model>, GenericError> {
+        if let Some(pick) = FantasyPick::find()
+            .filter(fantasy_pick::Column::Player.eq(self.pdga_number))
+            .filter(fantasy_pick::Column::FantasyTournamentId.eq(fantasy_id))
+            .one(db)
+            .await
+            .map_err(|e| {
+                dbg!(e);
+                GenericError::UnknownError("Pick not found due to unknown database error")
+            })?
+        {
+            dbg!(&pick);
+            pick.find_related(User).one(db).await.map_err(|e| {
+                dbg!(e);
+                GenericError::UnknownError("User not found due to unknown database error")
+            })
+        } else {
+            Ok(None)
+        }
+    }
 }
 
 #[derive(Deserialize)]
 struct RoundFromApi {
     layouts: Vec<Layout>,
-    scores: Vec<ApiPlayerInRound>,
+    scores: Vec<ApiPlayer>,
 }
 
 fn fix_length(length: u32, unit: &Unit) -> u32 {
@@ -223,7 +253,7 @@ impl
             .map(|h| Hole {
                 par: h.par,
                 hole_number: h.hole_number,
-                length: h.length.map(|l|fix_length(l,&layout.unit)),
+                length: h.length.map(|l| fix_length(l, &layout.unit)),
             })
             .collect_vec();
 
@@ -267,13 +297,18 @@ impl RoundInformation {
         let div_str = div.to_string().to_uppercase();
         let url = format!("https://www.pdga.com/apps/tournament/live-api/live_results_fetch_round.php?TournID={competition_id}&Round={round}&Division={div_str}");
         //dbg!(&url);
-        let resp: ApiRes = reqwest::get(url).await.map_err(|e|{
-            dbg!(&e);
-            e
-        })?.json().await.map_err(|e|{
-            dbg!(&e);
-            e
-        })?;
+        let resp: ApiRes = reqwest::get(url)
+            .await
+            .map_err(|e| {
+                dbg!(&e);
+                e
+            })?
+            .json()
+            .await
+            .map_err(|e| {
+                dbg!(&e);
+                e
+            })?;
         Ok((resp.data, competition_id, round, div.into()).into())
     }
 

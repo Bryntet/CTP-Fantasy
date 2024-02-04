@@ -15,7 +15,6 @@ use rocket::http::CookieJar;
 use sea_orm::TransactionTrait;
 
 use service::dto::{forms, traits::InsertCompetition, FantasyPick, UserLogin};
-
 /// # Create a fantasy tournament
 ///
 /// # Parameters
@@ -48,8 +47,6 @@ pub(crate) async fn create_tournament(
     db: &State<DatabaseConnection>,
     user: authenticate::Authenticated,
 ) -> Result<(), GenericError> {
-    dbg!("hi");
-
     let user_model = user.to_user_model(db.inner()).await?;
     let res = tournament
         .into_inner()
@@ -224,6 +221,7 @@ pub(crate) async fn add_competition(
     fantasy_tournament_id: u32,
     competition: Json<forms::AddCompetition>,
 ) -> Result<String, GenericError> {
+    let db = db.inner();
     let txn = db.begin().await?;
     let competition_input = competition.into_inner();
     match service::dto::CompetitionInfo::from_web(competition_input.competition_id).await {
@@ -251,20 +249,22 @@ pub(crate) async fn add_competition(
                     dbg!(&e);
                     e
                 })?;
+
             txn.commit().await.map_err(|e| {
                 dbg!(&e);
                 e
             })?;
-            let rounds = service::get_rounds_in_competition(
-                db.inner(),
-                competition_input.competition_id as i32,
-            )
-            .await
-            .map_err(|e| {
-                dbg!(&e);
-                e
-            })?;
+            let rounds =
+                service::get_rounds_in_competition(db, competition_input.competition_id as i32)
+                    .await
+                    .map_err(|e| {
+                        dbg!(&e);
+                        e
+                    })?;
             service::mutation::update_rounds(db, rounds).await;
+            competition
+                .save_user_scores(db, fantasy_tournament_id)
+                .await?;
             Ok("Successfully added competition".to_string())
         }
         Err(e) => {
@@ -272,6 +272,34 @@ pub(crate) async fn add_competition(
             Err(GenericError::NotFound("Competition not found in PDGA"))
         }
     }
+}
+
+#[openapi(tag = "Fantasy Tournament")]
+#[post("/fantasy-tournament/<fantasy_tournament_id>/force-refresh")]
+pub(crate) async fn force_refresh_competitions(
+    _auth: authenticate::TournamentOwner,
+    db: &State<DatabaseConnection>,
+    fantasy_tournament_id: u32,
+) -> Result<String, GenericError> {
+    let db = db.inner();
+    let txn = db.begin().await?;
+    let comp_ids: Vec<u32> =
+        service::get_competitions_in_fantasy_tournament(&txn, fantasy_tournament_id as i32)
+            .await
+            .unwrap()
+            .iter()
+            .map(|c| c.id as u32)
+            .collect();
+    for comp_id in comp_ids {
+        service::dto::CompetitionInfo::from_web(comp_id)
+            .await
+            .unwrap()
+            .save_user_scores(db, fantasy_tournament_id)
+            .await
+            .unwrap()
+    }
+
+    Ok("Successfully refreshed competition".to_string())
 }
 
 //#[openapi(tag="Fantasy Tournament")]

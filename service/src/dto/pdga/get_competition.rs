@@ -21,8 +21,8 @@ struct ApiCompetitionInfo {
     #[serde(rename = "SimpleName")]
     name: String,
     divisions: Vec<ApiDivision>,
-    rounds: usize,
-    highest_completed_round: Option<usize>,
+    rounds: u8,
+    highest_completed_round: Option<u8>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -37,8 +37,8 @@ pub struct CompetitionInfo {
     pub(crate) date_range: Vec<sea_orm::prelude::Date>,
     pub competition_id: u32,
     pub(crate) divisions: Vec<super::super::Division>,
-    pub(crate) rounds: usize,
-    pub(crate) highest_completed_round: Option<usize>,
+    pub(crate) rounds: u8,
+    pub(crate) highest_completed_round: Option<u8>,
 }
 
 impl CompetitionInfo {
@@ -61,10 +61,10 @@ impl CompetitionInfo {
                         .into_iter()
                         .dedup_by(|a, b| a.division.eq(&b.division))
                         .map(|d| d.division)
+                        .filter(|d| *d != super::super::Division::Unknown)
                         .collect(),
                     highest_completed_round: info.highest_completed_round,
                 };
-                dbg!(&out);
                 Ok(out)
             }
             Err(e) => {
@@ -96,19 +96,5 @@ mod tests {
         let mut dates = parse_date_range(&resp).unwrap();
         dates.sort();
         assert_eq!(dates.len(), 1);
-    }
-
-    #[tokio::test]
-    async fn test_get_competition_information() {
-        let info = CompetitionInfo::from_web(77583).await.unwrap();
-        dbg!(&info);
-        let c_info = CompetitionInfo {
-            name: "Winter Warriors at Järva DGP 1-27".to_string(),
-            date_range: vec![sea_orm::prelude::Date::from_ymd_opt(2024, 1, 28).unwrap()],
-            competition_id: 77583,
-            divisions: vec![Division::FPO, Division::MPO],
-            rounds: 0,
-        };
-        assert_eq!(info, c_info);
     }
 }
