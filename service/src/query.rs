@@ -159,26 +159,25 @@ pub async fn get_participants(
     let mut out_things = Vec::new();
     for participant in participants {
         if let Some(participant) = participant.find_related(User).one(db).await? {
-            out_things.push(
-                participant
-                    .find_related(UserCompetitionScoreInFantasyTournament)
-                    .filter(
-                        user_competition_score_in_fantasy_tournament::Column::FantasyTournamentId
-                            .eq(tournament_id),
-                    )
-                    .one(db)
-                    .await?
-                    .map(|score| dto::User {
-                        id: participant.id,
-                        name: participant.name.to_string(),
-                        score: score.score,
-                    })
-                    .unwrap_or(dto::User {
-                        id: participant.id,
-                        name: participant.name.to_string(),
-                        score: 0,
-                    }),
-            );
+            let score = participant
+                .find_related(UserCompetitionScoreInFantasyTournament)
+                .filter(
+                    user_competition_score_in_fantasy_tournament::Column::FantasyTournamentId
+                        .eq(tournament_id),
+
+                )
+                .all(db)
+                .await?
+                .iter()
+                .map(|score| score.score).sum::<i32>();
+            let user = dto::User {
+                id: participant.id,
+                name: participant.name,
+                score,
+            };
+            dbg!(&user);
+
+            out_things.push(user);
         }
     }
 

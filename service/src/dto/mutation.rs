@@ -369,7 +369,7 @@ impl CompetitionInfo {
         dbg!(&user_scores);
         if !user_scores.is_empty() {
             user_scores.iter().for_each(|s| {
-                dbg!(&s.competition_id);
+                dbg!(&s);
             });
             user_competition_score_in_fantasy_tournament::Entity::insert_many(
                 user_scores

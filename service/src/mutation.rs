@@ -154,3 +154,35 @@ pub async fn update_rounds(db: &DatabaseConnection, rounds: Vec<round::Model>) {
         }
     }
 }
+
+pub async fn refresh_user_scores_in_fantasy(
+    db: &impl ConnectionTrait,
+    fantasy_tournament_id: u32,
+) -> Result<(), GenericError> {
+    let comp_ids: Vec<u32> =
+        crate::get_competitions_in_fantasy_tournament(db, fantasy_tournament_id as i32)
+            .await?
+            .iter()
+            .map(|c| c.id as u32)
+            .collect();
+    for comp_id in comp_ids {
+        dbg!(comp_id);
+        dto::CompetitionInfo::from_web(comp_id)
+            .await
+            .unwrap()
+            .save_user_scores(db, fantasy_tournament_id)
+            .await.map_err(|e|{
+            dbg!(&e);
+            e
+        })?
+    }
+    Ok(())
+}
+
+pub async fn refresh_user_scores_in_all(db: &impl ConnectionTrait) -> Result<(), GenericError> {
+    let fantasy_tournaments = FantasyTournament::find().all(db).await?;
+    for tournament in fantasy_tournaments {
+        refresh_user_scores_in_fantasy(db, tournament.id as u32).await?;
+    }
+    Ok(())
+}

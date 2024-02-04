@@ -1,20 +1,18 @@
-use rocket::form::Form;
+use rocket::http::CookieJar;
 use rocket::serde::json::Json;
 use rocket::State;
-
-use sea_orm::RuntimeErr::SqlxError;
+use rocket_okapi::openapi;
 use sea_orm::{DatabaseConnection, DbErr};
+use sea_orm::RuntimeErr::SqlxError;
+use sea_orm::TransactionTrait;
+
+use error::GenericError;
+use service::dto::{FantasyPick, forms, traits::InsertCompetition, UserLogin};
 
 use crate::authenticate;
 use crate::error;
 use crate::error::{TournamentError, UserError};
-use error::GenericError;
-use rocket_okapi::openapi;
 
-use rocket::http::CookieJar;
-use sea_orm::TransactionTrait;
-
-use service::dto::{forms, traits::InsertCompetition, FantasyPick, UserLogin};
 /// # Create a fantasy tournament
 ///
 /// # Parameters
@@ -277,28 +275,14 @@ pub(crate) async fn add_competition(
 #[openapi(tag = "Fantasy Tournament")]
 #[post("/fantasy-tournament/<fantasy_tournament_id>/force-refresh")]
 pub(crate) async fn force_refresh_competitions(
-    _auth: authenticate::TournamentOwner,
+    //_auth: authenticate::TournamentOwner,
     db: &State<DatabaseConnection>,
     fantasy_tournament_id: u32,
 ) -> Result<String, GenericError> {
     let db = db.inner();
     let txn = db.begin().await?;
-    let comp_ids: Vec<u32> =
-        service::get_competitions_in_fantasy_tournament(&txn, fantasy_tournament_id as i32)
-            .await
-            .unwrap()
-            .iter()
-            .map(|c| c.id as u32)
-            .collect();
-    for comp_id in comp_ids {
-        service::dto::CompetitionInfo::from_web(comp_id)
-            .await
-            .unwrap()
-            .save_user_scores(db, fantasy_tournament_id)
-            .await
-            .unwrap()
-    }
-
+    service::mutation::refresh_user_scores_in_fantasy(&txn, fantasy_tournament_id).await?;
+    txn.commit().await.map_err(|e| { dbg!(e);GenericError::UnknownError("DATABASE ERROR") })?;
     Ok("Successfully refreshed competition".to_string())
 }
 

@@ -16,7 +16,8 @@ async fn make_db() -> DatabaseConnection {
 #[launch]
 async fn rocket() -> _ {
     let config = Config {
-        log_level: rocket::config::LogLevel::Off,
+        log_level: rocket::config::LogLevel::Normal,
+        cli_colors:true,
         ..Default::default()
     };
     rocket::build()
@@ -46,7 +47,7 @@ mod tests {
     use dotenvy::dotenv;
     use rocket::local::asynchronous::Client;
 
-    use crate::{any_round_scores, any_user_scores};
+    use crate::{any_round_scores, any_user_scores, make_db};
     use api::rocket;
     use migration::MigratorTrait;
     use service::dto::UserLogin;
@@ -55,11 +56,8 @@ mod tests {
     async fn test_process() {
         dotenv().ok();
 
-        let db = sea_orm::Database::connect(
-            std::env::var("DEV_DATABASE_URL").expect("DEV_DATABASE_URL not set"),
-        )
-        .await
-        .unwrap();
+        let db = make_db()
+        .await;
         migration::Migrator::fresh(&db)
             .await
             .expect("Migration success");
@@ -100,6 +98,7 @@ mod tests {
             .put("/fantasy-tournament/1/user/1/picks/div/MPO/1/28597")
             .dispatch()
             .await;
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
         client
             .post("/fantasy-tournament/1/force-refresh")
             .dispatch()
