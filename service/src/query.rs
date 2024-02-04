@@ -3,15 +3,15 @@ use dto::InvitationStatus;
 use entity::prelude::*;
 use entity::sea_orm_active_enums::Division;
 use entity::*;
-use itertools::Itertools;
+
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
 use sea_orm::entity::prelude::*;
-use sea_orm::ActiveValue::{NotSet, Set};
-use sea_orm::{DatabaseConnection, DbErr, EntityTrait, SelectorTrait};
+
+use sea_orm::{DatabaseConnection, DbErr, EntityTrait};
 
 use crate::dto;
-use crate::dto::{CompetitionLevel, FantasyPicks};
+use crate::dto::{FantasyPicks};
 use crate::error::GenericError;
 
 pub enum Auth {

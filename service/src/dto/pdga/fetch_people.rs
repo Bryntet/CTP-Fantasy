@@ -1,12 +1,12 @@
 use std::error::Error;
-use std::hash::{Hash, Hasher};
+use std::hash::{Hasher};
 
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
 
 use sea_orm::{sea_query, ConnectionTrait, DbErr, EntityTrait, IntoActiveModel};
-use serde::de::Unexpected;
-use serde::{de, Deserialize, Deserializer};
+
+use serde::{Deserialize};
 
 use crate::dto::pdga::player_scoring::PlayerScore;
 use crate::dto::Division;
@@ -219,6 +219,6 @@ mod tests {
         let mut file = File::open(file_path).unwrap();
         let mut data = String::new();
         file.read_to_string(&mut data).unwrap();
-        let a: ApiResponse = serde_json::from_str(&data).unwrap();
+        let _a: ApiResponse = serde_json::from_str(&data).unwrap();
     }
 }

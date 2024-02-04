@@ -1,10 +1,10 @@
-use std::sync::Arc;
+
 use api::launch;
 use dotenvy::dotenv;
 use sea_orm::DatabaseConnection;
 
 use std::time::Duration;
-use tokio::sync::Mutex;
+
 
 #[rocket::main]
 async fn main() -> Result<(), rocket::Error> {

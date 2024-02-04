@@ -85,7 +85,7 @@ fn parse_date_range(res: &CompetitionInfoResponse) -> Result<Vec<sea_orm::prelud
 
 #[cfg(test)]
 mod tests {
-    use super::super::super::Division;
+    
     use super::*;
 
     #[tokio::test]

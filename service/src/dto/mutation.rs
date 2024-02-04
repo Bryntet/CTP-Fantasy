@@ -13,12 +13,12 @@ use sea_orm::{
 
 use entity::fantasy_pick;
 use entity::prelude::{
-    FantasyTournament, PhantomCompetitionInFantasyTournament, PlayerRoundScore, User,
+    FantasyTournament, PhantomCompetitionInFantasyTournament, User,
     UserAuthentication, UserCompetitionScoreInFantasyTournament, UserInFantasyTournament,
 };
 use entity::sea_orm_active_enums::FantasyTournamentInvitationStatus;
 
-use crate::dto::pdga::{add_players, ApiPlayer};
+use crate::dto::pdga::{add_players};
 use crate::error::GenericError;
 use crate::error::PlayerError;
 use crate::{generate_cookie, player_exists};
