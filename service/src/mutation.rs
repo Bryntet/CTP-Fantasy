@@ -147,7 +147,7 @@ pub async fn update_active_rounds(db: &DatabaseConnection) {
 pub async fn update_rounds(db: &DatabaseConnection, rounds: Vec<round::Model>) {
     for round in rounds {
         if let Ok(txn) = db.begin().await {
-            update_round(&txn, round).await;
+            let _ = update_round(&txn, round).await;
             if let Err(e) = txn.commit().await {
                 dbg!(e);
             }

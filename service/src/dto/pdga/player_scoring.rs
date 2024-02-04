@@ -1,4 +1,4 @@
-use crate::dto::{Division, UserScore};
+use crate::dto::{CompetitionLevel, Division, UserScore};
 use entity::player_round_score::ActiveModel;
 use entity::{fantasy_pick, player_round_score, user};
 
@@ -144,8 +144,8 @@ impl PlayerScore {
         Ok(())
     }
 
-    fn get_user_score(&self) -> u8 {
-        match self.placement {
+    fn get_user_score(&self, level: CompetitionLevel) -> u8 {
+        ((match self.placement {
             1 => 100,
             2 => 85,
             3 => 75,
@@ -157,7 +157,7 @@ impl PlayerScore {
             21..=48 => 50 - self.placement,
             49..=50 => 2,
             _ => 0,
-        }
+        }as f32) * level.multiplier()).round() as u8
     }
 
     pub(crate) async fn get_user_fantasy_score(
@@ -166,7 +166,11 @@ impl PlayerScore {
         fantasy_tournament_id: u32,
         competition_id: u32,
     ) -> Result<Option<UserScore>, GenericError> {
-        let score = self.get_user_score() as i32;
+        let competition_level = entity::competition::Entity::find()
+            .filter(entity::competition::Column::Id.eq(competition_id as i32))
+            .one(db)
+            .await.unwrap().unwrap().level.into();
+        let score = self.get_user_score(competition_level) as i32;
         if score > 0 {
             if let Ok(Some(user)) = self.get_user(db, fantasy_tournament_id).await.map_err(|e| {
                 dbg!(&e);

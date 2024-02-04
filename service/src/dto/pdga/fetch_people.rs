@@ -1,5 +1,4 @@
 use std::error::Error;
-use std::hash::{Hasher};
 
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
@@ -40,7 +39,6 @@ pub struct ApiPlayer {
 
 mod serde_things {
     use std::fmt;
-    use std::hash::Hasher;
     use serde::{de, Deserialize, Deserializer};
     use serde::de::{Unexpected, Visitor};
 

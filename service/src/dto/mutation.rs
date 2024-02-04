@@ -239,7 +239,7 @@ impl PlayerInCompetition {
         }
     }
 }
-
+#[allow(async_fn_in_trait)]
 pub trait InsertCompetition {
     async fn insert_in_db(
         &self,

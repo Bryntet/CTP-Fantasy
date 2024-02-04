@@ -106,6 +106,19 @@ pub enum CompetitionLevel {
     Silver,
 }
 
+impl From<sea_orm_active_enums::CompetitionLevel> for CompetitionLevel {
+    fn from(level: sea_orm_active_enums::CompetitionLevel) -> Self {
+        match level {
+            sea_orm_active_enums::CompetitionLevel::Major => CompetitionLevel::Major,
+            sea_orm_active_enums::CompetitionLevel::Playoff => CompetitionLevel::Playoff,
+            sea_orm_active_enums::CompetitionLevel::ElitePlus => CompetitionLevel::ElitePlus,
+            sea_orm_active_enums::CompetitionLevel::Elite => CompetitionLevel::Elite,
+            sea_orm_active_enums::CompetitionLevel::Silver => CompetitionLevel::Silver,
+            _ => panic!("Invalid competition level"),
+        }
+    }
+}
+
 impl FromParam<'_> for CompetitionLevel {
     type Error = GenericError;
 
