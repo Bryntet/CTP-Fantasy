@@ -2,8 +2,11 @@
 .env
 ctp_fantasy.code-workspace
 /pdga_schema
+/serde-test
+build.rs.bak
 # Added by cargo
 #
 # already existing elements were commented out
 
 #/target
+
