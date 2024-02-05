@@ -168,7 +168,9 @@ pub async fn get_participants(
                 .all(db)
                 .await?
                 .iter()
-                .map(|score| score.score)
+                .map(|score| {
+                    dbg!(&score);
+                    score.score })
                 .sum::<i32>();
             let user = dto::User {
                 id: participant.id,

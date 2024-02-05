@@ -25,8 +25,7 @@ async fn main() -> Result<(), rocket::Error> {
         loop {
             check_active_rounds(&db).await;
             service::mutation::refresh_user_scores_in_all(&db)
-                .await
-                .expect("PANIC WHY WRONG");
+                .await;
             round_update_interval.tick().await;
         }
     });

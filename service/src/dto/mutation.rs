@@ -399,21 +399,24 @@ impl CompetitionInfo {
             user_competition_score_in_fantasy_tournament::Entity::insert_many(
                 user_scores
                     .into_iter()
+                    .dedup_by(|a, b|a.competition_id == b.competition_id && a.pdga_num == b.pdga_num)
                     .map(|p| p.into_active_model(self.competition_id as i32))
-                    .dedup_by(|a, b| a.user == b.user),
             )
             .on_conflict(
                 sea_query::OnConflict::columns(vec![
                     user_competition_score_in_fantasy_tournament::Column::FantasyTournamentId,
                     user_competition_score_in_fantasy_tournament::Column::User,
                     user_competition_score_in_fantasy_tournament::Column::CompetitionId,
+                    user_competition_score_in_fantasy_tournament::Column::PdgaNumber,
                 ])
                 .update_column(user_competition_score_in_fantasy_tournament::Column::Score)
                 .to_owned(),
             )
             .exec(db)
             .await
-            .map_err(|_| {
+            .map_err(|e| {
+                #[cfg(debug_assertions)]
+                dbg!(e);
                 GenericError::UnknownError(
                     "Unable to insert user score from competition into database",
                 )

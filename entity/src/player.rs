@@ -24,6 +24,8 @@ pub enum Relation {
     PlayerInCompetition,
     #[sea_orm(has_many = "super::player_round_score::Entity")]
     PlayerRoundScore,
+    #[sea_orm(has_many = "super::user_competition_score_in_fantasy_tournament::Entity")]
+    UserCompetitionScoreInFantasyTournament,
 }
 
 impl Related<super::fantasy_pick::Entity> for Entity {
@@ -47,6 +49,12 @@ impl Related<super::player_in_competition::Entity> for Entity {
 impl Related<super::player_round_score::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::PlayerRoundScore.def()
+    }
+}
+
+impl Related<super::user_competition_score_in_fantasy_tournament::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::UserCompetitionScoreInFantasyTournament.def()
     }
 }
 

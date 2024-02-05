@@ -47,6 +47,7 @@ impl UserScore {
             score: Set(self.score),
             fantasy_tournament_id: Set(self.fantasy_tournament_id as i32),
             competition_id: Set(competition_id),
+            pdga_number: Set(self.pdga_num as i32),
         }
     }
 }

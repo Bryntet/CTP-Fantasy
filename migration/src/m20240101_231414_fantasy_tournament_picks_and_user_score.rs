@@ -105,12 +105,17 @@ impl MigrationTrait for Migration {
                             .integer()
                             .not_null(),
                     )
+                    .col(
+                        ColumnDef::new(UserCompetitionScoreInFantasyTournament::PdgaNumber)
+                            .integer()
+                            .not_null(),)
                     .index(
                         Index::create()
                             .name("fantasy_scores_user_tournament")
                             .col(UserCompetitionScoreInFantasyTournament::User)
                             .col(UserCompetitionScoreInFantasyTournament::FantasyTournamentId)
                             .col(UserCompetitionScoreInFantasyTournament::CompetitionId)
+                            .col(UserCompetitionScoreInFantasyTournament::PdgaNumber)
                             .unique(),
                     )
                     .foreign_key(
@@ -130,6 +135,14 @@ impl MigrationTrait for Migration {
                             )
                             .to(Competition::Table, Competition::Id),
                     )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fantasy_scores_pdga")
+                            .from(
+                                UserCompetitionScoreInFantasyTournament::Table,
+                                UserCompetitionScoreInFantasyTournament::PdgaNumber,
+                            )
+                            .to(Player::Table, Player::PDGANumber),)
                     .to_owned(),
             )
             .await?;

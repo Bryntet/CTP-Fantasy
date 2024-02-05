@@ -153,6 +153,7 @@ pub(crate) enum UserCompetitionScoreInFantasyTournament {
     User,
     Score,
     CompetitionId,
+    PdgaNumber,
     FantasyTournamentId,
 }
 
