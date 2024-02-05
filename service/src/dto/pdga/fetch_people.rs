@@ -3,7 +3,7 @@ use std::error::Error;
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
 
-use sea_orm::{sea_query, ConnectionTrait, DbErr, EntityTrait, IntoActiveModel};
+use sea_orm::{sea_query, ConnectionTrait, EntityTrait, IntoActiveModel};
 
 use serde::{Deserialize};
 
@@ -97,6 +97,8 @@ mod serde_things {
 }
 
 use serde_things::{bool_from_int, flexible_number};
+use crate::error::GenericError;
+
 impl From<ApiPlayer> for PlayerScore {
     fn from(p: ApiPlayer) -> Self {
         Self {
@@ -171,7 +173,7 @@ pub async fn add_players(
     db: &impl ConnectionTrait,
     players: Vec<ApiPlayer>,
     fantasy_tournament_id: Option<i32>,
-) -> Result<(), DbErr> {
+) -> Result<(), GenericError> {
     entity::player::Entity::insert_many(players.clone().into_iter().map(|p| p.into_active_model()))
         .on_conflict(
             sea_query::OnConflict::column(entity::player::Column::PdgaNumber)
@@ -181,9 +183,8 @@ pub async fn add_players(
         .do_nothing()
         .exec(db)
         .await
-        .map_err(|e| {
-            dbg!(&e);
-            e
+        .map_err(|_| {
+            GenericError::UnknownError("Unable to insert players into database")
         })?;
     if let Some(fantasy_tournament_id) = fantasy_tournament_id {
         entity::player_division_in_fantasy_tournament::Entity::insert_many(
@@ -197,10 +198,7 @@ pub async fn add_players(
         .do_nothing()
         .exec(db)
         .await
-        .map_err(|e| {
-            dbg!(&e);
-            e
-        })?;
+        .map_err(|_|GenericError::UnknownError("Unable to insert player divisions into fantasy tournament"))?;
     }
     Ok(())
 }

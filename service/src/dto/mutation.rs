@@ -46,7 +46,7 @@ impl FantasyPick {
 
                     if let Some(player) = person_in_slot {
                         let player: fantasy_pick::ActiveModel = player.into();
-                        player.delete(db).await?;
+                        player.delete(db).await.map_err(|_|GenericError::UnknownError("Unable to remove pick"))?;
                     }
 
                     if let Some(player) =
@@ -54,17 +54,15 @@ impl FantasyPick {
                             .await?
                     {
                         let player: fantasy_pick::ActiveModel = player.into();
-                        player.delete(db).await?;
+                        player.delete(db).await.map_err(|_|GenericError::UnknownError("Unable to remove pick"))?;
                     }
                     self.insert(db, user_id, tournament_id, players_division)
                         .await?;
                     Ok(())
                 } else {
-                    dbg!("wrong division");
                     Err(PlayerError::WrongDivision.into())
                 }
             } else {
-                dbg!("Player does not have division?");
                 Err(PlayerError::WrongDivision.into())
             }
         } else {
@@ -87,7 +85,7 @@ impl FantasyPick {
             fantasy_tournament_id: Set(tournament_id),
             division: Set(division.into()),
         };
-        pick.save(db).await?;
+        pick.save(db).await.map_err(|_|GenericError::UnknownError("Unknown error while saving pick"))?;
         Ok(())
     }
 }
@@ -135,6 +133,7 @@ impl From<&str> for Division {
             "MPO" => Division::MPO,
             "FPO" => Division::FPO,
             _ => {
+                #[cfg(debug_assertions)]
                 dbg!("Unknown division, defaulting to MPO");
                 Division::MPO
             }
@@ -148,6 +147,7 @@ impl Display for Division {
             Division::MPO => "Mpo".to_string(),
             Division::FPO => "Fpo".to_string(),
             Division::Unknown => {
+                #[cfg(debug_assertions)]
                 dbg!("Unknown division, defaulting to MPO");
                 "Mpo".to_string()
             }
@@ -161,16 +161,21 @@ impl UserLogin {
         &'a self,
         db: &'a DatabaseConnection,
         cookies: &CookieJar<'_>,
-    ) -> Result<(), DbErr> {
-        let txn = db.begin().await?;
+    ) -> Result<(), GenericError> {
+        let txn = db.begin().await.map_err(|_|GenericError::UnknownError("Unable to start transaction"))?;
         let user = self.active_user();
-        let user_id = User::insert(user).exec(&txn).await?.last_insert_id;
-        let hashed_password = hash(&self.password, DEFAULT_COST).unwrap();
+        let user_id = User::insert(user).exec(&txn).await.map_err(|e| {
+            e.sql_err().map(|_| {
+                GenericError::Conflict("Username already taken")
+            }).unwrap_or_else(||
+            GenericError::UnknownError("Unable to insert user into database") )
+        })?.last_insert_id;
+        let hashed_password = hash(&self.password, DEFAULT_COST).expect("hashing should work");
         let authentication = self.active_authentication(hashed_password, user_id);
         UserAuthentication::insert(authentication)
             .exec(&txn)
-            .await?;
-        txn.commit().await?;
+            .await.map_err(|_|GenericError::UnknownError("Inserting user authentication failed"))?;
+        txn.commit().await.map_err(|_|GenericError::UnknownError("Transaction commit failed"))?;
         generate_cookie(db, user_id, cookies).await
     }
 }
@@ -245,7 +250,7 @@ pub trait InsertCompetition {
         &self,
         db: &impl ConnectionTrait,
         level: sea_orm_active_enums::CompetitionLevel,
-    ) -> Result<(), DbErr>;
+    ) -> Result<(), GenericError>;
     async fn insert_in_fantasy(
         &self,
         db: &impl ConnectionTrait,
@@ -258,11 +263,11 @@ impl InsertCompetition for PhantomCompetition {
         &self,
         db: &impl ConnectionTrait,
         level: sea_orm_active_enums::CompetitionLevel,
-    ) -> Result<(), DbErr> {
+    ) -> Result<(), GenericError> {
         use entity::prelude::PhantomCompetition;
         PhantomCompetition::insert(self.active_model(level))
             .exec(db)
-            .await?;
+            .await.map_err(|_|GenericError::UnknownError("Unable to insert phantom competition"))?;
         Ok(())
     }
 
@@ -291,10 +296,10 @@ impl InsertCompetition for CompetitionInfo {
     async fn insert_in_db(
         &self,
         db: &impl ConnectionTrait,
-        level: entity::sea_orm_active_enums::CompetitionLevel,
-    ) -> Result<(), DbErr> {
-        self.active_model(level).insert(db).await?;
-        self.insert_rounds(db).await?;
+        level: sea_orm_active_enums::CompetitionLevel,
+    ) -> Result<(), GenericError> {
+        self.active_model(level).insert(db).await.map_err(|_|GenericError::UnknownError("Unable to insert competition in database"))?;
+        self.insert_rounds(db).await.map_err(|_|GenericError::UnknownError("Unable to insert rounds in database"))?;
         Ok(())
     }
 
@@ -306,13 +311,13 @@ impl InsertCompetition for CompetitionInfo {
         use entity::prelude::{Competition, CompetitionInFantasyTournament};
         match Competition::find_by_id(self.competition_id as i32)
             .one(db)
-            .await?
+            .await.map_err(|_|GenericError::UnknownError("Internal error while trying to get competition"))?
         {
             Some(c) => {
                 match c
                     .find_related(CompetitionInFantasyTournament)
                     .one(db)
-                    .await?
+                    .await.map_err(|_|GenericError::UnknownError("Internal db error while trying to find competition in fantasy tournament"))?
                 {
                     Some(_) => Err(GenericError::Conflict("Competition already added")),
                     None => {
@@ -320,7 +325,7 @@ impl InsertCompetition for CompetitionInfo {
                             self.fantasy_model(fantasy_tournament_id),
                         )
                         .exec(db)
-                        .await?;
+                        .await.map_err(|_|GenericError::UnknownError("Unable to insert competition into fanatasy tournament due to unknown db error"))?;
                         Ok(())
                     }
                 }
@@ -351,12 +356,7 @@ impl CompetitionInfo {
         fantasy_tournament_id: Option<i32>,
     ) -> Result<(), GenericError> {
         let players = self.get_all_player_scores().await?;
-        add_players(db, players, fantasy_tournament_id)
-            .await
-            .map_err(|e| {
-                dbg!(&e);
-                e
-            })?;
+        add_players(db, players, fantasy_tournament_id).await?;
         Ok(())
     }
 
@@ -366,22 +366,14 @@ impl CompetitionInfo {
         fantasy_tournament_id: u32,
     ) -> Result<(), GenericError> {
         let user_scores = self.get_user_scores(db, fantasy_tournament_id).await?;
+        #[cfg(debug_assertions)]
         dbg!(&user_scores);
         if !user_scores.is_empty() {
-            user_scores.iter().for_each(|s| {
-                dbg!(&s);
-            });
             user_competition_score_in_fantasy_tournament::Entity::insert_many(
                 user_scores
                     .into_iter()
                     .map(|p| p.into_active_model(self.competition_id as i32))
-                    .dedup_by(|a, b| {
-                        let cmp = a.user == b.user;
-                        if cmp {
-                            dbg!(&a, &b);
-                        }
-                        cmp
-                    }),
+                    .dedup_by(|a, b| a.user == b.user),
             )
             .on_conflict(
                 sea_query::OnConflict::columns(vec![
@@ -393,11 +385,7 @@ impl CompetitionInfo {
                 .to_owned(),
             )
             .exec(db)
-            .await
-            .map_err(|e| {
-                dbg!(&e);
-                e
-            })?;
+            .await.map_err(|_|GenericError::UnknownError("Unable to insert user score from competition into database"))?;
         }
         Ok(())
     }

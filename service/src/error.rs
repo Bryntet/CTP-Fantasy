@@ -5,10 +5,7 @@ use rocket_okapi::okapi::openapi3::Responses;
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::{JsonSchema, Map};
 use rocket_okapi::response::OpenApiResponderInner;
-use sea_orm::DbErr;
-use sea_orm::RuntimeErr::SqlxError;
-use sqlx::postgres::PgDatabaseError;
-use std::fmt::{Debug, Display};
+use std::fmt::{Debug};
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Responder)]
 pub enum GenericError {
@@ -93,86 +90,6 @@ pub enum UserError {
     NotPermitted(&'static str),
 }
 
-enum ForeignKeyError {
-    FantasyTournamentOwner,
-    FantasyPickConflict,
-    PlayerDoesNotExist,
-    Other,
-}
-impl ForeignKeyError {
-    fn new(error: &PgDatabaseError) -> Self {
-        let _msg = error.message();
-        if let Some(constraint) = error.constraint() {
-            if let Some(detail) = error.detail() {
-                if constraint == "fantasy_tournament_owner_fkey" {
-                    Self::FantasyTournamentOwner
-                } else if constraint == "fantasy_pick_player_fkey" {
-                    dbg!(constraint, detail);
-                    if detail.contains("Key (player)") && detail.contains("is not present") {
-                        Self::PlayerDoesNotExist
-                    } else {
-                        dbg!(constraint, detail);
-                        Self::Other
-                    }
-                } else {
-                    dbg!(constraint, detail);
-                    Self::Other
-                }
-            } else {
-                dbg!(error);
-                Self::Other
-            }
-        } else {
-            if let Some(detail) = error.detail() {
-                dbg!(detail);
-            }
-            Self::Other
-        }
-    }
-}
-
-impl From<ForeignKeyError> for GenericError {
-    fn from(e: ForeignKeyError) -> Self {
-        Self::ViolatesForeignKey(match e {
-            ForeignKeyError::FantasyTournamentOwner => "You are not the owner of this tournament",
-            ForeignKeyError::FantasyPickConflict => "You have already picked this player",
-            ForeignKeyError::PlayerDoesNotExist => "Player does not exist in our database. Make sure your fantasy tournament contains a competition with this player",
-            ForeignKeyError::Other => {
-                todo!("Other foreign key error")
-            }
-        })
-    }
-}
-impl From<DbErr> for GenericError {
-    fn from(e: DbErr) -> Self {
-        match e {
-            DbErr::Query(SqlxError(sqlx::Error::Database(error))) => {
-                let msg = error.message();
-                if error.is_foreign_key_violation() {
-                    let f_key_error = ForeignKeyError::new(
-                        error
-                            .try_downcast_ref()
-                            .expect("You need to use a postgres database for this project"),
-                    );
-                    Self::from(f_key_error)
-                } else if error.is_unique_violation() {
-                    dbg!(error);
-                    Self::UniqueError("Unique violation")
-                } else if error.is_check_violation() {
-                    dbg!(msg);
-                    Self::CheckError("Check violation")
-                } else {
-                    dbg!(msg);
-                    Self::UnknownError("Unknown error")
-                }
-            }
-            e => {
-                dbg!(e);
-                Self::UnknownError("Unknown error")
-            }
-        }
-    }
-}
 #[derive(Serialize, Deserialize, JsonSchema, Debug)]
 pub enum PlayerError {
     NotFound,
@@ -196,24 +113,6 @@ impl From<InviteError> for GenericError {
                 "You are not the owner of this tournament",
             )),
         }
-    }
-}
-
-impl Display for ForeignKeyError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let str = match self {
-            ForeignKeyError::FantasyTournamentOwner => {
-                "You are not the owner of this tournament".to_string()
-            }
-            ForeignKeyError::FantasyPickConflict => {
-                "You have already picked this player".to_string()
-            }
-            ForeignKeyError::PlayerDoesNotExist => {
-                "Player does not exist in our database. Make sure your fantasy tournament contains a competition with this player".to_string()
-            }
-            ForeignKeyError::Other => todo!(),
-        };
-        write!(f, "{}", str)
     }
 }
 

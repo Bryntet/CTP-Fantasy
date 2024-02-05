@@ -58,22 +58,17 @@ impl PlayerScore {
         round: i32,
         competition_id: i32,
         div: &entity::sea_orm_active_enums::Division,
-    ) -> Result<(), DbErr> {
+    ) -> Result<(), GenericError> {
         if let Some(score_update) = self
             .round_score_active_model(db, round, competition_id, div.clone())
             .await
         {
-            score_update.save(db).await.map_err(|e| {
-                dbg!(&e);
-                e
+            score_update.save(db).await.map_err(|_| {
+                GenericError::UnknownError("unable to save score to database")
             })?;
         }
         self.make_sure_player_in_competition(db, competition_id, div)
-            .await
-            .map_err(|e| {
-                dbg!(&e);
-                e
-            })?;
+            .await?;
         Ok(())
     }
 
@@ -122,7 +117,7 @@ impl PlayerScore {
         db: &impl ConnectionTrait,
         competition_id: i32,
         div: &entity::sea_orm_active_enums::Division,
-    ) -> Result<(), DbErr> {
+    ) -> Result<(), GenericError> {
         entity::player_in_competition::Entity::insert(entity::player_in_competition::ActiveModel {
             id: NotSet,
             pdga_number: Set(self.pdga_number),
@@ -139,7 +134,7 @@ impl PlayerScore {
         )
         .do_nothing()
         .exec(db)
-        .await?;
+        .await.map_err(|_|GenericError::UnknownError("Unable to add player in competition"))?;
 
         Ok(())
     }
@@ -173,6 +168,7 @@ impl PlayerScore {
         let score = self.get_user_score(competition_level) as i32;
         if score > 0 {
             if let Ok(Some(user)) = self.get_user(db, fantasy_tournament_id).await.map_err(|e| {
+                #[cfg(debug_assertions)]
                 dbg!(&e);
                 e
             }) {
@@ -202,14 +198,12 @@ impl PlayerScore {
             .filter(fantasy_pick::Column::FantasyTournamentId.eq(fantasy_id))
             .one(db)
             .await
-            .map_err(|e| {
-                dbg!(e);
+            .map_err(|_| {
+
                 GenericError::UnknownError("Pick not found due to unknown database error")
             })?
         {
-            dbg!(&pick);
-            pick.find_related(User).one(db).await.map_err(|e| {
-                dbg!(e);
+            pick.find_related(User).one(db).await.map_err(|_| {
                 GenericError::UnknownError("User not found due to unknown database error")
             })
         } else {
@@ -304,19 +298,21 @@ impl RoundInformation {
         let resp: ApiRes = reqwest::get(url)
             .await
             .map_err(|e| {
+                #[cfg(debug_assertions)]
                 dbg!(&e);
                 e
             })?
             .json()
             .await
             .map_err(|e| {
+                #[cfg(debug_assertions)]
                 dbg!(&e);
                 e
             })?;
         Ok((resp.data, competition_id, round, div.into()).into())
     }
 
-    pub async fn update_all(&self, db: &impl ConnectionTrait) -> Result<(), DbErr> {
+    pub async fn update_all(&self, db: &impl ConnectionTrait) -> Result<(), GenericError> {
         for player in &self.players {
             player
                 .update_and_save(
@@ -325,11 +321,7 @@ impl RoundInformation {
                     self.competition_id as i32,
                     &self.div,
                 )
-                .await
-                .map_err(|e| {
-                    dbg!(&e);
-                    e
-                })?;
+                .await?;
         }
         Ok(())
     }

@@ -68,6 +68,7 @@ impl CompetitionInfo {
                 Ok(out)
             }
             Err(e) => {
+                #[cfg(debug_assertions)]
                 dbg!(&e);
                 Err(e)
             }

@@ -7,7 +7,7 @@ use rand::Rng;
 use rocket::http::{Cookie, CookieJar};
 use sea_orm::ActiveValue::*;
 use sea_orm::{
-    ActiveModelTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait, IntoActiveModel,
+    ActiveModelTrait, ConnectionTrait, DatabaseConnection, EntityTrait, IntoActiveModel,
     TransactionTrait,
 };
 use sea_orm::{ColumnTrait, QueryFilter};
@@ -19,7 +19,7 @@ pub async fn generate_cookie(
     db: &DatabaseConnection,
     user_id: i32,
     cookies: &CookieJar<'_>,
-) -> Result<(), DbErr> {
+) -> Result<(), GenericError> {
     let random_value: String = rand::thread_rng()
         .sample_iter(&Alphanumeric)
         .take(30)
@@ -30,7 +30,7 @@ pub async fn generate_cookie(
         user_id: Set(user_id),
         cookie: Set(random_value.clone()),
     };
-    UserCookies::insert(user_cookie).exec(db).await?;
+    UserCookies::insert(user_cookie).exec(db).await.map_err(|_|GenericError::UnknownError("unable to insert cookie in database"))?;
 
     #[cfg(debug_assertions)]
     let secure = false;
@@ -127,15 +127,11 @@ pub async fn update_round(
         dto::Division::MPO,
     )
     .await
-    .map_err(|e| {
-        dbg!(&e);
-        GenericError::UnknownError("HELP")
+    .map_err(|_| {
+        GenericError::UnknownError("Unable to fetch round information")
     })?;
 
-    round_info.update_all(db).await.map_err(|e| {
-        dbg!(&e);
-        GenericError::UnknownError("HELP")
-    })?;
+    round_info.update_all(db).await?;
     Ok(())
 }
 
@@ -148,9 +144,7 @@ pub async fn update_rounds(db: &DatabaseConnection, rounds: Vec<round::Model>) {
     for round in rounds {
         if let Ok(txn) = db.begin().await {
             let _ = update_round(&txn, round).await;
-            if let Err(e) = txn.commit().await {
-                dbg!(e);
-            }
+            txn.commit().await.expect("database failed");
         }
     }
 }
@@ -166,26 +160,24 @@ pub async fn refresh_user_scores_in_fantasy(
             .map(|c| c.id as u32)
             .collect();
     for comp_id in comp_ids {
+        #[cfg(debug_assertions)]
         dbg!(comp_id);
         dto::CompetitionInfo::from_web(comp_id)
             .await
-            .map_err(|e| {
-                dbg!(&e);
-                GenericError::UnknownError("HELP")
+            .map_err(|_| {
+                GenericError::UnknownError("unable to get competition info from pdga")
             })?
             .save_user_scores(db, fantasy_tournament_id)
-            .await.map_err(|e|{
-            dbg!(&e);
-            e
-        })?
+            .await?
     }
     Ok(())
 }
 
 pub async fn refresh_user_scores_in_all(db: &impl ConnectionTrait) -> Result<(), GenericError> {
-    let fantasy_tournaments = FantasyTournament::find().all(db).await?;
+    let fantasy_tournaments = FantasyTournament::find().all(db).await.map_err(|_|GenericError::UnknownError("database error on fantasy tournament"))?;
     for tournament in fantasy_tournaments {
         refresh_user_scores_in_fantasy(db, tournament.id as u32).await.map_err(|e|{
+            #[cfg(debug_assertions)]
             dbg!(&e);
             e
         })?;

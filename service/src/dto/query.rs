@@ -1,13 +1,11 @@
-
-use sea_orm::prelude::Date;
+use sea_orm::{ConnectionTrait, EntityTrait, NotSet};
 use sea_orm::ActiveValue::Set;
 use sea_orm::ColumnTrait;
-use sea_orm::DbErr;
+use sea_orm::prelude::Date;
 use sea_orm::QueryFilter;
-use sea_orm::{ConnectionTrait, EntityTrait, NotSet};
 
-use entity::prelude::Round;
 use entity::{user, user_authentication};
+//use entity::prelude::Round;
 
 use crate::dto::pdga::{ApiPlayer, CompetitionInfo, PlayerScore};
 use crate::error::GenericError;
@@ -88,7 +86,7 @@ impl FantasyPick {
                     .and(fantasy_pick::Column::Division.eq(division)),
             )
             .one(db)
-            .await?;
+            .await.map_err(|_|GenericError::UnknownError("database error while trying to find pick"))?;
         Ok(existing_pick)
     }
 
@@ -110,7 +108,7 @@ impl FantasyPick {
                     .and(fantasy_pick::Column::User.eq(user_id)),
             )
             .one(db)
-            .await?;
+            .await.map_err(|_|GenericError::UnknownError("Unknown error while trying to find pick in database"))?;
         Ok(existing_pick)
     }
 }
@@ -138,7 +136,7 @@ impl CompetitionInfo {
         }
     }
 
-    pub(crate) async fn get_round(
+    /*pub(crate) async fn get_round(
         &self,
         db: &impl ConnectionTrait,
         date: Date,
@@ -151,7 +149,7 @@ impl CompetitionInfo {
             )
             .one(db)
             .await
-    }
+    }*/
 
     pub(crate) fn fantasy_model(
         &self,
@@ -164,11 +162,11 @@ impl CompetitionInfo {
         }
     }
 
-    pub async fn is_in_db(&self, db: &impl ConnectionTrait) -> Result<bool, DbErr> {
+    pub async fn is_in_db(&self, db: &impl ConnectionTrait) -> Result<bool, GenericError> {
         competition::Entity::find_by_id(self.competition_id as i32)
             .one(db)
             .await
-            .map(|x| x.is_some())
+            .map(|x| x.is_some()).map_err(|_|GenericError::UnknownError("Internal db error"))
     }
 
     pub(super) async fn get_all_player_scores(&self) -> Result<Vec<ApiPlayer>, GenericError> {
@@ -185,6 +183,7 @@ impl CompetitionInfo {
         pdga::get_players_from_api(self.competition_id, div, round as i32)
             .await
             .map_err(|e| {
+                #[cfg(debug_assertions)]
                 dbg!(&e);
                 e
             })

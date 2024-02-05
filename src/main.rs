@@ -4,6 +4,7 @@ use dotenvy::dotenv;
 use sea_orm::DatabaseConnection;
 
 use std::time::Duration;
+use rocket::log::private::LevelFilter;
 
 
 #[rocket::main]
@@ -17,7 +18,14 @@ async fn main() -> Result<(), rocket::Error> {
 
 
     tokio::spawn(async move {
-        let db = sea_orm::Database::connect(std::env::var("DATABASE_URL").expect("DATABASE_URL not set")).await
+        let mut opt = sea_orm::ConnectOptions::new(std::env::var("DATABASE_URL").expect("DATABASE_URL not set"));
+        #[cfg(debug_assertions)]
+        opt.sqlx_logging(true);
+        opt.sqlx_logging_level(LevelFilter::Trace);
+        #[cfg(not(debug_assertions))]
+        opt.sqlx_logging(false);
+
+        let db = sea_orm::Database::connect(opt).await
             .unwrap();
         loop {
             check_active_rounds(&db).await;

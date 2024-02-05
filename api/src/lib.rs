@@ -69,7 +69,6 @@ pub fn routes() -> Vec<Route> {
         get_user_pick,
         get_divisions,
         add_competition,
-        force_refresh_competitions
     ]
 }
 
