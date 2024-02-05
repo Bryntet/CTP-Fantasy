@@ -2,12 +2,12 @@ use rocket::http::CookieJar;
 use rocket::serde::json::Json;
 use rocket::State;
 use rocket_okapi::openapi;
-use sea_orm::{DatabaseConnection, DbErr};
 use sea_orm::RuntimeErr::SqlxError;
 use sea_orm::TransactionTrait;
+use sea_orm::{DatabaseConnection, DbErr};
 
 use error::GenericError;
-use service::dto::{FantasyPick, forms, traits::InsertCompetition, UserLogin};
+use service::dto::{forms, traits::InsertCompetition, FantasyPick, UserLogin};
 
 use crate::authenticate;
 use crate::error;
@@ -62,9 +62,7 @@ pub(crate) async fn create_tournament(
                 Err(GenericError::UnknownError("Unknown error"))
             }
         }
-        Err(_) => {
-            Err(GenericError::UnknownError("Unknown error"))
-        }
+        Err(_) => Err(GenericError::UnknownError("Unknown error")),
     }
 }
 /// # Create a user
@@ -130,9 +128,15 @@ pub(crate) async fn add_pick(
         pick.change_or_insert(db, user.id, fantasy_tournament_id, division)
             .await?;
 
-        let txn = db.begin().await.map_err(|_|GenericError::UnknownError("transaction begin error"))?;
-        service::mutation::refresh_user_scores_in_fantasy(&txn, fantasy_tournament_id as u32).await?;
-        txn.commit().await.map_err(|_|GenericError::UnknownError("transaction failed"))?;
+        let txn = db
+            .begin()
+            .await
+            .map_err(|_| GenericError::UnknownError("transaction begin error"))?;
+        service::mutation::refresh_user_scores_in_fantasy(&txn, fantasy_tournament_id as u32)
+            .await?;
+        txn.commit()
+            .await
+            .map_err(|_| GenericError::UnknownError("transaction failed"))?;
         Ok("Successfully added pick")
     } else {
         Err(not_permitted.into())
@@ -159,7 +163,11 @@ pub(crate) async fn add_picks(
             UserError::NotPermitted("You are not permitted to add picks for this user").into(),
         );
     }
-    let txn = db.inner().begin().await.map_err(|_|GenericError::UnknownError("transaction start failed"))?;
+    let txn = db
+        .inner()
+        .begin()
+        .await
+        .map_err(|_| GenericError::UnknownError("transaction start failed"))?;
 
     for pick in json_picks.into_inner() {
         pick.change_or_insert(&txn, user.id, fantasy_tournament_id, division.clone())
@@ -167,7 +175,9 @@ pub(crate) async fn add_picks(
     }
 
     service::mutation::refresh_user_scores_in_fantasy(&txn, fantasy_tournament_id as u32).await?;
-    txn.commit().await.map_err(|_|GenericError::UnknownError("transaction failed"))?;
+    txn.commit()
+        .await
+        .map_err(|_| GenericError::UnknownError("transaction failed"))?;
     Ok("Successfully added picks".to_string())
 }
 
@@ -212,15 +222,18 @@ pub(crate) async fn add_competition(
     competition: Json<forms::AddCompetition>,
 ) -> Result<String, GenericError> {
     let db = db.inner();
-    let txn = db.begin().await.map_err(|_|GenericError::UnknownError("internal error, please try again or contact support if problem persists"))?;
+    let txn = db.begin().await.map_err(|_| {
+        GenericError::UnknownError(
+            "internal error, please try again or contact support if problem persists",
+        )
+    })?;
     let competition_input = competition.into_inner();
     match service::dto::CompetitionInfo::from_web(competition_input.competition_id).await {
         Ok(competition) => {
             if !competition.is_in_db(&txn).await? {
                 competition
                     .insert_in_db(&txn, competition_input.level.into())
-                    .await
-                    ?
+                    .await?
             }
             competition
                 .insert_in_fantasy(&txn, fantasy_tournament_id)
@@ -229,7 +242,9 @@ pub(crate) async fn add_competition(
                 .insert_players(&txn, Some(fantasy_tournament_id as i32))
                 .await?;
 
-            txn.commit().await.map_err(|_|GenericError::UnknownError("Unknown error while trying to commit transaction"))?;
+            txn.commit().await.map_err(|_| {
+                GenericError::UnknownError("Unknown error while trying to commit transaction")
+            })?;
             let rounds =
                 service::get_rounds_in_competition(db, competition_input.competition_id as i32)
                     .await?;
@@ -239,13 +254,9 @@ pub(crate) async fn add_competition(
                 .await?;
             Ok("Successfully added competition".to_string())
         }
-        Err(_) => {
-            Err(GenericError::NotFound("Competition not found in PDGA"))
-        }
+        Err(_) => Err(GenericError::NotFound("Competition not found in PDGA")),
     }
 }
-
-
 
 //#[openapi(tag="Fantasy Tournament")]
 //#[post("/fantasy-tournament/<fantasy_tournament_id>/add-competition/<competition_id>/placeholder/")]

@@ -30,7 +30,10 @@ pub async fn generate_cookie(
         user_id: Set(user_id),
         cookie: Set(random_value.clone()),
     };
-    UserCookies::insert(user_cookie).exec(db).await.map_err(|_|GenericError::UnknownError("unable to insert cookie in database"))?;
+    UserCookies::insert(user_cookie)
+        .exec(db)
+        .await
+        .map_err(|_| GenericError::UnknownError("unable to insert cookie in database"))?;
 
     #[cfg(debug_assertions)]
     let secure = false;
@@ -127,9 +130,7 @@ pub async fn update_round(
         dto::Division::MPO,
     )
     .await
-    .map_err(|_| {
-        GenericError::UnknownError("Unable to fetch round information")
-    })?;
+    .map_err(|_| GenericError::UnknownError("Unable to fetch round information"))?;
 
     round_info.update_all(db).await?;
     Ok(())
@@ -164,9 +165,7 @@ pub async fn refresh_user_scores_in_fantasy(
         dbg!(comp_id);
         dto::CompetitionInfo::from_web(comp_id)
             .await
-            .map_err(|_| {
-                GenericError::UnknownError("unable to get competition info from pdga")
-            })?
+            .map_err(|_| GenericError::UnknownError("unable to get competition info from pdga"))?
             .save_user_scores(db, fantasy_tournament_id)
             .await?
     }
@@ -174,13 +173,18 @@ pub async fn refresh_user_scores_in_fantasy(
 }
 
 pub async fn refresh_user_scores_in_all(db: &impl ConnectionTrait) -> Result<(), GenericError> {
-    let fantasy_tournaments = FantasyTournament::find().all(db).await.map_err(|_|GenericError::UnknownError("database error on fantasy tournament"))?;
+    let fantasy_tournaments = FantasyTournament::find()
+        .all(db)
+        .await
+        .map_err(|_| GenericError::UnknownError("database error on fantasy tournament"))?;
     for tournament in fantasy_tournaments {
-        refresh_user_scores_in_fantasy(db, tournament.id as u32).await.map_err(|e|{
-            #[cfg(debug_assertions)]
-            dbg!(&e);
-            e
-        })?;
+        refresh_user_scores_in_fantasy(db, tournament.id as u32)
+            .await
+            .map_err(|e| {
+                #[cfg(debug_assertions)]
+                dbg!(&e);
+                e
+            })?;
     }
     Ok(())
 }

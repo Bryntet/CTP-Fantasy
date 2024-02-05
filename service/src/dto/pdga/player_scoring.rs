@@ -11,7 +11,7 @@ use sea_orm::{sea_query, ModelTrait};
 use sea_orm::{ActiveModelTrait, ConnectionTrait, DbErr, EntityTrait, IntoActiveModel, NotSet};
 use sea_orm::{ColumnTrait, QueryFilter};
 
-use serde::{Deserialize};
+use serde::Deserialize;
 
 #[derive(Deserialize)]
 enum Unit {
@@ -63,9 +63,10 @@ impl PlayerScore {
             .round_score_active_model(db, round, competition_id, div.clone())
             .await
         {
-            score_update.save(db).await.map_err(|_| {
-                GenericError::UnknownError("unable to save score to database")
-            })?;
+            score_update
+                .save(db)
+                .await
+                .map_err(|_| GenericError::UnknownError("unable to save score to database"))?;
         }
         self.make_sure_player_in_competition(db, competition_id, div)
             .await?;
@@ -134,7 +135,8 @@ impl PlayerScore {
         )
         .do_nothing()
         .exec(db)
-        .await.map_err(|_|GenericError::UnknownError("Unable to add player in competition"))?;
+        .await
+        .map_err(|_| GenericError::UnknownError("Unable to add player in competition"))?;
 
         Ok(())
     }
@@ -152,7 +154,9 @@ impl PlayerScore {
             21..=48 => 50 - self.placement,
             49..=50 => 2,
             _ => 0,
-        }as f32) * level.multiplier()).round() as u8
+        } as f32)
+            * level.multiplier())
+        .round() as u8
     }
 
     pub(crate) async fn get_user_fantasy_score(
@@ -164,7 +168,11 @@ impl PlayerScore {
         let competition_level = entity::competition::Entity::find()
             .filter(entity::competition::Column::Id.eq(competition_id as i32))
             .one(db)
-            .await.unwrap().unwrap().level.into();
+            .await
+            .unwrap()
+            .unwrap()
+            .level
+            .into();
         let score = self.get_user_score(competition_level) as i32;
         if score > 0 {
             if let Ok(Some(user)) = self.get_user(db, fantasy_tournament_id).await.map_err(|e| {
@@ -199,7 +207,6 @@ impl PlayerScore {
             .one(db)
             .await
             .map_err(|_| {
-
                 GenericError::UnknownError("Pick not found due to unknown database error")
             })?
         {

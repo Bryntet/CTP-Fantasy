@@ -17,7 +17,7 @@ async fn make_db() -> DatabaseConnection {
 async fn rocket() -> _ {
     let config = Config {
         log_level: rocket::config::LogLevel::Normal,
-        cli_colors:true,
+        cli_colors: true,
         ..Default::default()
     };
     rocket::build()
@@ -56,8 +56,7 @@ mod tests {
     async fn test_process() {
         dotenv().ok();
 
-        let db = make_db()
-        .await;
+        let db = make_db().await;
         migration::Migrator::fresh(&db)
             .await
             .expect("Migration success");

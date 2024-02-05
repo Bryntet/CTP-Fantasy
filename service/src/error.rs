@@ -5,7 +5,7 @@ use rocket_okapi::okapi::openapi3::Responses;
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::{JsonSchema, Map};
 use rocket_okapi::response::OpenApiResponderInner;
-use std::fmt::{Debug};
+use std::fmt::Debug;
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Responder)]
 pub enum GenericError {

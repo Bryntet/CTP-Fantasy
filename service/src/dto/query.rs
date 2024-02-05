@@ -1,8 +1,8 @@
-use sea_orm::{ConnectionTrait, EntityTrait, NotSet};
+use sea_orm::prelude::Date;
 use sea_orm::ActiveValue::Set;
 use sea_orm::ColumnTrait;
-use sea_orm::prelude::Date;
 use sea_orm::QueryFilter;
+use sea_orm::{ConnectionTrait, EntityTrait, NotSet};
 
 use entity::{user, user_authentication};
 //use entity::prelude::Round;
@@ -86,7 +86,8 @@ impl FantasyPick {
                     .and(fantasy_pick::Column::Division.eq(division)),
             )
             .one(db)
-            .await.map_err(|_|GenericError::UnknownError("database error while trying to find pick"))?;
+            .await
+            .map_err(|_| GenericError::UnknownError("database error while trying to find pick"))?;
         Ok(existing_pick)
     }
 
@@ -108,7 +109,10 @@ impl FantasyPick {
                     .and(fantasy_pick::Column::User.eq(user_id)),
             )
             .one(db)
-            .await.map_err(|_|GenericError::UnknownError("Unknown error while trying to find pick in database"))?;
+            .await
+            .map_err(|_| {
+                GenericError::UnknownError("Unknown error while trying to find pick in database")
+            })?;
         Ok(existing_pick)
     }
 }
@@ -166,7 +170,8 @@ impl CompetitionInfo {
         competition::Entity::find_by_id(self.competition_id as i32)
             .one(db)
             .await
-            .map(|x| x.is_some()).map_err(|_|GenericError::UnknownError("Internal db error"))
+            .map(|x| x.is_some())
+            .map_err(|_| GenericError::UnknownError("Internal db error"))
     }
 
     pub(super) async fn get_all_player_scores(&self) -> Result<Vec<ApiPlayer>, GenericError> {

@@ -11,7 +11,7 @@ use sea_orm::entity::prelude::*;
 use sea_orm::{DatabaseConnection, DbErr, EntityTrait};
 
 use crate::dto;
-use crate::dto::{FantasyPicks};
+use crate::dto::FantasyPicks;
 use crate::error::GenericError;
 
 pub enum Auth {
@@ -164,12 +164,12 @@ pub async fn get_participants(
                 .filter(
                     user_competition_score_in_fantasy_tournament::Column::FantasyTournamentId
                         .eq(tournament_id),
-
                 )
                 .all(db)
                 .await?
                 .iter()
-                .map(|score| score.score).sum::<i32>();
+                .map(|score| score.score)
+                .sum::<i32>();
             let user = dto::User {
                 id: participant.id,
                 name: participant.name,
@@ -209,7 +209,8 @@ pub async fn get_user_pick_in_tournament(
                 .and(fantasy_pick::Column::PickNumber.eq(slot)),
         )
         .one(db)
-        .await.expect("good query");
+        .await
+        .expect("good query");
 
     if let Some(pick) = pick {
         Ok(dto::FantasyPick {
@@ -224,7 +225,10 @@ pub async fn get_user_pick_in_tournament(
 }
 
 async fn get_player_name(db: &DatabaseConnection, player_id: i32) -> Result<String, GenericError> {
-    let player = Player::find_by_id(player_id).one(db).await.map_err(|_|GenericError::UnknownError("database error while getting player"))?;
+    let player = Player::find_by_id(player_id)
+        .one(db)
+        .await
+        .map_err(|_| GenericError::UnknownError("database error while getting player"))?;
     if let Some(player) = player {
         Ok(player.first_name + " " + &player.last_name)
     } else {
@@ -236,7 +240,10 @@ async fn get_player_face(
     db: &DatabaseConnection,
     player_id: i32,
 ) -> Result<Option<String>, GenericError> {
-    let player = Player::find_by_id(player_id).one(db).await.map_err(|_|GenericError::UnknownError("database error while getting player"))?;
+    let player = Player::find_by_id(player_id)
+        .one(db)
+        .await
+        .map_err(|_| GenericError::UnknownError("database error while getting player"))?;
     if let Some(player) = player {
         Ok(player.avatar)
     } else {
@@ -308,7 +315,8 @@ pub async fn check_if_user_in_tournament(
         .filter(user_in_fantasy_tournament::Column::UserId.eq(user_id))
         .filter(user_in_fantasy_tournament::Column::FantasyTournamentId.eq(tournament_id))
         .one(db)
-        .await.expect("good query");
+        .await
+        .expect("good query");
     Ok(user_in_tournament.is_some())
 }
 
@@ -393,7 +401,7 @@ pub async fn get_rounds_in_competition(
         .filter(round::Column::CompetitionId.eq(competition_id))
         .all(db)
         .await
-        .map_err(|_|GenericError::UnknownError("Unknown error while trying to find round"))
+        .map_err(|_| GenericError::UnknownError("Unknown error while trying to find round"))
 }
 
 pub async fn get_competitions_in_fantasy_tournament(
@@ -406,7 +414,8 @@ pub async fn get_competitions_in_fantasy_tournament(
                 .eq(fantasy_tournament_id),
         )
         .all(db)
-        .await.expect("good query");
+        .await
+        .expect("good query");
     let mut out_things = Vec::new();
     for competition in competitions {
         competition

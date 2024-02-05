@@ -13,12 +13,12 @@ use sea_orm::{
 
 use entity::fantasy_pick;
 use entity::prelude::{
-    FantasyTournament, PhantomCompetitionInFantasyTournament, User,
-    UserAuthentication, UserCompetitionScoreInFantasyTournament, UserInFantasyTournament,
+    FantasyTournament, PhantomCompetitionInFantasyTournament, User, UserAuthentication,
+    UserCompetitionScoreInFantasyTournament, UserInFantasyTournament,
 };
 use entity::sea_orm_active_enums::FantasyTournamentInvitationStatus;
 
-use crate::dto::pdga::{add_players};
+use crate::dto::pdga::add_players;
 use crate::error::GenericError;
 use crate::error::PlayerError;
 use crate::{generate_cookie, player_exists};
@@ -46,7 +46,10 @@ impl FantasyPick {
 
                     if let Some(player) = person_in_slot {
                         let player: fantasy_pick::ActiveModel = player.into();
-                        player.delete(db).await.map_err(|_|GenericError::UnknownError("Unable to remove pick"))?;
+                        player
+                            .delete(db)
+                            .await
+                            .map_err(|_| GenericError::UnknownError("Unable to remove pick"))?;
                     }
 
                     if let Some(player) =
@@ -54,7 +57,10 @@ impl FantasyPick {
                             .await?
                     {
                         let player: fantasy_pick::ActiveModel = player.into();
-                        player.delete(db).await.map_err(|_|GenericError::UnknownError("Unable to remove pick"))?;
+                        player
+                            .delete(db)
+                            .await
+                            .map_err(|_| GenericError::UnknownError("Unable to remove pick"))?;
                     }
                     self.insert(db, user_id, tournament_id, players_division)
                         .await?;
@@ -85,7 +91,9 @@ impl FantasyPick {
             fantasy_tournament_id: Set(tournament_id),
             division: Set(division.into()),
         };
-        pick.save(db).await.map_err(|_|GenericError::UnknownError("Unknown error while saving pick"))?;
+        pick.save(db)
+            .await
+            .map_err(|_| GenericError::UnknownError("Unknown error while saving pick"))?;
         Ok(())
     }
 }
@@ -162,20 +170,31 @@ impl UserLogin {
         db: &'a DatabaseConnection,
         cookies: &CookieJar<'_>,
     ) -> Result<(), GenericError> {
-        let txn = db.begin().await.map_err(|_|GenericError::UnknownError("Unable to start transaction"))?;
+        let txn = db
+            .begin()
+            .await
+            .map_err(|_| GenericError::UnknownError("Unable to start transaction"))?;
         let user = self.active_user();
-        let user_id = User::insert(user).exec(&txn).await.map_err(|e| {
-            e.sql_err().map(|_| {
-                GenericError::Conflict("Username already taken")
-            }).unwrap_or_else(||
-            GenericError::UnknownError("Unable to insert user into database") )
-        })?.last_insert_id;
+        let user_id = User::insert(user)
+            .exec(&txn)
+            .await
+            .map_err(|e| {
+                e.sql_err()
+                    .map(|_| GenericError::Conflict("Username already taken"))
+                    .unwrap_or_else(|| {
+                        GenericError::UnknownError("Unable to insert user into database")
+                    })
+            })?
+            .last_insert_id;
         let hashed_password = hash(&self.password, DEFAULT_COST).expect("hashing should work");
         let authentication = self.active_authentication(hashed_password, user_id);
         UserAuthentication::insert(authentication)
             .exec(&txn)
-            .await.map_err(|_|GenericError::UnknownError("Inserting user authentication failed"))?;
-        txn.commit().await.map_err(|_|GenericError::UnknownError("Transaction commit failed"))?;
+            .await
+            .map_err(|_| GenericError::UnknownError("Inserting user authentication failed"))?;
+        txn.commit()
+            .await
+            .map_err(|_| GenericError::UnknownError("Transaction commit failed"))?;
         generate_cookie(db, user_id, cookies).await
     }
 }
@@ -267,7 +286,8 @@ impl InsertCompetition for PhantomCompetition {
         use entity::prelude::PhantomCompetition;
         PhantomCompetition::insert(self.active_model(level))
             .exec(db)
-            .await.map_err(|_|GenericError::UnknownError("Unable to insert phantom competition"))?;
+            .await
+            .map_err(|_| GenericError::UnknownError("Unable to insert phantom competition"))?;
         Ok(())
     }
 
@@ -298,8 +318,13 @@ impl InsertCompetition for CompetitionInfo {
         db: &impl ConnectionTrait,
         level: sea_orm_active_enums::CompetitionLevel,
     ) -> Result<(), GenericError> {
-        self.active_model(level).insert(db).await.map_err(|_|GenericError::UnknownError("Unable to insert competition in database"))?;
-        self.insert_rounds(db).await.map_err(|_|GenericError::UnknownError("Unable to insert rounds in database"))?;
+        self.active_model(level)
+            .insert(db)
+            .await
+            .map_err(|_| GenericError::UnknownError("Unable to insert competition in database"))?;
+        self.insert_rounds(db)
+            .await
+            .map_err(|_| GenericError::UnknownError("Unable to insert rounds in database"))?;
         Ok(())
     }
 
@@ -311,8 +336,10 @@ impl InsertCompetition for CompetitionInfo {
         use entity::prelude::{Competition, CompetitionInFantasyTournament};
         match Competition::find_by_id(self.competition_id as i32)
             .one(db)
-            .await.map_err(|_|GenericError::UnknownError("Internal error while trying to get competition"))?
-        {
+            .await
+            .map_err(|_| {
+                GenericError::UnknownError("Internal error while trying to get competition")
+            })? {
             Some(c) => {
                 match c
                     .find_related(CompetitionInFantasyTournament)
@@ -385,7 +412,12 @@ impl CompetitionInfo {
                 .to_owned(),
             )
             .exec(db)
-            .await.map_err(|_|GenericError::UnknownError("Unable to insert user score from competition into database"))?;
+            .await
+            .map_err(|_| {
+                GenericError::UnknownError(
+                    "Unable to insert user score from competition into database",
+                )
+            })?;
         }
         Ok(())
     }

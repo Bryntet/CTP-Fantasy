@@ -5,7 +5,7 @@ use rocket_okapi::okapi::schemars::JsonSchema;
 
 use sea_orm::{sea_query, ConnectionTrait, EntityTrait, IntoActiveModel};
 
-use serde::{Deserialize};
+use serde::Deserialize;
 
 use crate::dto::pdga::player_scoring::PlayerScore;
 use crate::dto::Division;
@@ -38,13 +38,13 @@ pub struct ApiPlayer {
 }
 
 mod serde_things {
-    use std::fmt;
-    use serde::{de, Deserialize, Deserializer};
     use serde::de::{Unexpected, Visitor};
+    use serde::{de, Deserialize, Deserializer};
+    use std::fmt;
 
     pub(super) fn flexible_number<'de, D>(deserializer: D) -> Result<i64, D::Error>
-        where
-            D: Deserializer<'de>,
+    where
+        D: Deserializer<'de>,
     {
         struct FlexibleNumberVisitor;
 
@@ -56,22 +56,22 @@ mod serde_things {
             }
 
             fn visit_i64<E>(self, value: i64) -> Result<i64, E>
-                where
-                    E: de::Error,
+            where
+                E: de::Error,
             {
                 Ok(value)
             }
 
             fn visit_u64<E>(self, value: u64) -> Result<i64, E>
-                where
-                    E: de::Error,
+            where
+                E: de::Error,
             {
                 Ok(value as i64)
             }
 
             fn visit_str<E>(self, value: &str) -> Result<i64, E>
-                where
-                    E: de::Error,
+            where
+                E: de::Error,
             {
                 value.parse::<i64>().map_err(E::custom)
             }
@@ -80,10 +80,9 @@ mod serde_things {
         deserializer.deserialize_any(FlexibleNumberVisitor)
     }
 
-
     pub(super) fn bool_from_int<'de, D>(deserializer: D) -> Result<bool, D::Error>
-        where
-            D: Deserializer<'de>,
+    where
+        D: Deserializer<'de>,
     {
         match u8::deserialize(deserializer)? {
             0 => Ok(false),
@@ -96,8 +95,8 @@ mod serde_things {
     }
 }
 
-use serde_things::{bool_from_int, flexible_number};
 use crate::error::GenericError;
+use serde_things::{bool_from_int, flexible_number};
 
 impl From<ApiPlayer> for PlayerScore {
     fn from(p: ApiPlayer) -> Self {
@@ -183,22 +182,26 @@ pub async fn add_players(
         .do_nothing()
         .exec(db)
         .await
-        .map_err(|_| {
-            GenericError::UnknownError("Unable to insert players into database")
-        })?;
+        .map_err(|_| GenericError::UnknownError("Unable to insert players into database"))?;
     if let Some(fantasy_tournament_id) = fantasy_tournament_id {
         entity::player_division_in_fantasy_tournament::Entity::insert_many(
             players
                 .into_iter()
                 .map(|p| p.to_division(fantasy_tournament_id)),
-        ).on_conflict(
-            sea_query::OnConflict::column(entity::player_division_in_fantasy_tournament::Column::PlayerPdgaNumber)
-                .do_nothing()
-                .to_owned(),)
+        )
+        .on_conflict(
+            sea_query::OnConflict::column(
+                entity::player_division_in_fantasy_tournament::Column::PlayerPdgaNumber,
+            )
+            .do_nothing()
+            .to_owned(),
+        )
         .do_nothing()
         .exec(db)
         .await
-        .map_err(|_|GenericError::UnknownError("Unable to insert player divisions into fantasy tournament"))?;
+        .map_err(|_| {
+            GenericError::UnknownError("Unable to insert player divisions into fantasy tournament")
+        })?;
     }
     Ok(())
 }

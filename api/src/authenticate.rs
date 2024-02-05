@@ -42,7 +42,8 @@ impl TournamentOwner {
     async fn get_owner_id(&self, db: &DatabaseConnection) -> Result<i32, GenericError> {
         entity::fantasy_tournament::Entity::find_by_id(self.tournament_id as i32)
             .one(db)
-            .await.map_err(|_|GenericError::UnknownError("Unable to find tournament by id"))?
+            .await
+            .map_err(|_| GenericError::UnknownError("Unable to find tournament by id"))?
             .map(|c| c.owner)
             .ok_or(UserError::InvalidUserId("User not found").into())
     }
@@ -82,10 +83,14 @@ impl<'r> FromRequest<'r> for TournamentOwner {
 }
 
 impl Authenticated {
-    async fn get_cookie(&self, db: &DatabaseConnection) -> Result<Option<CookieModel>, GenericError> {
+    async fn get_cookie(
+        &self,
+        db: &DatabaseConnection,
+    ) -> Result<Option<CookieModel>, GenericError> {
         entity::prelude::UserCookies::find_by_id(self.0.to_owned())
             .one(db)
-            .await.map_err(|_|GenericError::UnknownError("db error while finding cookie"))
+            .await
+            .map_err(|_| GenericError::UnknownError("db error while finding cookie"))
     }
 
     pub(crate) async fn get_user(
@@ -120,7 +125,10 @@ impl Authenticated {
         cookies: &CookieJar<'_>,
     ) -> Result<&'static str, GenericError> {
         if let Ok(Some(cookie)) = self.get_cookie(db).await {
-            cookie.delete(db).await.map_err(|_|GenericError::UnknownError("Error while trying to delete cookie"))?;
+            cookie
+                .delete(db)
+                .await
+                .map_err(|_| GenericError::UnknownError("Error while trying to delete cookie"))?;
             Self::remove_from_jar(cookies);
         }
         Ok("Successfully logged out")
@@ -132,11 +140,24 @@ impl Authenticated {
         cookies: &CookieJar<'_>,
     ) -> Result<&'static str, GenericError> {
         if let Ok(Some(user)) = self.get_user(db).await {
-            let txn = db.begin().await.map_err(|_|GenericError::UnknownError("Unable to begin txn"))?;
-            for cookie in user.find_related(user_cookies::Entity).all(&txn).await.map_err(|_|GenericError::UnknownError("Error while trying to find cookie"))? {
-                cookie.delete(&txn).await.map_err(|_|GenericError::UnknownError("Unable to delete cookie."))?;
+            let txn = db
+                .begin()
+                .await
+                .map_err(|_| GenericError::UnknownError("Unable to begin txn"))?;
+            for cookie in user
+                .find_related(user_cookies::Entity)
+                .all(&txn)
+                .await
+                .map_err(|_| GenericError::UnknownError("Error while trying to find cookie"))?
+            {
+                cookie
+                    .delete(&txn)
+                    .await
+                    .map_err(|_| GenericError::UnknownError("Unable to delete cookie."))?;
             }
-            txn.commit().await.map_err(|_|GenericError::UnknownError("Unable to commit txn"))?;
+            txn.commit()
+                .await
+                .map_err(|_| GenericError::UnknownError("Unable to commit txn"))?;
             Self::remove_from_jar(cookies);
         }
 
