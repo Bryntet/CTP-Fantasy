@@ -14,7 +14,6 @@ async fn main() -> Result<(), rocket::Error> {
 
     let mut round_update_interval = tokio::time::interval(Duration::from_secs(60));
 
-    launch(false).await.launch().await.unwrap();
 
 
     tokio::spawn(async move {
@@ -26,6 +25,8 @@ async fn main() -> Result<(), rocket::Error> {
             round_update_interval.tick().await;
         }
     });
+
+    launch(false).await.launch().await.unwrap();
 
     Ok(())
 }
