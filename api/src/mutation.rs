@@ -143,6 +143,10 @@ pub(crate) async fn add_pick(
 
         pick.change_or_insert(db, user.id, fantasy_tournament_id, division)
             .await?;
+
+        let txn = db.begin().await?;
+        service::mutation::refresh_user_scores_in_fantasy(&txn, fantasy_tournament_id as u32).await?;
+        txn.commit().await?;
         Ok("Successfully added pick")
     } else {
         Err(not_permitted.into())
@@ -175,6 +179,8 @@ pub(crate) async fn add_picks(
         pick.change_or_insert(&txn, user.id, fantasy_tournament_id, division.clone())
             .await?;
     }
+
+    service::mutation::refresh_user_scores_in_fantasy(&txn, fantasy_tournament_id as u32).await?;
     txn.commit().await?;
     Ok("Successfully added picks".to_string())
 }

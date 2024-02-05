@@ -169,7 +169,10 @@ pub async fn refresh_user_scores_in_fantasy(
         dbg!(comp_id);
         dto::CompetitionInfo::from_web(comp_id)
             .await
-            .unwrap()
+            .map_err(|e| {
+                dbg!(&e);
+                GenericError::UnknownError("HELP")
+            })?
             .save_user_scores(db, fantasy_tournament_id)
             .await.map_err(|e|{
             dbg!(&e);
@@ -182,7 +185,10 @@ pub async fn refresh_user_scores_in_fantasy(
 pub async fn refresh_user_scores_in_all(db: &impl ConnectionTrait) -> Result<(), GenericError> {
     let fantasy_tournaments = FantasyTournament::find().all(db).await?;
     for tournament in fantasy_tournaments {
-        refresh_user_scores_in_fantasy(db, tournament.id as u32).await?;
+        refresh_user_scores_in_fantasy(db, tournament.id as u32).await.map_err(|e|{
+            dbg!(&e);
+            e
+        })?;
     }
     Ok(())
 }

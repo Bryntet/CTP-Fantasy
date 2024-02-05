@@ -98,11 +98,7 @@ mod tests {
             .put("/fantasy-tournament/1/user/1/picks/div/MPO/1/28597")
             .dispatch()
             .await;
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-        client
-            .post("/fantasy-tournament/1/force-refresh")
-            .dispatch()
-            .await;
+
         assert!(any_round_scores(&db).await);
         assert!(any_user_scores(&db).await);
     }
