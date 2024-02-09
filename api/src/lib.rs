@@ -3,7 +3,9 @@ pub extern crate rocket;
 
 use dotenvy::dotenv;
 use rocket::fs::FileServer;
-use rocket::{Build, Rocket, Route};
+use rocket::{Build, Config, Request, Rocket, Route};
+use rocket::http::Status;
+use rocket::log::LogLevel;
 use rocket_okapi::openapi_get_routes;
 use rocket_okapi::rapidoc::{make_rapidoc, GeneralConfig, HideShowConfig, RapiDocConfig};
 use rocket_okapi::settings::UrlObject;
@@ -32,19 +34,31 @@ fn general_not_found() -> &'static str {
     "Api endpoint not found"
 }
 
-async fn get_db(mock: bool) -> DatabaseConnection {
-    let url = if mock {
-        std::env::var("DEV_DATABASE_URL").expect("DEV_DATABASE_URL not set")
-    } else {
-        std::env::var("DATABASE_URL").expect("DATABASE_URL not set")
-    };
+pub async fn get_db() -> DatabaseConnection {
+    #[cfg(debug_assertions)]
+    let url =
+        std::env::var("DEV_DATABASE_URL").expect("DEV_DATABASE_URL not set");
+    #[cfg(not(debug_assertions))]
+    let url =std::env::var("DATABASE_URL").expect("DATABASE_URL not set");
+
 
     let mut opt = ConnectOptions::new(url);
-    if mock {
+    #[cfg(debug_assertions)]
+    {
         opt.sqlx_logging(true);
+        opt.sqlx_logging_level(rocket::log::private::LevelFilter::Debug);
     }
+    #[cfg(not(debug_assertions))]
+    opt.sqlx_logging(false);
+
 
     Database::connect(opt).await.expect("CAN'T CONNECT TO DB")
+}
+
+#[catch(default)]
+fn catchiiing(status: Status, req: &Request) -> String {
+    dbg!(&status, &req);
+    format!("{} ({})", status, req)
 }
 
 pub fn routes() -> Vec<Route> {
@@ -72,13 +86,22 @@ pub fn routes() -> Vec<Route> {
     ]
 }
 
-pub async fn launch(mock: bool) -> Rocket<Build> {
+
+
+pub async fn launch() -> Rocket<Build> {
     dotenv().ok();
 
     let flutter_path = std::env::var("FLUTTER_PATH").expect("FLUTTER_PATH not set");
 
+    let conf = Config {
+        cli_colors: true,
+        #[cfg(debug_assertions)]
+        log_level: LogLevel::Critical,
+        ..Default::default()
+    };
+
     rocket::build()
-        .manage(get_db(mock).await)
+        .manage(get_db().await)
         .mount("/api", routes())
         .mount(
             "/api/swagger",
@@ -102,7 +125,7 @@ pub async fn launch(mock: bool) -> Rocket<Build> {
                 ..Default::default()
             }),
         )
-        .register("/api", catchers![general_not_found])
+        .register("/api", catchers![general_not_found,catchiiing])
         .mount("/", FileServer::from(flutter_path))
-    //.configure(release_config)
+    .configure(conf)
 }

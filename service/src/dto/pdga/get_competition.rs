@@ -2,17 +2,16 @@ use itertools::Itertools;
 use sea_orm::DbErr;
 use serde_derive::Deserialize;
 use std::collections::HashMap;
+use entity::sea_orm_active_enums;
+use crate::dto::{Division, pdga, RoundInformation};
+use crate::error::GenericError;
+use log::{warn,info,debug};
 
 #[derive(Deserialize, Debug)]
-struct CompetitionInfoResponse {
-    data: ApiCompetitionInfo,
+pub(super) struct CompetitionInfoResponse {
+    pub(self) data: ApiCompetitionInfo,
 }
 
-#[derive(Deserialize, Debug)]
-struct ApiDivision {
-    #[serde(rename = "Division")]
-    division: super::super::Division,
-}
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "PascalCase")]
@@ -20,9 +19,15 @@ struct ApiCompetitionInfo {
     rounds_list: HashMap<String, Round>,
     #[serde(rename = "SimpleName")]
     name: String,
-    divisions: Vec<ApiDivision>,
+    divisions: Vec<DivisionWrapper>,
     rounds: u8,
     highest_completed_round: Option<u8>,
+}
+
+#[derive(Deserialize, Debug)]
+struct DivisionWrapper {
+    #[serde(rename = "Division")]
+    division: Division,
 }
 
 #[derive(Deserialize, Debug)]
@@ -36,43 +41,55 @@ pub struct CompetitionInfo {
     pub(crate) name: String,
     pub(crate) date_range: Vec<sea_orm::prelude::Date>,
     pub competition_id: u32,
-    pub(crate) divisions: Vec<super::super::Division>,
-    pub(crate) rounds: u8,
+    pub(crate) divisions: Vec<Division>,
+    pub(crate) rounds: Vec<RoundInformation>,
     pub(crate) highest_completed_round: Option<u8>,
 }
 
 impl CompetitionInfo {
-    pub async fn from_web(competition_id: u32) -> Result<Self, reqwest::Error> {
+    pub async fn from_web(competition_id: u32) -> Result<Self, GenericError> {
         let url = format!("https://www.pdga.com/apps/tournament/live-api/live_results_fetch_event.php?TournID={competition_id}");
-        let resp: Result<CompetitionInfoResponse, reqwest::Error> =
-            reqwest::get(url).await?.json().await;
-        match resp {
-            Ok(resp) => {
-                let dates = parse_date_range(&resp).unwrap();
-                let info = resp.data;
-
-                let out = Self {
-                    name: info.name,
-                    date_range: dates,
-                    competition_id,
-                    rounds: info.rounds,
-                    divisions: info
-                        .divisions
-                        .into_iter()
-                        .dedup_by(|a, b| a.division.eq(&b.division))
-                        .map(|d| d.division)
-                        .filter(|d| *d != super::super::Division::Unknown)
-                        .collect(),
-                    highest_completed_round: info.highest_completed_round,
-                };
-                Ok(out)
-            }
-            Err(e) => {
+        let resp: CompetitionInfoResponse =
+            reqwest::get(url).await.map_err(|e|{
                 #[cfg(debug_assertions)]
-                dbg!(&e);
-                Err(e)
+                warn!("Unable to fetch competition from PDGA: {}", e);
+                GenericError::UnknownError("Internal error while fetching competition from PDGA")
+            })?.json().await.map_err(|e|{
+                warn!("Issue {}", e);
+                GenericError::UnknownError("Internal error while converting PDGA competition to internal format")
+            })?;
+
+        let dates = parse_date_range(&resp).unwrap();
+        let info = resp.data;
+        let mut rounds = Vec::new();
+
+        let divs = info.divisions.into_iter().filter_map(|d| {
+            let div= d.division;
+            if div == Division::Unknown {
+                warn!("Unknown division found in competition info");
+                None
+            } else {
+                Some(div)
             }
+        }).dedup().collect_vec();
+
+        for round_number in 1..=info.rounds {
+            rounds.push(RoundInformation::new(competition_id as usize, round_number as usize, divs.clone()).await?)
         }
+
+
+        let out = Self {
+            name: info.name,
+            date_range: dates,
+            competition_id,
+            rounds,
+            highest_completed_round: info.highest_completed_round,
+            divisions: divs
+        };
+        Ok(out)
+
+
+
     }
 }
 
@@ -97,5 +114,10 @@ mod tests {
         let mut dates = parse_date_range(&resp).unwrap();
         dates.sort();
         assert_eq!(dates.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_competition_info() {
+        let info = CompetitionInfo::from_web(77583).await.unwrap();
     }
 }

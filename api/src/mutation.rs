@@ -107,10 +107,10 @@ pub(crate) async fn add_pick(
     pdga_number: i32,
     division: service::dto::Division,
 ) -> Result<&'static str, GenericError> {
+    info!("Adding pick in div {}", division);
     let not_permitted = UserError::NotPermitted("You are not permitted to add picks for this user");
     let db = db.inner();
     let user = user.to_user_model(db).await?;
-
     if service::check_if_user_in_tournament(db, user.id, fantasy_tournament_id)
         .await
         .unwrap_or(false)
@@ -228,34 +228,31 @@ pub(crate) async fn add_competition(
         )
     })?;
     let competition_input = competition.into_inner();
-    match service::dto::CompetitionInfo::from_web(competition_input.competition_id).await {
-        Ok(competition) => {
-            if !competition.is_in_db(&txn).await? {
-                competition
-                    .insert_in_db(&txn, competition_input.level.into())
-                    .await?
-            }
-            competition
-                .insert_in_fantasy(&txn, fantasy_tournament_id)
-                .await?;
-            competition
-                .insert_players(&txn, Some(fantasy_tournament_id as i32))
-                .await?;
-
-            txn.commit().await.map_err(|_| {
-                GenericError::UnknownError("Unknown error while trying to commit transaction")
-            })?;
-            let rounds =
-                service::get_rounds_in_competition(db, competition_input.competition_id as i32)
-                    .await?;
-            service::mutation::update_rounds(db, rounds).await;
-            competition
-                .save_user_scores(db, fantasy_tournament_id)
-                .await?;
-            Ok("Successfully added competition".to_string())
-        }
-        Err(_) => Err(GenericError::NotFound("Competition not found in PDGA")),
+    let competition = service::dto::CompetitionInfo::from_web(competition_input.competition_id).await?;
+    if !competition.is_in_db(&txn).await? {
+        competition
+            .insert_in_db(&txn, competition_input.level.into())
+            .await?
     }
+    competition
+        .insert_in_fantasy(&txn, fantasy_tournament_id)
+        .await?;
+    competition
+        .insert_players(&txn, Some(fantasy_tournament_id as i32))
+        .await?;
+
+    txn.commit().await.map_err(|_| {
+        GenericError::UnknownError("Unknown error while trying to commit transaction")
+    })?;
+    let rounds =
+        service::get_rounds_in_competition(db, competition_input.competition_id as i32)
+            .await?;
+    service::mutation::update_rounds(db, rounds).await;
+    competition
+        .save_user_scores(db, fantasy_tournament_id)
+        .await?;
+    Ok("Successfully added competition".to_string())
+
 }
 
 //#[openapi(tag="Fantasy Tournament")]

@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use entity::prelude::*;
 use entity::sea_orm_active_enums::FantasyTournamentInvitationStatus;
 use entity::*;
@@ -11,9 +12,12 @@ use sea_orm::{
     TransactionTrait,
 };
 use sea_orm::{ColumnTrait, QueryFilter};
+use strum::IntoEnumIterator; // 0.17.1
+use strum_macros::EnumIter; // 0.17.1
 
 use crate::error::{GenericError, InviteError};
 use crate::{dto, query};
+use crate::dto::{CompetitionInfo, Division};
 
 pub async fn generate_cookie(
     db: &DatabaseConnection,
@@ -123,15 +127,16 @@ pub async fn answer_invite(
 pub async fn update_round(
     db: &impl ConnectionTrait,
     round: round::Model,
+    divisions: Option<Vec<dto::Division>>
 ) -> Result<(), GenericError> {
+    let divisions = divisions.unwrap_or(Division::iter().filter(|d|!d.eq(&Division::Unknown)).collect());
     let round_info = dto::RoundInformation::new(
         round.competition_id as usize,
         round.round_number as usize,
-        dto::Division::MPO,
+        divisions,
     )
     .await
     .map_err(|_| GenericError::UnknownError("Unable to fetch round information"))?;
-
     round_info.update_all(db).await?;
     Ok(())
 }
@@ -144,7 +149,7 @@ pub async fn update_active_rounds(db: &DatabaseConnection) {
 pub async fn update_rounds(db: &DatabaseConnection, rounds: Vec<round::Model>) {
     for round in rounds {
         if let Ok(txn) = db.begin().await {
-            let _ = update_round(&txn, round).await;
+            let _ = update_round(&txn, round, None).await;
             txn.commit().await.expect("database failed");
         }
     }
@@ -161,8 +166,6 @@ pub async fn refresh_user_scores_in_fantasy(
             .map(|c| c.id as u32)
             .collect();
     for comp_id in comp_ids {
-        #[cfg(debug_assertions)]
-        dbg!(comp_id);
         dto::CompetitionInfo::from_web(comp_id)
             .await
             .map_err(|_| GenericError::UnknownError("unable to get competition info from pdga"))?
@@ -178,13 +181,14 @@ pub async fn refresh_user_scores_in_all(db: &impl ConnectionTrait) -> Result<(),
         .await
         .map_err(|_| GenericError::UnknownError("database error on fantasy tournament"))?;
     for tournament in fantasy_tournaments {
-        refresh_user_scores_in_fantasy(db, tournament.id as u32)
-            .await
-            .map_err(|e| {
-                #[cfg(debug_assertions)]
-                dbg!(&e);
-                e
-            })?;
+        refresh_user_scores_in_fantasy(db, tournament.id as u32).await?;
     }
     Ok(())
 }
+
+/*pub async fn set_activity_status_on_competitions(db: &impl ConnectionTrait) -> Result<(), GenericError> {
+    let active_comps = crate::get_active_competitions(db).await?;
+    for comp in active_comps {
+        CompetitionInfo::from_web(comp.id).await.map(|c|)
+    }
+}*/

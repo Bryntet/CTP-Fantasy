@@ -10,13 +10,17 @@ dotenvy = "0.15"
 reqwest = { version = "0.11.20", features = ["json", "serde_json"] }
 tokio = { version = "1.35.1", features = ["full"] }
 serde = "1.0.186"
-sea-orm = { version = "0.12", features = [ "sqlx-postgres", "runtime-tokio-rustls", "macros"] }
 entity = { path = "./entity" }
 migration = { path = "./migration" }
 itertools = "0.12.0"
 api = { path = "./api" }
 rocket = "0.5.0"
 service = {path = "./service" }
+
+
+[dependencies.sea-orm]
+version = "0.12.14"
+features = ["sqlx-postgres", "runtime-tokio-rustls", "macros"]
 
 [workspace]
 members = [".", "entity", "migration", "service", "api"]
@@ -34,3 +38,8 @@ required-features = ["mock"]
 
 [dev-dependencies]
 migration = { path = "./migration" }
+
+[profile.profiling]
+inherits = "release"
+debug = true
+debuginfo-level = 1

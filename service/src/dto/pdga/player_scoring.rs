@@ -6,6 +6,7 @@ use crate::dto::pdga::ApiPlayer;
 use crate::error::GenericError;
 use entity::prelude::{FantasyPick, User};
 use itertools::Itertools;
+use rocket::{debug, warn};
 use sea_orm::ActiveValue::Set;
 use sea_orm::{sea_query, ModelTrait};
 use sea_orm::{ActiveModelTrait, ConnectionTrait, DbErr, EntityTrait, IntoActiveModel, NotSet};
@@ -13,7 +14,7 @@ use sea_orm::{ColumnTrait, QueryFilter};
 
 use serde::Deserialize;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, PartialEq, Debug, Clone)]
 enum Unit {
     Meters,
     Feet,
@@ -23,7 +24,7 @@ struct ApiRes {
     data: RoundFromApi,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, PartialEq, Debug, Clone)]
 #[serde(rename_all = "PascalCase")]
 struct Layout {
     #[serde(rename = "Detail")]
@@ -33,7 +34,7 @@ struct Layout {
     unit: Unit,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "PascalCase")]
 pub struct Hole {
     pub par: u32,
@@ -41,14 +42,26 @@ pub struct Hole {
     pub hole_number: u32,
     pub length: Option<u32>,
 }
-
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
+pub enum RoundStatus {
+    Pending,
+    Started,
+    Finished,
+    DNF,
+}
+#[derive(Debug, PartialEq)]
 pub struct PlayerScore {
-    pub pdga_number: i32,
-    pub hole_scores: Vec<u32>,
+    pub pdga_number: u32,
+    pub hole_scores: Vec<u8>,
     pub throws: u8,
-    pub round_to_par: i32,
-    pub placement: u8,
+    pub round_to_par: i16,
+    pub placement: u16,
+    pub started: RoundStatus,
+    pub division: Division,
+    pub(crate) name: String,
+    pub(crate) first_name: String,
+    pub(crate) last_name: String,
+    pub(crate) avatar: Option<String>
 }
 
 impl PlayerScore {
@@ -57,10 +70,10 @@ impl PlayerScore {
         db: &impl ConnectionTrait,
         round: i32,
         competition_id: i32,
-        div: &entity::sea_orm_active_enums::Division,
+        div: &Division,
     ) -> Result<(), GenericError> {
         if let Some(score_update) = self
-            .round_score_active_model(db, round, competition_id, div.clone())
+            .round_score_active_model(db, round, competition_id, div.into())
             .await
         {
             score_update
@@ -68,11 +81,30 @@ impl PlayerScore {
                 .await
                 .map_err(|_| GenericError::UnknownError("unable to save score to database"))?;
         }
-        self.make_sure_player_in_competition(db, competition_id, div)
+        self.make_sure_player_in_competition(db, competition_id, div.into())
             .await?;
         Ok(())
     }
 
+    pub(crate) fn to_active_model(&self) -> entity::player::ActiveModel {
+        entity::player::Model {
+            pdga_number: self.pdga_number as i32,
+            first_name: self.first_name.to_owned(),
+            last_name: self.last_name.to_owned(),
+            avatar: self.avatar.to_owned(),
+        }.into_active_model()
+    }
+    pub(crate) fn to_division_active_model(
+        &self,
+        fantasy_tournament_id: i32,
+    ) -> entity::player_division_in_fantasy_tournament::ActiveModel {
+        entity::player_division_in_fantasy_tournament::Model {
+            player_pdga_number: self.pdga_number as i32,
+            fantasy_tournament_id,
+            division: (&self.division).into(),
+        }
+            .into_active_model()
+    }
     /// Returns ActiveModel if score is changed, otherwise None
     async fn round_score_active_model(
         &self,
@@ -103,7 +135,7 @@ impl PlayerScore {
             }
             Err(_) | Ok(None) => Some(ActiveModel {
                 id: NotSet,
-                pdga_number: Set(self.pdga_number),
+                pdga_number: Set(self.pdga_number as i32),
                 competition_id: Set(competition_id),
                 round: Set(round),
                 throws: Set(self.throws as i32),
@@ -121,7 +153,7 @@ impl PlayerScore {
     ) -> Result<(), GenericError> {
         entity::player_in_competition::Entity::insert(entity::player_in_competition::ActiveModel {
             id: NotSet,
-            pdga_number: Set(self.pdga_number),
+            pdga_number: Set(self.pdga_number as i32),
             competition_id: Set(competition_id),
             division: Set(div.clone()),
         })
@@ -175,11 +207,7 @@ impl PlayerScore {
             .into();
         let score = self.get_user_score(competition_level) as i32;
         if score > 0 {
-            if let Ok(Some(user)) = self.get_user(db, fantasy_tournament_id).await.map_err(|e| {
-                #[cfg(debug_assertions)]
-                dbg!(&e);
-                e
-            }) {
+            if let Ok(Some(user)) = self.get_user(db, fantasy_tournament_id).await {
                 Ok(Some(UserScore {
                     user: user.id,
                     score,
@@ -223,6 +251,18 @@ impl PlayerScore {
 struct RoundFromApi {
     layouts: Vec<Layout>,
     scores: Vec<ApiPlayer>,
+    #[serde(skip)]
+    div: Division,
+}
+
+impl RoundFromApi{
+    fn combine(&mut self, other: Self) {
+        #[cfg(test)]
+        assert_eq!(self.layouts, other.layouts);
+
+        self.scores.extend(other.scores);
+
+    }
 }
 
 fn fix_length(length: u32, unit: &Unit) -> u32 {
@@ -232,26 +272,65 @@ fn fix_length(length: u32, unit: &Unit) -> u32 {
     }
 }
 
-impl
-    From<(
-        RoundFromApi,
-        usize,
-        usize,
-        entity::sea_orm_active_enums::Division,
-    )> for RoundInformation
-{
-    fn from(
-        tup: (
-            RoundFromApi,
-            usize,
-            usize,
-            entity::sea_orm_active_enums::Division,
-        ),
+
+
+struct RoundInformationWrapper {
+    round_from_api: RoundFromApi,
+    competition_id: usize,
+    round_number: usize,
+    divisions: Vec<Division>
+}
+
+
+#[derive(Debug, PartialEq)]
+pub struct RoundInformation {
+    pub holes: Vec<Hole>,
+    pub players: Vec<PlayerScore>,
+    pub course_length: u32,
+    pub round_number: usize,
+    pub competition_id: usize,
+    pub divs: Vec<Division>,
+}
+
+
+impl RoundInformation {
+    pub async fn new(
+        competition_id: usize,
+        round: usize,
+        given_divs: Vec<Division>,
+    ) -> Result<Self, GenericError> {
+        let mut divs: Vec<RoundFromApi> = vec![];
+        for div in given_divs {
+            let new_div = Self::get_one_div(competition_id, round, div).await?;
+            divs.push(new_div);
+        }
+
+
+        if !divs.is_empty() {
+            let layout: Layout = divs.iter().map(|d|d.layouts.first().unwrap()).next().unwrap().to_owned();
+            let divisions = divs.iter().map(|d|d.div.to_owned()).collect();
+            let player_scores: Vec<PlayerScore> = divs.into_iter().flat_map(|d| {
+                d.scores.into_iter().map(|p| {
+                    let p: PlayerScore = p.into();
+                    p
+                }).collect_vec()
+            }).collect_vec();
+            Ok(Self::make_self(player_scores, layout,competition_id, round, divisions))
+        } else {
+            Err(GenericError::NotFound("No round found containing any divisions supported by Rustling Chains"))
+        }
+
+
+    }
+
+
+    fn make_self(
+        player_scores: Vec<PlayerScore>,
+        layout: Layout,
+        competition_id: usize,
+        round_number: usize,
+        divs: Vec<Division>
     ) -> Self {
-        let round_from_api = tup.0;
-        let competition_id = tup.1;
-        let round_number = tup.2;
-        let layout = round_from_api.layouts.first().unwrap();
         let holes = layout
             .holes
             .iter()
@@ -269,54 +348,43 @@ impl
 
         RoundInformation {
             holes,
-            players: round_from_api
-                .scores
+            players: player_scores
                 .into_iter()
-                .filter(|p| p.round_started)
-                .map(|p| p.into())
+                .filter_map(|p| {
+                    let p: PlayerScore = p.into();
+                    if p.started != RoundStatus::DNF {
+                        Some(p)
+                    } else {
+                        None
+                    }
+                })
                 .collect(),
             course_length: length,
             round_number,
             competition_id,
-            div: tup.3,
+            divs,
         }
     }
-}
 
-#[derive(Debug)]
-pub struct RoundInformation {
-    pub holes: Vec<Hole>,
-    pub players: Vec<PlayerScore>,
-    pub course_length: u32,
-    pub round_number: usize,
-    pub competition_id: usize,
-    pub div: entity::sea_orm_active_enums::Division,
-}
-
-impl RoundInformation {
-    pub async fn new(
-        competition_id: usize,
-        round: usize,
-        div: Division,
-    ) -> Result<Self, reqwest::Error> {
+    async fn get_one_div(competition_id: usize, round: usize, div: Division) -> Result<RoundFromApi, GenericError> {
         let div_str = div.to_string().to_uppercase();
         let url = format!("https://www.pdga.com/apps/tournament/live-api/live_results_fetch_round.php?TournID={competition_id}&Round={round}&Division={div_str}");
         //dbg!(&url);
-        let resp: ApiRes = reqwest::get(url)
-            .await
-            .map_err(|e| {
+        let mut resp: ApiRes = reqwest::get(url)
+            .await.map_err(|e|{
                 #[cfg(debug_assertions)]
-                dbg!(&e);
-                e
+                dbg!(e);
+                GenericError::UnknownError("Internal error while fetching round from PDGA")
             })?
             .json()
-            .await
-            .map_err(|e| {
+            .await.map_err(|e|{
                 #[cfg(debug_assertions)]
-                dbg!(&e);
-                e
+                dbg!(e);
+                GenericError::UnknownError("Internal error while converting PDGA round to internal format")
             })?;
-        Ok((resp.data, competition_id, round, div.into()).into())
+
+        resp.data.div = div;
+        Ok(resp.data)
     }
 
     pub async fn update_all(&self, db: &impl ConnectionTrait) -> Result<(), GenericError> {
@@ -326,7 +394,7 @@ impl RoundInformation {
                     db,
                     self.round_number as i32,
                     self.competition_id as i32,
-                    &self.div,
+                    (&player.division).into(),
                 )
                 .await?;
         }
@@ -342,6 +410,23 @@ impl RoundInformation {
             .all(db)
             .await
             .map(|x| x.len() == self.players.len())
+    }
+    
+    pub(crate) fn status(&self) -> RoundStatus {
+        let mut players = self.players.iter().filter(|p|p.started!=RoundStatus::DNF);
+        if players.all(|p|p.started==RoundStatus::Finished) {
+            RoundStatus::Finished
+        } else if players.any(|p|p.started==RoundStatus::Started) {
+            RoundStatus::Started
+        } else {
+            RoundStatus::Pending
+        }
+    }
+
+    pub fn combine(&mut self, other: Self) {
+        self.divs.extend(other.divs);
+        self.divs.dedup();
+        self.players.extend(other.players);
     }
 }
 

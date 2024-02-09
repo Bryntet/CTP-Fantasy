@@ -12,6 +12,8 @@ use crate::error::GenericError;
 pub use pdga::{CompetitionInfo, RoundInformation};
 use rocket::serde::{Deserialize, Serialize};
 use rocket_okapi::okapi::schemars::{self, JsonSchema};
+use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
 
 pub mod traits {
     pub use super::mutation::InsertCompetition;
@@ -77,10 +79,11 @@ pub struct LoginInput {
     pub password: String,
 }
 
-#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq, FromFormField)]
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq, FromFormField, EnumIter, Default)]
 pub enum Division {
     MPO,
     FPO,
+    #[default]
     #[serde(other)]
     Unknown,
 }

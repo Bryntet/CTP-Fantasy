@@ -1,7 +1,7 @@
 use entity::prelude::User;
 use entity::{user, user_cookies};
 
-use rocket::http::{CookieJar, Status};
+use rocket::http::{Cookie, CookieJar, Status};
 use rocket::outcome::IntoOutcome;
 use rocket::serde::json::Json;
 use rocket::{
@@ -9,6 +9,7 @@ use rocket::{
     request::{self, FromRequest},
     Request, State,
 };
+use rocket::data::Outcome;
 
 use rocket_okapi::{openapi, request::OpenApiFromRequest};
 use sea_orm::{DatabaseConnection, EntityTrait, ModelTrait, TransactionTrait};
@@ -20,7 +21,6 @@ use sea_orm::ColumnTrait;
 use sea_orm::QueryFilter;
 use user::Model as UserModel;
 use user_cookies::Model as CookieModel;
-
 #[derive(OpenApiFromRequest, Debug)]
 pub struct Authenticated(String);
 
@@ -57,28 +57,26 @@ impl<'r> FromRequest<'r> for TournamentOwner {
             .rocket()
             .state::<DatabaseConnection>()
             .expect("Database not found");
-        let cookie = request.guard::<Authenticated>().await;
-        let t = cookie
-            .map(|cookie| {
-                request
-                    .param::<u32>(1)
-                    .map(|t_id| {
-                        t_id.map(|t_id| Self {
-                            user: cookie,
-                            tournament_id: t_id,
-                        })
-                    })
-                    .or_forward(Status::NotFound)
-            })
-            .and_then(|t| t);
-        if let Some(Ok(t)) = t.succeeded() {
-            t.is_authenticated(db)
-                .await
-                .then_some(t)
-                .or_forward(Status::Unauthorized)
+        let cookie: request::Outcome<Authenticated, Json<Self::Error>> = request.guard::<Authenticated>().await;
+
+        let t: Self  = if let Some(cookie) = cookie.succeeded() {
+            if let Some(Ok(t_id)) = request
+                .param::<u32>(1) {
+                Self {
+                    user: cookie,
+                    tournament_id: t_id,
+                }
+            } else {
+                return None.or_error((Status::BadRequest, AuthError::Invalid("Invalid tournament id")));
+            }
         } else {
-            None.or_forward(Status::BadRequest)
-        }
+            return None.or_error((Status::Unauthorized, AuthError::Missing("No cookie found")));
+        };
+
+        t.is_authenticated(db)
+            .await
+            .then_some(t)
+            .or_error((Status::Unauthorized, AuthError::WrongPassword("")))
     }
 }
 
@@ -184,25 +182,22 @@ impl Authenticated {
 // Implement the actual checks for the authentication
 #[rocket::async_trait]
 impl<'a> FromRequest<'a> for Authenticated {
-    type Error = AuthError;
+    type Error = Json<AuthError>;
     async fn from_request(request: &'a Request<'_>) -> request::Outcome<Self, Self::Error> {
         let db = request
             .rocket()
             .state::<DatabaseConnection>()
             .expect("Database not found");
 
-        let c: request::Outcome<String, Self::Error> = request
+        let cookie: Cookie = if let Some(cookie )=request
             .cookies()
-            .get_private("auth")
-            .map(|c| c.value().to_owned())
-            .or_forward(Status::BadRequest);
-
-        if let Some(c_string) = c.succeeded() {
-            Authenticated::new_checked(c_string.to_string(), db).await
+            .get_private("auth") {
+            cookie
         } else {
-            None
-        }
-        .or_forward(Status::Unauthorized)
+            return None.or_error((Status::Unauthorized, AuthError::Missing("No cookie found").into()))
+        };
+
+        Authenticated::new_checked(cookie.value().to_string(), db).await.or_error((Status::Forbidden, AuthError::WrongPassword("You do not have permission to do that").into()))
     }
 }
 

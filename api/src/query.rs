@@ -127,3 +127,4 @@ pub(crate) async fn get_max_picks(
         Err(_) => Err(TournamentError::NotFound("Tournament not found").into()),
     }
 }
+

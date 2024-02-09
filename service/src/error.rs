@@ -8,8 +8,9 @@ use rocket_okapi::response::OpenApiResponderInner;
 use std::fmt::Debug;
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Responder)]
+#[response(content_type = "json")]
 pub enum GenericError {
-    #[response(status = 404)]
+    #[response(status = 204)]
     UnknownCompetition(&'static str),
     #[response(status = 500)]
     UnknownError(&'static str),
@@ -23,7 +24,7 @@ pub enum GenericError {
     UniqueError(&'static str),
     #[response(status = 422)]
     CheckError(&'static str),
-    #[response(status = 404)]
+    #[response(status = 204)]
     NotFound(&'static str),
     #[response(status = 409)]
     Conflict(&'static str),
@@ -31,7 +32,9 @@ pub enum GenericError {
     BadRequest(&'static str),
 }
 
+
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Responder)]
+#[response(content_type = "json")]
 pub enum TournamentError {
     #[response(status = 403)]
     TooManyTournaments(&'static str),
@@ -69,8 +72,9 @@ impl From<PlayerError> for GenericError {
 }
 
 #[derive(Debug, JsonSchema, Deserialize, Serialize, Responder)]
+#[response(content_type = "json")]
 pub enum AuthError {
-    #[response(status = 401)]
+    #[response(status = 401, content_type = "json")]
     Missing(&'static str),
     #[response(status = 403)]
     Invalid(&'static str),
@@ -81,6 +85,7 @@ pub enum AuthError {
 }
 
 #[derive(Debug, JsonSchema, Deserialize, Serialize, Responder)]
+#[response(content_type = "json")]
 pub enum UserError {
     #[response(status = 409)]
     UsernameConflict(&'static str),
@@ -115,7 +120,8 @@ impl From<InviteError> for GenericError {
         }
     }
 }
-
+#[derive(Responder)]
+#[response(content_type = "json")]
 pub struct ResultResponder(Result<(), GenericError>);
 
 impl OpenApiResponderInner for GenericError {

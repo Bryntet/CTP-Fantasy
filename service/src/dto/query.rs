@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use sea_orm::prelude::Date;
 use sea_orm::ActiveValue::Set;
 use sea_orm::ColumnTrait;
@@ -7,7 +8,7 @@ use sea_orm::{ConnectionTrait, EntityTrait, NotSet};
 use entity::{user, user_authentication};
 //use entity::prelude::Round;
 
-use crate::dto::pdga::{ApiPlayer, CompetitionInfo, PlayerScore};
+use crate::dto::pdga::{ApiPlayer, CompetitionInfo, PlayerScore, RoundStatus};
 use crate::error::GenericError;
 
 use super::*;
@@ -118,6 +119,8 @@ impl FantasyPick {
     }
 }
 
+
+
 impl CompetitionInfo {
     pub(crate) fn active_model(
         &self,
@@ -125,7 +128,7 @@ impl CompetitionInfo {
     ) -> competition::ActiveModel {
         competition::ActiveModel {
             id: Set(self.competition_id as i32),
-            status: Set(sea_orm_active_enums::CompetitionStatus::NotStarted),
+            status: Set(self.is_active().into()),
             name: Set(self.name.clone()),
             rounds: Set(self.date_range.len() as i32),
             level: Set(level),
@@ -175,47 +178,29 @@ impl CompetitionInfo {
             .map_err(|_| GenericError::UnknownError("Internal db error"))
     }
 
-    pub(super) async fn get_all_player_scores(&self) -> Result<Vec<ApiPlayer>, GenericError> {
-        let mut players: Vec<ApiPlayer> = Vec::new();
-        for div in &self.divisions {
-            for round in 1..=self.rounds {
-                players.extend(self.get_players_wrapper(round, div).await);
+    pub(super) fn get_all_player_scores(&self) -> Vec<&PlayerScore> {
+        self.rounds.iter().flat_map(|r|r.players.iter()).collect_vec()
+    }
+
+
+    
+    
+    fn current_round(&self) -> usize {
+        if let Some(highest) =self.highest_completed_round {
+            match self.is_active() {
+                CompetitionStatus::Finished => highest as usize -1,
+                CompetitionStatus::Active(round) => round-1,
+                CompetitionStatus::Pending(round) => round-1
             }
+        } else {
+            0
         }
-        Ok(players)
     }
 
-    async fn get_players_wrapper(&self, round: u8, div: &Division) -> Vec<ApiPlayer> {
-        pdga::get_players_from_api(self.competition_id, div, round as i32)
-            .await
-            .map_err(|e| {
-                #[cfg(debug_assertions)]
-                dbg!(&e);
-                e
-            })
-            .unwrap_or_default()
-    }
-
-    pub(super) async fn get_current_player_scores(&self) -> Result<Vec<ApiPlayer>, GenericError> {
-        let mut players: Vec<ApiPlayer> = Vec::new();
-        for div in &self.divisions {
-            let round = if let Some(highest) = self.highest_completed_round {
-                if highest == self.rounds {
-                    highest
-                } else {
-                    let temp = self.get_players_wrapper(highest + 1, div).await;
-                    if temp.iter().any(|p| p.round_started) {
-                        highest + 1
-                    } else {
-                        highest
-                    }
-                }
-            } else {
-                self.highest_completed_round.unwrap_or(1)
-            };
-            players.extend(self.get_players_wrapper(round, div).await);
-        }
-        Ok(players)
+    pub(super) fn get_current_player_scores(&self) -> &Vec<PlayerScore> {
+        let current_round = self.current_round();
+        //dbg!(current_round);
+        &self.rounds[current_round].players
     }
 
     pub(super) async fn get_user_scores(
@@ -224,21 +209,61 @@ impl CompetitionInfo {
         fantasy_tournament_id: u32,
     ) -> Result<Vec<UserScore>, GenericError> {
         let mut user_scores: Vec<UserScore> = Vec::new();
-        if let Ok(players) = self.get_current_player_scores().await {
-            for player in players {
-                let a = PlayerScore::from(player)
-                    .get_user_fantasy_score(db, fantasy_tournament_id, self.competition_id)
-                    .await;
-                if let Ok(Some(score)) = a {
-                    user_scores.push(score);
-                } else {
-                    //                    dbg!(a);
-                }
+        let players = self.get_current_player_scores();
+        for player in players {
+            let score = player.get_user_fantasy_score(db, fantasy_tournament_id, self.competition_id).await?;
+            if let Some(score) = score {
+                user_scores.push(score);
             }
         }
         Ok(user_scores)
     }
+
+    fn is_active(&self) -> CompetitionStatus {
+        let mut ret = CompetitionStatus::Pending(0);
+        let mut round = 0;
+        while round < self.rounds.len() {
+            let status = self.rounds[round].status();
+            ret = match status {
+                RoundStatus::Finished => {
+                    CompetitionStatus::Finished
+                },
+                RoundStatus::Pending => {
+                    CompetitionStatus::Pending(round)
+                },
+                RoundStatus::Started => {
+                    CompetitionStatus::Active(round)
+                },
+                RoundStatus::DNF => {
+                    panic!("UNREACHABLE ROUND HAS STATUS DNF")
+                }
+            };
+            round += 1;
+
+        }
+
+        ret
+    }
 }
+
+
+
+enum CompetitionStatus {
+    Pending(usize),
+    Active(usize),
+    Finished
+}
+
+impl From<CompetitionStatus> for sea_orm_active_enums::CompetitionStatus {
+    fn from(status: CompetitionStatus) -> Self {
+        match status {
+            CompetitionStatus::Pending(_) => sea_orm_active_enums::CompetitionStatus::NotStarted,
+            CompetitionStatus::Active(_) => sea_orm_active_enums::CompetitionStatus::Running,
+            CompetitionStatus::Finished => sea_orm_active_enums::CompetitionStatus::Finished
+        }
+    }
+}
+
 impl PhantomCompetition {
     pub(crate) fn active_model(
         &self,

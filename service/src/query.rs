@@ -358,7 +358,7 @@ pub async fn get_player_division_in_tournament(
     db: &impl ConnectionTrait,
     player_id: i32,
     tournament_id: i32,
-) -> Result<Option<dto::Division>, DbErr> {
+) -> Result<Option<dto::Division>, GenericError> {
     PlayerDivisionInFantasyTournament::find()
         .filter(
             player_division_in_fantasy_tournament::Column::PlayerPdgaNumber
@@ -370,7 +370,7 @@ pub async fn get_player_division_in_tournament(
         )
         .one(db)
         .await
-        .map(|p| p.map(|p| p.division.into()))
+        .map(|p| p.map(|p| p.division.into())).map_err(|_| GenericError::UnknownError("Unknown error while trying to find player division in tournament"))
 }
 
 pub async fn get_player_positions_in_round(
@@ -409,7 +409,7 @@ pub async fn get_rounds_in_competition(
 pub async fn get_competitions_in_fantasy_tournament(
     db: &impl ConnectionTrait,
     fantasy_tournament_id: i32,
-) -> Result<Vec<entity::competition::Model>, GenericError> {
+) -> Result<Vec<competition::Model>, GenericError> {
     let competitions = CompetitionInFantasyTournament::find()
         .filter(
             competition_in_fantasy_tournament::Column::FantasyTournamentId
@@ -427,7 +427,37 @@ pub async fn get_competitions_in_fantasy_tournament(
             .map(|comp| comp.map(|if_comp| out_things.push(if_comp)))
             .expect("good query");
     }
+    Ok(out_things)
+}
+
+pub async fn get_active_competitions(db: &impl ConnectionTrait) -> Result<Vec<competition::Model>, GenericError> {
+    let competitions = Competition::find()
+        .filter(competition::Column::Status.eq(sea_orm_active_enums::CompetitionStatus::Running))
+        .all(db)
+        .await
+        .expect("good query");
+    let mut out_things = Vec::new();
+    for competition in competitions {
+        out_things.push(competition);
+    }
     #[cfg(debug_assertions)]
     dbg!(&out_things);
     Ok(out_things)
 }
+
+pub async fn get_pending_competitions(db: &impl ConnectionTrait) -> Result<Vec<competition::Model>, GenericError> {
+    let competitions = Competition::find()
+        .filter(competition::Column::Status.eq(sea_orm_active_enums::CompetitionStatus::NotStarted))
+        .all(db)
+        .await
+        .expect("good query");
+    let mut out_things = Vec::new();
+    for competition in competitions {
+        out_things.push(competition);
+    }
+    #[cfg(debug_assertions)]
+    dbg!(&out_things);
+    Ok(out_things)
+}
+
+

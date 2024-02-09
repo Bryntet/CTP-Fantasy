@@ -5,6 +5,7 @@ use itertools::Itertools;
 
 use rocket::http::CookieJar;
 use rocket::request::FromParam;
+use rocket::{info, warn};
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
     sea_query, ActiveModelTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait,
@@ -34,47 +35,55 @@ impl FantasyPick {
         tournament_id: i32,
         div: Division,
     ) -> Result<(), GenericError> {
-        if player_exists(db, self.pdga_number).await {
-            if let Ok(Some(players_division)) =
-                super::super::get_player_division_in_tournament(db, self.pdga_number, tournament_id)
-                    .await
-            {
-                if players_division.eq(&div) {
-                    let person_in_slot =
-                        Self::player_in_slot(db, user_id, tournament_id, self.slot, div.into())
-                            .await?;
-
-                    if let Some(player) = person_in_slot {
-                        let player: fantasy_pick::ActiveModel = player.into();
-                        player
-                            .delete(db)
-                            .await
-                            .map_err(|_| GenericError::UnknownError("Unable to remove pick"))?;
-                    }
-
-                    if let Some(player) =
-                        Self::player_already_chosen(db, user_id, tournament_id, self.pdga_number)
-                            .await?
-                    {
-                        let player: fantasy_pick::ActiveModel = player.into();
-                        player
-                            .delete(db)
-                            .await
-                            .map_err(|_| GenericError::UnknownError("Unable to remove pick"))?;
-                    }
-                    self.insert(db, user_id, tournament_id, players_division)
-                        .await?;
-                    Ok(())
-                } else {
-                    Err(PlayerError::WrongDivision.into())
-                }
-            } else {
-                Err(PlayerError::WrongDivision.into())
-            }
-        } else {
+        if !player_exists(db, self.pdga_number).await {
             Err(PlayerError::NotFound.into())
+        } else {
+            let actual_player_div = super::super::get_player_division_in_tournament(db, self.pdga_number, tournament_id)
+                .await;
+            let actual_player_div = match actual_player_div {
+                Err(_) => {
+                    Err(GenericError::UnknownError("Unable to get player division"))
+                }
+                Ok(None) => {
+                    Err(GenericError::NotFound("Player not in tournament"))
+                }
+                Ok(Some(v)) => Ok(v)
+            }?;
+
+            if !actual_player_div.eq(&div) {
+                Err(GenericError::Conflict("Player division does not match division"))?
+            }
+
+            let person_in_slot =
+                Self::player_in_slot(db, user_id, tournament_id, self.slot, (&div).into())
+                    .await?;
+
+            if let Some(player) = person_in_slot {
+                let player: fantasy_pick::ActiveModel = player.into();
+                player
+                    .delete(db)
+                    .await
+                    .map_err(|_| GenericError::UnknownError("Unable to remove pick"))?;
+            }
+
+            if let Some(player) =
+                Self::player_already_chosen(db, user_id, tournament_id, self.pdga_number)
+                    .await?
+            {
+                let player: fantasy_pick::ActiveModel = player.into();
+                player
+                    .delete(db)
+                    .await
+                    .map_err(|_| GenericError::UnknownError("Unable to remove pick"))?;
+            }
+            self.insert(db, user_id, tournament_id, actual_player_div)
+                .await?;
+            Ok(())
+
+
         }
     }
+
 
     async fn insert(
         &self,
@@ -89,7 +98,7 @@ impl FantasyPick {
             pick_number: Set(self.slot),
             player: Set(self.pdga_number),
             fantasy_tournament_id: Set(tournament_id),
-            division: Set(division.into()),
+            division: Set((&division).into()),
         };
         pick.save(db)
             .await
@@ -98,22 +107,23 @@ impl FantasyPick {
     }
 }
 
-impl From<Division> for &sea_orm_active_enums::Division {
-    fn from(division: Division) -> Self {
+
+impl From<&Division> for &sea_orm_active_enums::Division {
+    fn from(division: &Division) -> Self {
         match division {
             Division::MPO => &sea_orm_active_enums::Division::Mpo,
             Division::FPO => &sea_orm_active_enums::Division::Fpo,
-            Division::Unknown => Division::MPO.into(),
+            Division::Unknown => &sea_orm_active_enums::Division::Mpo,
         }
     }
 }
 
-impl From<Division> for sea_orm_active_enums::Division {
-    fn from(division: Division) -> Self {
+impl From<&Division> for sea_orm_active_enums::Division {
+    fn from(division: &Division) -> Self {
         match division {
             Division::MPO => sea_orm_active_enums::Division::Mpo,
             Division::FPO => sea_orm_active_enums::Division::Fpo,
-            Division::Unknown => Division::MPO.into(),
+            Division::Unknown => sea_orm_active_enums::Division::Mpo,
         }
     }
 }
@@ -126,6 +136,8 @@ impl From<sea_orm_active_enums::Division> for Division {
         }
     }
 }
+
+
 
 impl<'r> FromParam<'r> for Division {
     type Error = std::convert::Infallible;
@@ -141,8 +153,7 @@ impl From<&str> for Division {
             "MPO" => Division::MPO,
             "FPO" => Division::FPO,
             _ => {
-                #[cfg(debug_assertions)]
-                dbg!("Unknown division, defaulting to MPO");
+                warn!("Unknown division, defaulting to MPO");
                 Division::MPO
             }
         }
@@ -152,12 +163,11 @@ impl From<&str> for Division {
 impl Display for Division {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let str = match self {
-            Division::MPO => "Mpo".to_string(),
-            Division::FPO => "Fpo".to_string(),
+            Division::MPO => "MPO".to_string(),
+            Division::FPO => "FPO".to_string(),
             Division::Unknown => {
-                #[cfg(debug_assertions)]
-                dbg!("Unknown division, defaulting to MPO");
-                "Mpo".to_string()
+                warn!("Unknown division, defaulting to MPO");
+                "MPO".to_string()
             }
         };
         write!(f, "{}", str)
@@ -238,7 +248,7 @@ impl FantasyTournamentDivs {
             let div = fantasy_tournament_division::ActiveModel {
                 id: NotSet,
                 fantasy_tournament_id: Set(tournament_id),
-                division: Set(div.into()),
+                division: Set((&div).into()),
             };
             div.save(&txn).await?;
         }
@@ -259,7 +269,7 @@ impl PlayerInCompetition {
             id: NotSet,
             pdga_number: Set(self.pdga_number),
             competition_id: Set(self.competition_id),
-            division: Set(self.division.clone().into()),
+            division: Set((&self.division).into()),
         }
     }
 }
@@ -382,7 +392,7 @@ impl CompetitionInfo {
         db: &impl ConnectionTrait,
         fantasy_tournament_id: Option<i32>,
     ) -> Result<(), GenericError> {
-        let players = self.get_all_player_scores().await?;
+        let players = self.get_all_player_scores();
         add_players(db, players, fantasy_tournament_id).await?;
         Ok(())
     }
@@ -394,7 +404,7 @@ impl CompetitionInfo {
     ) -> Result<(), GenericError> {
         let user_scores = self.get_user_scores(db, fantasy_tournament_id).await?;
         #[cfg(debug_assertions)]
-        dbg!(&user_scores);
+        //dbg!(&user_scores);
         if !user_scores.is_empty() {
             user_competition_score_in_fantasy_tournament::Entity::insert_many(
                 user_scores
@@ -415,7 +425,6 @@ impl CompetitionInfo {
             .exec(db)
             .await
             .map_err(|e| {
-                #[cfg(debug_assertions)]
                 dbg!(e);
                 GenericError::UnknownError(
                     "Unable to insert user score from competition into database",
