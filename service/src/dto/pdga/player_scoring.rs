@@ -350,7 +350,7 @@ impl RoundInformation {
             players: player_scores
                 .into_iter()
                 .filter_map(|p| {
-                    let p: PlayerScore = p.into();
+                    let p: PlayerScore = p;
                     if p.started != RoundStatus::DNF {
                         Some(p)
                     } else {

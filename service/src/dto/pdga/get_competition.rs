@@ -1,7 +1,7 @@
 use crate::dto::{Division, RoundInformation};
 use crate::error::GenericError;
 use itertools::Itertools;
-use log::{debug, warn};
+
 use rocket::error;
 use sea_orm::DbErr;
 use serde_derive::Deserialize;
