@@ -12,6 +12,7 @@ pub struct Model {
     pub name: String,
     pub owner: i32,
     pub max_picks_per_user: i32,
+    pub bench_size: i32,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

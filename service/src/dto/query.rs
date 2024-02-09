@@ -8,7 +8,7 @@ use sea_orm::{ConnectionTrait, EntityTrait, NotSet};
 use entity::{user, user_authentication};
 //use entity::prelude::Round;
 
-use crate::dto::pdga::{ApiPlayer, CompetitionInfo, PlayerScore, RoundStatus};
+use crate::dto::pdga::{CompetitionInfo, PlayerScore, RoundStatus};
 use crate::error::GenericError;
 
 use super::*;
@@ -63,6 +63,10 @@ impl CreateTournament {
                 Some(v) => Set(v),
                 None => NotSet,
             },
+            bench_size: match self.amount_in_bench {
+                Some(v) => Set(v),
+                None => NotSet
+            }
         }
     }
 }

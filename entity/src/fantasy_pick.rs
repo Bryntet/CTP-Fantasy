@@ -15,6 +15,7 @@ pub struct Model {
     pub fantasy_tournament_id: i32,
     pub pick_number: i32,
     pub division: Division,
+    pub benched: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

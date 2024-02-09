@@ -1,4 +1,3 @@
-use itertools::Itertools;
 use entity::prelude::*;
 use entity::sea_orm_active_enums::FantasyTournamentInvitationStatus;
 use entity::*;
@@ -12,12 +11,11 @@ use sea_orm::{
     TransactionTrait,
 };
 use sea_orm::{ColumnTrait, QueryFilter};
-use strum::IntoEnumIterator; // 0.17.1
-use strum_macros::EnumIter; // 0.17.1
 
 use crate::error::{GenericError, InviteError};
 use crate::{dto, query};
-use crate::dto::{CompetitionInfo, Division};
+use crate::dto::{Division};
+use sea_orm::Iterable;
 
 pub async fn generate_cookie(
     db: &DatabaseConnection,

@@ -66,7 +66,6 @@ impl CompetitionInfo {
         let divs = info.divisions.into_iter().filter_map(|d| {
             let div= d.division;
             if div == Division::Unknown {
-                warn!("Unknown division found in competition info");
                 None
             } else {
                 Some(div)

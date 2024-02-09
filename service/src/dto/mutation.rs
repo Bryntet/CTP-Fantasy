@@ -5,7 +5,7 @@ use itertools::Itertools;
 
 use rocket::http::CookieJar;
 use rocket::request::FromParam;
-use rocket::{info, warn};
+use rocket::{warn};
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
     sea_query, ActiveModelTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait,
@@ -84,6 +84,10 @@ impl FantasyPick {
         }
     }
 
+    async fn is_benched(&self,db:&impl ConnectionTrait, tournament_id: i32) -> Result<bool, GenericError> {
+        Ok(self.slot > (super::super::get_tournament_bench_limit(db, tournament_id).await?))
+    }
+
 
     async fn insert(
         &self,
@@ -99,6 +103,7 @@ impl FantasyPick {
             player: Set(self.pdga_number),
             fantasy_tournament_id: Set(tournament_id),
             division: Set((&division).into()),
+            benched: Set(self.is_benched(db,tournament_id).await?),
         };
         pick.save(db)
             .await
@@ -411,6 +416,7 @@ impl CompetitionInfo {
                     .into_iter()
                     .dedup_by(|a, b|a.competition_id == b.competition_id && a.pdga_num == b.pdga_num)
                     .map(|p| p.into_active_model(self.competition_id as i32))
+                    
             )
             .on_conflict(
                 sea_query::OnConflict::columns(vec![

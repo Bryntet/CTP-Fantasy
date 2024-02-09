@@ -6,7 +6,6 @@ use crate::dto::pdga::ApiPlayer;
 use crate::error::GenericError;
 use entity::prelude::{FantasyPick, User};
 use itertools::Itertools;
-use rocket::{debug, warn};
 use sea_orm::ActiveValue::Set;
 use sea_orm::{sea_query, ModelTrait};
 use sea_orm::{ActiveModelTrait, ConnectionTrait, DbErr, EntityTrait, IntoActiveModel, NotSet};
@@ -212,7 +211,7 @@ impl PlayerScore {
                     user: user.id,
                     score,
                     competition_id,
-                    pdga_num: self.pdga_number as u32,
+                    pdga_num: self.pdga_number,
                     fantasy_tournament_id,
                 }))
             } else {
@@ -230,8 +229,7 @@ impl PlayerScore {
         fantasy_id: u32,
     ) -> Result<Option<user::Model>, GenericError> {
         if let Some(pick) = FantasyPick::find()
-            .filter(fantasy_pick::Column::Player.eq(self.pdga_number))
-            .filter(fantasy_pick::Column::FantasyTournamentId.eq(fantasy_id))
+            .filter(fantasy_pick::Column::Player.eq(self.pdga_number).and(fantasy_pick::Column::FantasyTournamentId.eq(fantasy_id).and(fantasy_pick::Column::Benched.eq(false))))
             .one(db)
             .await
             .map_err(|_| {
@@ -255,15 +253,6 @@ struct RoundFromApi {
     div: Division,
 }
 
-impl RoundFromApi{
-    fn combine(&mut self, other: Self) {
-        #[cfg(test)]
-        assert_eq!(self.layouts, other.layouts);
-
-        self.scores.extend(other.scores);
-
-    }
-}
 
 fn fix_length(length: u32, unit: &Unit) -> u32 {
     match unit {
@@ -387,6 +376,7 @@ impl RoundInformation {
         Ok(resp.data)
     }
 
+    // TODO: Refactor to do one mass update instead of many small
     pub async fn update_all(&self, db: &impl ConnectionTrait) -> Result<(), GenericError> {
         for player in &self.players {
             player
@@ -394,7 +384,7 @@ impl RoundInformation {
                     db,
                     self.round_number as i32,
                     self.competition_id as i32,
-                    (&player.division).into(),
+                    &player.division,
                 )
                 .await?;
         }

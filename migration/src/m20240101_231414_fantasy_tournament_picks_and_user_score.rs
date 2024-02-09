@@ -53,6 +53,7 @@ impl MigrationTrait for Migration {
                             .custom(Division::Table)
                             .not_null(),
                     )
+                    .col(ColumnDef::new(FantasyPick::Benched).boolean().not_null())
                     .index(
                         Index::create()
                             .name("fantasy_pick_user_tournament")

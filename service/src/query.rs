@@ -220,9 +220,26 @@ pub async fn get_user_pick_in_tournament(
             pdga_number: pick.player,
             name: get_player_name(db, pick.player).await.ok(),
             avatar: get_player_face(db, pick.player).await?,
+            benched: pick.benched,
         })
     } else {
         Err(GenericError::NotFound("Pick not found"))
+    }
+}
+
+
+pub async fn get_tournament_bench_limit(
+    db: &impl ConnectionTrait,
+    tournament_id: i32,
+) -> Result<i32, GenericError> {
+    let tournament = FantasyTournament::find_by_id(tournament_id)
+        .one(db)
+        .await
+        .map_err(|_| GenericError::UnknownError("database error while getting tournament"))?;
+    if let Some(tournament) = tournament {
+        Ok(tournament.max_picks_per_user - tournament.bench_size)
+    } else {
+        Err(GenericError::NotFound("Tournament not found"))
     }
 }
 
@@ -290,6 +307,7 @@ pub async fn get_user_picks_in_tournament(
                     pdga_number: p.player,
                     name: a.0,
                     avatar: a.1,
+                    benched: p.benched
                 })
             }
             out

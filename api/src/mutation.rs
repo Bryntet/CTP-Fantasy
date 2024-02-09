@@ -123,6 +123,7 @@ pub(crate) async fn add_pick(
             pdga_number,
             name: None,
             avatar: None,
+            benched: false
         };
 
         pick.change_or_insert(db, user.id, fantasy_tournament_id, division)

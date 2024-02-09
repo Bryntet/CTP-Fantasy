@@ -12,7 +12,6 @@ use crate::error::GenericError;
 pub use pdga::{CompetitionInfo, RoundInformation};
 use rocket::serde::{Deserialize, Serialize};
 use rocket_okapi::okapi::schemars::{self, JsonSchema};
-use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
 pub mod traits {
@@ -28,6 +27,7 @@ pub struct CreateTournament {
     pub name: String,
     pub max_picks_per_user: Option<i32>,
     pub divisions: Vec<Division>,
+    pub amount_in_bench: Option<i32>
 }
 
 #[derive(Deserialize, Serialize, JsonSchema, Debug)]
@@ -36,6 +36,7 @@ pub struct FantasyPick {
     pub pdga_number: i32,
     pub name: Option<String>,
     pub avatar: Option<String>,
+    pub benched: bool,
 }
 #[derive(serde::Serialize, serde::Deserialize, JsonSchema, Debug)]
 pub struct FantasyPicks {

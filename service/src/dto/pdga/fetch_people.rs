@@ -1,9 +1,8 @@
-use std::error::Error;
 
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
 
-use sea_orm::{sea_query, ConnectionTrait, EntityTrait, IntoActiveModel};
+use sea_orm::{sea_query, ConnectionTrait, EntityTrait};
 
 use serde::Deserialize;
 
@@ -41,8 +40,8 @@ pub struct ApiPlayer {
 }
 
 mod serde_things {
-    use serde::de::{Error, Unexpected, Visitor};
-    use serde::{de, Deserialize, Deserializer};
+    use serde::de::{Visitor};
+    use serde::{de, Deserializer};
     use std::fmt;
 
     pub(super) fn flexible_number<'de, D>(deserializer: D) -> Result<u8, D::Error>

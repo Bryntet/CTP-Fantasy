@@ -68,10 +68,10 @@ async fn create_user(client: &Client) {
         username: "test_user".to_string(),
         password: "test_password".to_string(),
     };
-    #[allow(unused_variables)]
     let res = client.post("/create-user").json(&u).dispatch().await;
-    #[cfg(debug_assertions)]
-    dbg!(&res,res.body());
+    if res.status().code>=400 {
+        error!("{}",res.into_string().await.unwrap());
+    }
 }
 
 async fn any_user(db: &DatabaseConnection) -> bool {
@@ -83,6 +83,7 @@ async fn create_tournament(client: &Client) {
         divisions: vec![service::dto::Division::MPO, service::dto::Division::FPO],
         max_picks_per_user: Some(3),
         name: "test_tournament".to_string(),
+        amount_in_bench: None
     };
     #[allow(unused_variables)]
     let res = client
@@ -90,8 +91,9 @@ async fn create_tournament(client: &Client) {
         .json(&new_tournament)
         .dispatch()
         .await;
-    #[cfg(debug_assertions)]
-    dbg!(&res,res.body());
+    if res.status().code>=400 {
+        error!("{}",res.into_string().await.unwrap());
+    }
 }
 async fn any_tournament(db: &DatabaseConnection) -> bool {
     let tournaments = entity::fantasy_tournament::Entity::find()
@@ -111,8 +113,9 @@ async fn add_competition(client: &Client, competition_id: u32, level: service::d
         .json(&new_competition)
         .dispatch()
         .await;
-    #[cfg(debug_assertions)]
-    dbg!(res.into_string().await.unwrap());
+    if res.status().code>=400 {
+        warn!("{}",res.into_string().await.unwrap());
+    }
 
 }
 async fn any_competition(db: &DatabaseConnection) -> bool {
@@ -123,13 +126,15 @@ async fn any_competition(db: &DatabaseConnection) -> bool {
     !competitions.is_empty()
 }
 
-pub async fn add_pick(client: &Client, player: i32, div: service::dto::Division) {
+pub async fn add_pick(client: &Client, player: i32, div: service::dto::Division, slot: u8) {
     let div = div.to_string().to_uppercase();
     let res = client
-        .put(format!("/fantasy-tournament/1/user/1/picks/div/{div}/1/{player}"))
+        .put(format!("/fantasy-tournament/1/user/1/picks/div/{div}/{slot}/{player}"))
         .dispatch()
         .await;
-    warn!("{}",res.into_string().await.unwrap());
+    if res.status().code>=400 {
+        error!("{}",res.into_string().await.unwrap());
+    }
 }
 async fn any_pick(db: &DatabaseConnection) -> bool {
     let picks = entity::fantasy_pick::Entity::find()
@@ -162,10 +167,15 @@ mod tests {
         add_competition(&client, 73836, CompetitionLevel::Major).await;
         assert!(any_competition(&db).await);
 
-        add_pick(&client, 7438, Division::FPO).await;
+
+
+        add_pick(&client, 7438, Division::FPO, 3).await;
         assert!(any_pick(&db).await);
 
         assert!(any_round_scores(&db).await);
+        assert!(!any_user_scores(&db).await);
+        add_pick(&client, 69424, Division::MPO, 1).await;
         assert!(any_user_scores(&db).await);
+
     }
 }

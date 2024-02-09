@@ -237,7 +237,13 @@ impl MigrationTrait for Migration {
                         ColumnDef::new(FantasyTournament::MaxPicksPerUser)
                             .integer()
                             .not_null()
-                            .default(10),
+                            .default(3),
+                    )
+                    .col(
+                        ColumnDef::new(FantasyTournament::BenchSize)
+                            .integer()
+                            .not_null()
+                            .default(1),
                     )
                     .to_owned(),
             )
@@ -426,17 +432,6 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
-
-        /*manager.create_foreign_key(
-            ForeignKey::create()
-                .name("fk_competition_to_competition_in_tournament")
-                .from(
-                    Competition::Table,
-                    Competition::Id
-                )
-                .to(CompetitionInFantasyTournament::Table, CompetitionInFantasyTournament::CompetitionId)
-                .on_delete(ForeignKeyAction::Cascade).to_owned()
-        ).await?;*/
         Ok(())
     }
 
