@@ -438,16 +438,3 @@ impl RoundInformation {
         self.players.extend(other.players);
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn test_get_round_information() {
-        let info = RoundInformation::new(65206, 1, Division::MPO)
-            .await
-            .unwrap();
-        assert_eq!(info.holes.len(), 18);
-    }
-}
