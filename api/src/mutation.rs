@@ -107,7 +107,6 @@ pub(crate) async fn add_pick(
     pdga_number: i32,
     division: service::dto::Division,
 ) -> Result<&'static str, GenericError> {
-    info!("Adding pick in div {}", division);
     let not_permitted = UserError::NotPermitted("You are not permitted to add picks for this user");
     let db = db.inner();
     let user = user.to_user_model(db).await?;

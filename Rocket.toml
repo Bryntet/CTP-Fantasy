@@ -9,4 +9,3 @@ key = "/ssl/cert.key"
 [release]
 address = "192.169.21.12"
 port = 443
-log_level = "critical"

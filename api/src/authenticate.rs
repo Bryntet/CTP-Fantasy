@@ -9,7 +9,6 @@ use rocket::{
     request::{self, FromRequest},
     Request, State,
 };
-use rocket::data::Outcome;
 
 use rocket_okapi::{openapi, request::OpenApiFromRequest};
 use sea_orm::{DatabaseConnection, EntityTrait, ModelTrait, TransactionTrait};

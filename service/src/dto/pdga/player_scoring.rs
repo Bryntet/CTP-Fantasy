@@ -263,12 +263,7 @@ fn fix_length(length: u32, unit: &Unit) -> u32 {
 
 
 
-struct RoundInformationWrapper {
-    round_from_api: RoundFromApi,
-    competition_id: usize,
-    round_number: usize,
-    divisions: Vec<Division>
-}
+
 
 
 #[derive(Debug, PartialEq)]

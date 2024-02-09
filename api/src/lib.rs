@@ -4,6 +4,8 @@ pub extern crate rocket;
 use dotenvy::dotenv;
 use rocket::fs::FileServer;
 use rocket::{Build, Config, Request, Rocket, Route};
+use rocket::config::SecretKey;
+use rocket::figment::Profile;
 use rocket::http::Status;
 use rocket::log::LogLevel;
 use rocket_okapi::openapi_get_routes;
@@ -35,10 +37,10 @@ fn general_not_found() -> &'static str {
 }
 
 pub async fn get_db() -> DatabaseConnection {
-    #[cfg(debug_assertions)]
+    #[cfg(test)]
     let url =
         std::env::var("DEV_DATABASE_URL").expect("DEV_DATABASE_URL not set");
-    #[cfg(not(debug_assertions))]
+    #[cfg(not(test))]
     let url =std::env::var("DATABASE_URL").expect("DATABASE_URL not set");
 
 
@@ -86,19 +88,12 @@ pub fn routes() -> Vec<Route> {
     ]
 }
 
-
-
 pub async fn launch() -> Rocket<Build> {
     dotenv().ok();
 
     let flutter_path = std::env::var("FLUTTER_PATH").expect("FLUTTER_PATH not set");
 
-    let conf = Config {
-        cli_colors: true,
-        #[cfg(debug_assertions)]
-        log_level: LogLevel::Critical,
-        ..Default::default()
-    };
+
 
     rocket::build()
         .manage(get_db().await)
@@ -127,5 +122,5 @@ pub async fn launch() -> Rocket<Build> {
         )
         .register("/api", catchers![general_not_found,catchiiing])
         .mount("/", FileServer::from(flutter_path))
-    .configure(conf)
+    //.configure(conf)
 }

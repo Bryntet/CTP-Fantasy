@@ -14,6 +14,8 @@ pub enum GenericError {
     UnknownCompetition(&'static str),
     #[response(status = 500)]
     UnknownError(&'static str),
+    #[response(status = 500)]
+    PdgaGaveUp(&'static str),
     TournamentError(TournamentError),
     UserError(UserError),
     CookieError(AuthError),

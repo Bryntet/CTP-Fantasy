@@ -2,10 +2,10 @@ use itertools::Itertools;
 use sea_orm::DbErr;
 use serde_derive::Deserialize;
 use std::collections::HashMap;
-use entity::sea_orm_active_enums;
-use crate::dto::{Division, pdga, RoundInformation};
+use crate::dto::{Division, RoundInformation};
 use crate::error::GenericError;
-use log::{warn,info,debug};
+use log::{warn,debug};
+use rocket::error;
 
 #[derive(Deserialize, Debug)]
 pub(super) struct CompetitionInfoResponse {
@@ -51,12 +51,11 @@ impl CompetitionInfo {
         let url = format!("https://www.pdga.com/apps/tournament/live-api/live_results_fetch_event.php?TournID={competition_id}");
         let resp: CompetitionInfoResponse =
             reqwest::get(url).await.map_err(|e|{
-                #[cfg(debug_assertions)]
-                warn!("Unable to fetch competition from PDGA: {}", e);
-                GenericError::UnknownError("Internal error while fetching competition from PDGA")
+                error!("Unable to fetch competition from PDGA: {}", e);
+                GenericError::PdgaGaveUp("Internal error while fetching competition from PDGA")
             })?.json().await.map_err(|e|{
-                warn!("Issue {}", e);
-                GenericError::UnknownError("Internal error while converting PDGA competition to internal format")
+                error!("PDGA issue while converting to json:{:#?}", e);
+                GenericError::PdgaGaveUp("Internal error while converting PDGA competition to internal format")
             })?;
 
         let dates = parse_date_range(&resp).unwrap();

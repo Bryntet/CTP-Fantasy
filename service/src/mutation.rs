@@ -153,6 +153,8 @@ pub async fn update_rounds(db: &DatabaseConnection, rounds: Vec<round::Model>) {
     }
 }
 
+// TODO: Refactor out the saving to DB
+// TODO: Filter on only active competitions!
 pub async fn refresh_user_scores_in_fantasy(
     db: &impl ConnectionTrait,
     fantasy_tournament_id: u32,
@@ -164,11 +166,16 @@ pub async fn refresh_user_scores_in_fantasy(
             .map(|c| c.id as u32)
             .collect();
     for comp_id in comp_ids {
-        dto::CompetitionInfo::from_web(comp_id)
-            .await
-            .map_err(|_| GenericError::UnknownError("unable to get competition info from pdga"))?
-            .save_user_scores(db, fantasy_tournament_id)
-            .await?
+        match dto::CompetitionInfo::from_web(comp_id).await {
+            Err(GenericError::PdgaGaveUp(_)) => {
+                tokio::time::sleep(tokio::time::Duration::from_millis(250)).await;
+                dto::CompetitionInfo::from_web(comp_id).await?.save_user_scores(db,fantasy_tournament_id).await?
+            }
+            Ok(comp) => { comp.save_user_scores(db, fantasy_tournament_id).await? }
+            Err(e) => Err(e)?
+        }
+
+
     }
     Ok(())
 }

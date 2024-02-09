@@ -115,7 +115,6 @@ mod serde_things {
 
 use crate::error::GenericError;
 use serde_things::{bool_from_int, flexible_number};
-use crate::dto::pdga::get_competition::CompetitionInfoResponse;
 
 impl From<ApiPlayer> for PlayerScore {
     fn from(p: ApiPlayer) -> Self {
