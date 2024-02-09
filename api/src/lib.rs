@@ -2,12 +2,12 @@
 pub extern crate rocket;
 
 use dotenvy::dotenv;
-use rocket::config::SecretKey;
-use rocket::figment::Profile;
+
+
 use rocket::fs::FileServer;
 use rocket::http::Status;
-use rocket::log::LogLevel;
-use rocket::{Build, Config, Request, Rocket, Route};
+
+use rocket::{Build, Request, Rocket, Route};
 use rocket_cors::AllowedOrigins;
 use rocket_okapi::openapi_get_routes;
 use rocket_okapi::rapidoc::{make_rapidoc, GeneralConfig, HideShowConfig, RapiDocConfig};
