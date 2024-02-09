@@ -41,6 +41,7 @@ pub struct Hole {
     pub hole_number: u32,
     pub length: Option<u32>,
 }
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, PartialEq)]
 pub enum RoundStatus {
     Pending,
@@ -375,16 +376,13 @@ impl RoundInformation {
         //dbg!(&url);
         let mut resp: ApiRes = reqwest::get(url)
             .await
-            .map_err(|e| {
-                #[cfg(debug_assertions)]
-                dbg!(e);
+            .map_err(|_| {
                 GenericError::UnknownError("Internal error while fetching round from PDGA")
             })?
             .json()
             .await
-            .map_err(|e| {
-                #[cfg(debug_assertions)]
-                dbg!(e);
+            .map_err(|_| {
+
                 GenericError::UnknownError(
                     "Internal error while converting PDGA round to internal format",
                 )

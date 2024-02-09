@@ -15,7 +15,6 @@ use sea_orm::{ColumnTrait, QueryFilter};
 use crate::dto::Division;
 use crate::error::{GenericError, InviteError};
 use crate::{dto, query};
-use sea_orm::Iterable;
 
 pub async fn generate_cookie(
     db: &DatabaseConnection,
@@ -121,7 +120,7 @@ pub async fn answer_invite(
         Err(InviteError::UserNotFound)
     }
 }
-
+use strum::IntoEnumIterator;
 pub async fn update_round(
     db: &impl ConnectionTrait,
     round: round::Model,

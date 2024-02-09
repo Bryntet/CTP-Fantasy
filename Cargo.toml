@@ -38,8 +38,3 @@ required-features = ["mock"]
 
 [dev-dependencies]
 migration = { path = "./migration" }
-
-[profile.profiling]
-inherits = "release"
-debug = true
-debuginfo-level = 1
