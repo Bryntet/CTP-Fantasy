@@ -34,7 +34,6 @@ pub enum GenericError {
     BadRequest(&'static str),
 }
 
-
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Responder)]
 #[response(content_type = "json")]
 pub enum TournamentError {

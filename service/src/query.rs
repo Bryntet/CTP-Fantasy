@@ -170,7 +170,8 @@ pub async fn get_participants(
                 .iter()
                 .map(|score| {
                     dbg!(&score);
-                    score.score })
+                    score.score
+                })
                 .sum::<i32>();
             let user = dto::User {
                 id: participant.id,
@@ -226,7 +227,6 @@ pub async fn get_user_pick_in_tournament(
         Err(GenericError::NotFound("Pick not found"))
     }
 }
-
 
 pub async fn get_tournament_bench_limit(
     db: &impl ConnectionTrait,
@@ -307,7 +307,7 @@ pub async fn get_user_picks_in_tournament(
                     pdga_number: p.player,
                     name: a.0,
                     avatar: a.1,
-                    benched: p.benched
+                    benched: p.benched,
                 })
             }
             out
@@ -388,7 +388,12 @@ pub async fn get_player_division_in_tournament(
         )
         .one(db)
         .await
-        .map(|p| p.map(|p| p.division.into())).map_err(|_| GenericError::UnknownError("Unknown error while trying to find player division in tournament"))
+        .map(|p| p.map(|p| p.division.into()))
+        .map_err(|_| {
+            GenericError::UnknownError(
+                "Unknown error while trying to find player division in tournament",
+            )
+        })
 }
 
 pub async fn get_player_positions_in_round(
@@ -448,7 +453,9 @@ pub async fn get_competitions_in_fantasy_tournament(
     Ok(out_things)
 }
 
-pub async fn get_active_competitions(db: &impl ConnectionTrait) -> Result<Vec<competition::Model>, GenericError> {
+pub async fn get_active_competitions(
+    db: &impl ConnectionTrait,
+) -> Result<Vec<competition::Model>, GenericError> {
     let competitions = Competition::find()
         .filter(competition::Column::Status.eq(sea_orm_active_enums::CompetitionStatus::Running))
         .all(db)
@@ -463,7 +470,9 @@ pub async fn get_active_competitions(db: &impl ConnectionTrait) -> Result<Vec<co
     Ok(out_things)
 }
 
-pub async fn get_pending_competitions(db: &impl ConnectionTrait) -> Result<Vec<competition::Model>, GenericError> {
+pub async fn get_pending_competitions(
+    db: &impl ConnectionTrait,
+) -> Result<Vec<competition::Model>, GenericError> {
     let competitions = Competition::find()
         .filter(competition::Column::Status.eq(sea_orm_active_enums::CompetitionStatus::NotStarted))
         .all(db)
@@ -477,5 +486,3 @@ pub async fn get_pending_competitions(db: &impl ConnectionTrait) -> Result<Vec<c
     dbg!(&out_things);
     Ok(out_things)
 }
-
-

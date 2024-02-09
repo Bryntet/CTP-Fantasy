@@ -122,7 +122,7 @@ pub(crate) async fn add_pick(
             pdga_number,
             name: None,
             avatar: None,
-            benched: false
+            benched: false,
         };
 
         pick.change_or_insert(db, user.id, fantasy_tournament_id, division)
@@ -217,7 +217,8 @@ pub(crate) async fn add_competition(
         )
     })?;
     let competition_input = competition.into_inner();
-    let competition = service::dto::CompetitionInfo::from_web(competition_input.competition_id).await?;
+    let competition =
+        service::dto::CompetitionInfo::from_web(competition_input.competition_id).await?;
     if !competition.is_in_db(&txn).await? {
         competition
             .insert_in_db(&txn, competition_input.level.into())
@@ -234,14 +235,12 @@ pub(crate) async fn add_competition(
         GenericError::UnknownError("Unknown error while trying to commit transaction")
     })?;
     let rounds =
-        service::get_rounds_in_competition(db, competition_input.competition_id as i32)
-            .await?;
+        service::get_rounds_in_competition(db, competition_input.competition_id as i32).await?;
     service::mutation::update_rounds(db, rounds).await;
     competition
         .save_user_scores(db, fantasy_tournament_id)
         .await?;
     Ok("Successfully added competition".to_string())
-
 }
 
 //#[openapi(tag="Fantasy Tournament")]

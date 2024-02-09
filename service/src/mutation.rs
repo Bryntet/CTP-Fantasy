@@ -12,9 +12,9 @@ use sea_orm::{
 };
 use sea_orm::{ColumnTrait, QueryFilter};
 
+use crate::dto::Division;
 use crate::error::{GenericError, InviteError};
 use crate::{dto, query};
-use crate::dto::{Division};
 use sea_orm::Iterable;
 
 pub async fn generate_cookie(
@@ -125,9 +125,13 @@ pub async fn answer_invite(
 pub async fn update_round(
     db: &impl ConnectionTrait,
     round: round::Model,
-    divisions: Option<Vec<dto::Division>>
+    divisions: Option<Vec<dto::Division>>,
 ) -> Result<(), GenericError> {
-    let divisions = divisions.unwrap_or(Division::iter().filter(|d|!d.eq(&Division::Unknown)).collect());
+    let divisions = divisions.unwrap_or(
+        Division::iter()
+            .filter(|d| !d.eq(&Division::Unknown))
+            .collect(),
+    );
     let round_info = dto::RoundInformation::new(
         round.competition_id as usize,
         round.round_number as usize,
@@ -169,13 +173,14 @@ pub async fn refresh_user_scores_in_fantasy(
         match dto::CompetitionInfo::from_web(comp_id).await {
             Err(GenericError::PdgaGaveUp(_)) => {
                 tokio::time::sleep(tokio::time::Duration::from_millis(250)).await;
-                dto::CompetitionInfo::from_web(comp_id).await?.save_user_scores(db,fantasy_tournament_id).await?
+                dto::CompetitionInfo::from_web(comp_id)
+                    .await?
+                    .save_user_scores(db, fantasy_tournament_id)
+                    .await?
             }
-            Ok(comp) => { comp.save_user_scores(db, fantasy_tournament_id).await? }
-            Err(e) => Err(e)?
+            Ok(comp) => comp.save_user_scores(db, fantasy_tournament_id).await?,
+            Err(e) => Err(e)?,
         }
-
-
     }
     Ok(())
 }

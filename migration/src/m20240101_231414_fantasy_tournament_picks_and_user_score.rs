@@ -109,7 +109,8 @@ impl MigrationTrait for Migration {
                     .col(
                         ColumnDef::new(UserCompetitionScoreInFantasyTournament::PdgaNumber)
                             .integer()
-                            .not_null(),)
+                            .not_null(),
+                    )
                     .index(
                         Index::create()
                             .name("fantasy_scores_user_tournament")
@@ -143,7 +144,8 @@ impl MigrationTrait for Migration {
                                 UserCompetitionScoreInFantasyTournament::Table,
                                 UserCompetitionScoreInFantasyTournament::PdgaNumber,
                             )
-                            .to(Player::Table, Player::PDGANumber),)
+                            .to(Player::Table, Player::PDGANumber),
+                    )
                     .to_owned(),
             )
             .await?;

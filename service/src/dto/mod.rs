@@ -27,7 +27,7 @@ pub struct CreateTournament {
     pub name: String,
     pub max_picks_per_user: Option<i32>,
     pub divisions: Vec<Division>,
-    pub amount_in_bench: Option<i32>
+    pub amount_in_bench: Option<i32>,
 }
 
 #[derive(Deserialize, Serialize, JsonSchema, Debug)]
@@ -80,7 +80,9 @@ pub struct LoginInput {
     pub password: String,
 }
 
-#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq, FromFormField, EnumIter, Default)]
+#[derive(
+    Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq, FromFormField, EnumIter, Default,
+)]
 pub enum Division {
     MPO,
     FPO,

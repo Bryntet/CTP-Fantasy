@@ -56,17 +56,20 @@ impl<'r> FromRequest<'r> for TournamentOwner {
             .rocket()
             .state::<DatabaseConnection>()
             .expect("Database not found");
-        let cookie: request::Outcome<Authenticated, Json<Self::Error>> = request.guard::<Authenticated>().await;
+        let cookie: request::Outcome<Authenticated, Json<Self::Error>> =
+            request.guard::<Authenticated>().await;
 
-        let t: Self  = if let Some(cookie) = cookie.succeeded() {
-            if let Some(Ok(t_id)) = request
-                .param::<u32>(1) {
+        let t: Self = if let Some(cookie) = cookie.succeeded() {
+            if let Some(Ok(t_id)) = request.param::<u32>(1) {
                 Self {
                     user: cookie,
                     tournament_id: t_id,
                 }
             } else {
-                return None.or_error((Status::BadRequest, AuthError::Invalid("Invalid tournament id")));
+                return None.or_error((
+                    Status::BadRequest,
+                    AuthError::Invalid("Invalid tournament id"),
+                ));
             }
         } else {
             return None.or_error((Status::Unauthorized, AuthError::Missing("No cookie found")));
@@ -188,15 +191,21 @@ impl<'a> FromRequest<'a> for Authenticated {
             .state::<DatabaseConnection>()
             .expect("Database not found");
 
-        let cookie: Cookie = if let Some(cookie )=request
-            .cookies()
-            .get_private("auth") {
+        let cookie: Cookie = if let Some(cookie) = request.cookies().get_private("auth") {
             cookie
         } else {
-            return None.or_error((Status::Unauthorized, AuthError::Missing("No cookie found").into()))
+            return None.or_error((
+                Status::Unauthorized,
+                AuthError::Missing("No cookie found").into(),
+            ));
         };
 
-        Authenticated::new_checked(cookie.value().to_string(), db).await.or_error((Status::Forbidden, AuthError::WrongPassword("You do not have permission to do that").into()))
+        Authenticated::new_checked(cookie.value().to_string(), db)
+            .await
+            .or_error((
+                Status::Forbidden,
+                AuthError::WrongPassword("You do not have permission to do that").into(),
+            ))
     }
 }
 

@@ -65,8 +65,8 @@ impl CreateTournament {
             },
             bench_size: match self.amount_in_bench {
                 Some(v) => Set(v),
-                None => NotSet
-            }
+                None => NotSet,
+            },
         }
     }
 }
@@ -122,8 +122,6 @@ impl FantasyPick {
         Ok(existing_pick)
     }
 }
-
-
 
 impl CompetitionInfo {
     pub(crate) fn active_model(
@@ -183,18 +181,18 @@ impl CompetitionInfo {
     }
 
     pub(super) fn get_all_player_scores(&self) -> Vec<&PlayerScore> {
-        self.rounds.iter().flat_map(|r|r.players.iter()).collect_vec()
+        self.rounds
+            .iter()
+            .flat_map(|r| r.players.iter())
+            .collect_vec()
     }
 
-
-    
-    
     fn current_round(&self) -> usize {
-        if let Some(highest) =self.highest_completed_round {
+        if let Some(highest) = self.highest_completed_round {
             match self.is_active() {
-                CompetitionStatus::Finished => highest as usize -1,
-                CompetitionStatus::Active(round) => round-1,
-                CompetitionStatus::Pending(round) => round-1
+                CompetitionStatus::Finished => highest as usize - 1,
+                CompetitionStatus::Active(round) => round - 1,
+                CompetitionStatus::Pending(round) => round - 1,
             }
         } else {
             0
@@ -215,7 +213,9 @@ impl CompetitionInfo {
         let mut user_scores: Vec<UserScore> = Vec::new();
         let players = self.get_current_player_scores();
         for player in players {
-            let score = player.get_user_fantasy_score(db, fantasy_tournament_id, self.competition_id).await?;
+            let score = player
+                .get_user_fantasy_score(db, fantasy_tournament_id, self.competition_id)
+                .await?;
             if let Some(score) = score {
                 user_scores.push(score);
             }
@@ -229,33 +229,24 @@ impl CompetitionInfo {
         while round < self.rounds.len() {
             let status = self.rounds[round].status();
             ret = match status {
-                RoundStatus::Finished => {
-                    CompetitionStatus::Finished
-                },
-                RoundStatus::Pending => {
-                    CompetitionStatus::Pending(round)
-                },
-                RoundStatus::Started => {
-                    CompetitionStatus::Active(round)
-                },
+                RoundStatus::Finished => CompetitionStatus::Finished,
+                RoundStatus::Pending => CompetitionStatus::Pending(round),
+                RoundStatus::Started => CompetitionStatus::Active(round),
                 RoundStatus::DNF => {
                     panic!("UNREACHABLE ROUND HAS STATUS DNF")
                 }
             };
             round += 1;
-
         }
 
         ret
     }
 }
 
-
-
 enum CompetitionStatus {
     Pending(usize),
     Active(usize),
-    Finished
+    Finished,
 }
 
 impl From<CompetitionStatus> for sea_orm_active_enums::CompetitionStatus {
@@ -263,7 +254,7 @@ impl From<CompetitionStatus> for sea_orm_active_enums::CompetitionStatus {
         match status {
             CompetitionStatus::Pending(_) => sea_orm_active_enums::CompetitionStatus::NotStarted,
             CompetitionStatus::Active(_) => sea_orm_active_enums::CompetitionStatus::Running,
-            CompetitionStatus::Finished => sea_orm_active_enums::CompetitionStatus::Finished
+            CompetitionStatus::Finished => sea_orm_active_enums::CompetitionStatus::Finished,
         }
     }
 }

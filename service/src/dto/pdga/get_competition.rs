@@ -1,17 +1,16 @@
+use crate::dto::{Division, RoundInformation};
+use crate::error::GenericError;
 use itertools::Itertools;
+use log::{debug, warn};
+use rocket::error;
 use sea_orm::DbErr;
 use serde_derive::Deserialize;
 use std::collections::HashMap;
-use crate::dto::{Division, RoundInformation};
-use crate::error::GenericError;
-use log::{warn,debug};
-use rocket::error;
 
 #[derive(Deserialize, Debug)]
 pub(super) struct CompetitionInfoResponse {
     pub(self) data: ApiCompetitionInfo,
 }
-
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "PascalCase")]
@@ -49,32 +48,45 @@ pub struct CompetitionInfo {
 impl CompetitionInfo {
     pub async fn from_web(competition_id: u32) -> Result<Self, GenericError> {
         let url = format!("https://www.pdga.com/apps/tournament/live-api/live_results_fetch_event.php?TournID={competition_id}");
-        let resp: CompetitionInfoResponse =
-            reqwest::get(url).await.map_err(|e|{
+        let resp: CompetitionInfoResponse = reqwest::get(url)
+            .await
+            .map_err(|e| {
                 error!("Unable to fetch competition from PDGA: {}", e);
                 GenericError::PdgaGaveUp("Internal error while fetching competition from PDGA")
-            })?.json().await.map_err(|e|{
+            })?
+            .json()
+            .await
+            .map_err(|e| {
                 error!("PDGA issue while converting to json:{:#?}", e);
-                GenericError::PdgaGaveUp("Internal error while converting PDGA competition to internal format")
+                GenericError::PdgaGaveUp(
+                    "Internal error while converting PDGA competition to internal format",
+                )
             })?;
 
         let dates = parse_date_range(&resp).unwrap();
         let info = resp.data;
         let mut rounds = Vec::new();
 
-        let divs = info.divisions.into_iter().filter_map(|d| {
-            let div= d.division;
-            if div == Division::Unknown {
-                None
-            } else {
-                Some(div)
-            }
-        }).dedup().collect_vec();
+        let divs = info
+            .divisions
+            .into_iter()
+            .filter_map(|d| {
+                let div = d.division;
+                if div == Division::Unknown {
+                    None
+                } else {
+                    Some(div)
+                }
+            })
+            .dedup()
+            .collect_vec();
 
         for round_number in 1..=info.rounds {
-            rounds.push(RoundInformation::new(competition_id as usize, round_number as usize, divs.clone()).await?)
+            rounds.push(
+                RoundInformation::new(competition_id as usize, round_number as usize, divs.clone())
+                    .await?,
+            )
         }
-
 
         let out = Self {
             name: info.name,
@@ -82,12 +94,9 @@ impl CompetitionInfo {
             competition_id,
             rounds,
             highest_completed_round: info.highest_completed_round,
-            divisions: divs
+            divisions: divs,
         };
         Ok(out)
-
-
-
     }
 }
 

@@ -2,12 +2,13 @@
 pub extern crate rocket;
 
 use dotenvy::dotenv;
-use rocket::fs::FileServer;
-use rocket::{Build, Config, Request, Rocket, Route};
 use rocket::config::SecretKey;
 use rocket::figment::Profile;
+use rocket::fs::FileServer;
 use rocket::http::Status;
 use rocket::log::LogLevel;
+use rocket::{Build, Config, Request, Rocket, Route};
+use rocket_cors::AllowedOrigins;
 use rocket_okapi::openapi_get_routes;
 use rocket_okapi::rapidoc::{make_rapidoc, GeneralConfig, HideShowConfig, RapiDocConfig};
 use rocket_okapi::settings::UrlObject;
@@ -38,11 +39,9 @@ fn general_not_found() -> &'static str {
 
 pub async fn get_db() -> DatabaseConnection {
     #[cfg(test)]
-    let url =
-        std::env::var("DEV_DATABASE_URL").expect("DEV_DATABASE_URL not set");
+    let url = std::env::var("DEV_DATABASE_URL").expect("DEV_DATABASE_URL not set");
     #[cfg(not(test))]
-    let url =std::env::var("DATABASE_URL").expect("DATABASE_URL not set");
-
+    let url = std::env::var("DATABASE_URL").expect("DATABASE_URL not set");
 
     let mut opt = ConnectOptions::new(url);
     #[cfg(debug_assertions)]
@@ -52,7 +51,6 @@ pub async fn get_db() -> DatabaseConnection {
     }
     #[cfg(not(debug_assertions))]
     opt.sqlx_logging(false);
-
 
     Database::connect(opt).await.expect("CAN'T CONNECT TO DB")
 }
@@ -93,8 +91,6 @@ pub async fn launch() -> Rocket<Build> {
 
     let flutter_path = std::env::var("FLUTTER_PATH").expect("FLUTTER_PATH not set");
 
-
-
     rocket::build()
         .manage(get_db().await)
         .mount("/api", routes())
@@ -120,7 +116,14 @@ pub async fn launch() -> Rocket<Build> {
                 ..Default::default()
             }),
         )
-        .register("/api", catchers![general_not_found,catchiiing])
+        .attach(
+            rocket_cors::CorsOptions::default()
+                .allowed_origins(AllowedOrigins::All)
+                .to_cors()
+                .unwrap(),
+        )
+        .register("/api", catchers![general_not_found, catchiiing])
         .mount("/", FileServer::from(flutter_path))
+
     //.configure(conf)
 }

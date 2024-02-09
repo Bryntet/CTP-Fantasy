@@ -60,7 +60,7 @@ pub struct PlayerScore {
     pub(crate) name: String,
     pub(crate) first_name: String,
     pub(crate) last_name: String,
-    pub(crate) avatar: Option<String>
+    pub(crate) avatar: Option<String>,
 }
 
 impl PlayerScore {
@@ -91,7 +91,8 @@ impl PlayerScore {
             first_name: self.first_name.to_owned(),
             last_name: self.last_name.to_owned(),
             avatar: self.avatar.to_owned(),
-        }.into_active_model()
+        }
+        .into_active_model()
     }
     pub(crate) fn to_division_active_model(
         &self,
@@ -102,7 +103,7 @@ impl PlayerScore {
             fantasy_tournament_id,
             division: (&self.division).into(),
         }
-            .into_active_model()
+        .into_active_model()
     }
     /// Returns ActiveModel if score is changed, otherwise None
     async fn round_score_active_model(
@@ -229,7 +230,13 @@ impl PlayerScore {
         fantasy_id: u32,
     ) -> Result<Option<user::Model>, GenericError> {
         if let Some(pick) = FantasyPick::find()
-            .filter(fantasy_pick::Column::Player.eq(self.pdga_number).and(fantasy_pick::Column::FantasyTournamentId.eq(fantasy_id).and(fantasy_pick::Column::Benched.eq(false))))
+            .filter(
+                fantasy_pick::Column::Player.eq(self.pdga_number).and(
+                    fantasy_pick::Column::FantasyTournamentId
+                        .eq(fantasy_id)
+                        .and(fantasy_pick::Column::Benched.eq(false)),
+                ),
+            )
             .one(db)
             .await
             .map_err(|_| {
@@ -253,18 +260,12 @@ struct RoundFromApi {
     div: Division,
 }
 
-
 fn fix_length(length: u32, unit: &Unit) -> u32 {
     match unit {
         Unit::Feet => (length as f64 * 0.3048).round() as u32,
         Unit::Meters => length,
     }
 }
-
-
-
-
-
 
 #[derive(Debug, PartialEq)]
 pub struct RoundInformation {
@@ -275,7 +276,6 @@ pub struct RoundInformation {
     pub competition_id: usize,
     pub divs: Vec<Division>,
 }
-
 
 impl RoundInformation {
     pub async fn new(
@@ -289,31 +289,46 @@ impl RoundInformation {
             divs.push(new_div);
         }
 
-
         if !divs.is_empty() {
-            let layout: Layout = divs.iter().map(|d|d.layouts.first().unwrap()).next().unwrap().to_owned();
-            let divisions = divs.iter().map(|d|d.div.to_owned()).collect();
-            let player_scores: Vec<PlayerScore> = divs.into_iter().flat_map(|d| {
-                d.scores.into_iter().map(|p| {
-                    let p: PlayerScore = p.into();
-                    p
-                }).collect_vec()
-            }).collect_vec();
-            Ok(Self::make_self(player_scores, layout,competition_id, round, divisions))
+            let layout: Layout = divs
+                .iter()
+                .map(|d| d.layouts.first().unwrap())
+                .next()
+                .unwrap()
+                .to_owned();
+            let divisions = divs.iter().map(|d| d.div.to_owned()).collect();
+            let player_scores: Vec<PlayerScore> = divs
+                .into_iter()
+                .flat_map(|d| {
+                    d.scores
+                        .into_iter()
+                        .map(|p| {
+                            let p: PlayerScore = p.into();
+                            p
+                        })
+                        .collect_vec()
+                })
+                .collect_vec();
+            Ok(Self::make_self(
+                player_scores,
+                layout,
+                competition_id,
+                round,
+                divisions,
+            ))
         } else {
-            Err(GenericError::NotFound("No round found containing any divisions supported by Rustling Chains"))
+            Err(GenericError::NotFound(
+                "No round found containing any divisions supported by Rustling Chains",
+            ))
         }
-
-
     }
-
 
     fn make_self(
         player_scores: Vec<PlayerScore>,
         layout: Layout,
         competition_id: usize,
         round_number: usize,
-        divs: Vec<Division>
+        divs: Vec<Division>,
     ) -> Self {
         let holes = layout
             .holes
@@ -350,21 +365,29 @@ impl RoundInformation {
         }
     }
 
-    async fn get_one_div(competition_id: usize, round: usize, div: Division) -> Result<RoundFromApi, GenericError> {
+    async fn get_one_div(
+        competition_id: usize,
+        round: usize,
+        div: Division,
+    ) -> Result<RoundFromApi, GenericError> {
         let div_str = div.to_string().to_uppercase();
         let url = format!("https://www.pdga.com/apps/tournament/live-api/live_results_fetch_round.php?TournID={competition_id}&Round={round}&Division={div_str}");
         //dbg!(&url);
         let mut resp: ApiRes = reqwest::get(url)
-            .await.map_err(|e|{
+            .await
+            .map_err(|e| {
                 #[cfg(debug_assertions)]
                 dbg!(e);
                 GenericError::UnknownError("Internal error while fetching round from PDGA")
             })?
             .json()
-            .await.map_err(|e|{
+            .await
+            .map_err(|e| {
                 #[cfg(debug_assertions)]
                 dbg!(e);
-                GenericError::UnknownError("Internal error while converting PDGA round to internal format")
+                GenericError::UnknownError(
+                    "Internal error while converting PDGA round to internal format",
+                )
             })?;
 
         resp.data.div = div;
@@ -396,12 +419,15 @@ impl RoundInformation {
             .await
             .map(|x| x.len() == self.players.len())
     }
-    
+
     pub(crate) fn status(&self) -> RoundStatus {
-        let mut players = self.players.iter().filter(|p|p.started!=RoundStatus::DNF);
-        if players.all(|p|p.started==RoundStatus::Finished) {
+        let mut players = self
+            .players
+            .iter()
+            .filter(|p| p.started != RoundStatus::DNF);
+        if players.all(|p| p.started == RoundStatus::Finished) {
             RoundStatus::Finished
-        } else if players.any(|p|p.started==RoundStatus::Started) {
+        } else if players.any(|p| p.started == RoundStatus::Started) {
             RoundStatus::Started
         } else {
             RoundStatus::Pending

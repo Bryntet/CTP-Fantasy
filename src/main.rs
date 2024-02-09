@@ -2,8 +2,8 @@ use api::launch;
 use dotenvy::dotenv;
 use sea_orm::DatabaseConnection;
 
-use std::time::Duration;
 use rocket::error;
+use std::time::Duration;
 
 #[rocket::main]
 async fn main() -> Result<(), rocket::Error> {
@@ -15,7 +15,7 @@ async fn main() -> Result<(), rocket::Error> {
         loop {
             check_active_rounds(&db).await;
             if let Err(e) = service::mutation::refresh_user_scores_in_all(&db).await {
-                error!("Unable to refresh global user scores {:#?}",e);
+                error!("Unable to refresh global user scores {:#?}", e);
             }
             round_update_interval.tick().await;
         }

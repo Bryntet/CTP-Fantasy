@@ -5,7 +5,7 @@ use itertools::Itertools;
 
 use rocket::http::CookieJar;
 use rocket::request::FromParam;
-use rocket::{warn};
+use rocket::warn;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
     sea_query, ActiveModelTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait,
@@ -38,25 +38,26 @@ impl FantasyPick {
         if !player_exists(db, self.pdga_number).await {
             Err(PlayerError::NotFound.into())
         } else {
-            let actual_player_div = super::super::get_player_division_in_tournament(db, self.pdga_number, tournament_id)
-                .await;
+            let actual_player_div = super::super::get_player_division_in_tournament(
+                db,
+                self.pdga_number,
+                tournament_id,
+            )
+            .await;
             let actual_player_div = match actual_player_div {
-                Err(_) => {
-                    Err(GenericError::UnknownError("Unable to get player division"))
-                }
-                Ok(None) => {
-                    Err(GenericError::NotFound("Player not in tournament"))
-                }
-                Ok(Some(v)) => Ok(v)
+                Err(_) => Err(GenericError::UnknownError("Unable to get player division")),
+                Ok(None) => Err(GenericError::NotFound("Player not in tournament")),
+                Ok(Some(v)) => Ok(v),
             }?;
 
             if !actual_player_div.eq(&div) {
-                Err(GenericError::Conflict("Player division does not match division"))?
+                Err(GenericError::Conflict(
+                    "Player division does not match division",
+                ))?
             }
 
             let person_in_slot =
-                Self::player_in_slot(db, user_id, tournament_id, self.slot, (&div).into())
-                    .await?;
+                Self::player_in_slot(db, user_id, tournament_id, self.slot, (&div).into()).await?;
 
             if let Some(player) = person_in_slot {
                 let player: fantasy_pick::ActiveModel = player.into();
@@ -67,8 +68,7 @@ impl FantasyPick {
             }
 
             if let Some(player) =
-                Self::player_already_chosen(db, user_id, tournament_id, self.pdga_number)
-                    .await?
+                Self::player_already_chosen(db, user_id, tournament_id, self.pdga_number).await?
             {
                 let player: fantasy_pick::ActiveModel = player.into();
                 player
@@ -79,15 +79,16 @@ impl FantasyPick {
             self.insert(db, user_id, tournament_id, actual_player_div)
                 .await?;
             Ok(())
-
-
         }
     }
 
-    async fn is_benched(&self,db:&impl ConnectionTrait, tournament_id: i32) -> Result<bool, GenericError> {
+    async fn is_benched(
+        &self,
+        db: &impl ConnectionTrait,
+        tournament_id: i32,
+    ) -> Result<bool, GenericError> {
         Ok(self.slot > (super::super::get_tournament_bench_limit(db, tournament_id).await?))
     }
-
 
     async fn insert(
         &self,
@@ -103,7 +104,7 @@ impl FantasyPick {
             player: Set(self.pdga_number),
             fantasy_tournament_id: Set(tournament_id),
             division: Set((&division).into()),
-            benched: Set(self.is_benched(db,tournament_id).await?),
+            benched: Set(self.is_benched(db, tournament_id).await?),
         };
         pick.save(db)
             .await
@@ -111,7 +112,6 @@ impl FantasyPick {
         Ok(())
     }
 }
-
 
 impl From<&Division> for &sea_orm_active_enums::Division {
     fn from(division: &Division) -> Self {
@@ -141,8 +141,6 @@ impl From<sea_orm_active_enums::Division> for Division {
         }
     }
 }
-
-
 
 impl<'r> FromParam<'r> for Division {
     type Error = std::convert::Infallible;
@@ -412,8 +410,10 @@ impl CompetitionInfo {
             user_competition_score_in_fantasy_tournament::Entity::insert_many(
                 user_scores
                     .into_iter()
-                    .dedup_by(|a, b|a.competition_id == b.competition_id && a.pdga_num == b.pdga_num)
-                    .map(|p| p.into_active_model(self.competition_id as i32))
+                    .dedup_by(|a, b| {
+                        a.competition_id == b.competition_id && a.pdga_num == b.pdga_num
+                    })
+                    .map(|p| p.into_active_model(self.competition_id as i32)),
             )
             .on_conflict(
                 sea_query::OnConflict::columns(vec![

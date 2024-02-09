@@ -1,4 +1,3 @@
-
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
 
@@ -14,7 +13,6 @@ pub struct CompetitionInfoInput {
     pub id: u32,
     pub division: Division,
 }
-
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "PascalCase")]
@@ -40,7 +38,7 @@ pub struct ApiPlayer {
 }
 
 mod serde_things {
-    use serde::de::{Visitor};
+    use serde::de::Visitor;
     use serde::{de, Deserializer};
     use std::fmt;
 
@@ -96,17 +94,17 @@ mod serde_things {
             }
 
             fn visit_i64<E>(self, value: i64) -> Result<bool, E>
-                where
-                    E: de::Error,
+            where
+                E: de::Error,
             {
-                Ok(value==1)
+                Ok(value == 1)
             }
 
             fn visit_u64<E>(self, value: u64) -> Result<bool, E>
-                where
-                    E: de::Error,
+            where
+                E: de::Error,
             {
-                Ok(value==1)
+                Ok(value == 1)
             }
         }
         deserializer.deserialize_any(BoolFromInt)
@@ -149,7 +147,6 @@ impl From<ApiPlayer> for PlayerScore {
         }
     }
 }
-
 
 impl PartialEq for ApiPlayer {
     fn eq(&self, other: &Self) -> bool {
@@ -201,5 +198,4 @@ mod tests {
     use super::*;
     use std::fs::File;
     use std::io::Read;
-
 }
