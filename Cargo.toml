@@ -38,3 +38,9 @@ required-features = ["mock"]
 
 [dev-dependencies]
 migration = { path = "./migration" }
+
+
+[profile.dev.package.rtz]
+opt-level = 3
+[profile.test.package.rtz]
+opt-level = 3

@@ -11,7 +11,7 @@ pub struct Model {
     pub id: i32,
     pub round_number: i32,
     pub competition_id: i32,
-    pub date: Date,
+    pub date: DateTimeWithTimeZone,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

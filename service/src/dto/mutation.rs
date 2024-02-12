@@ -379,7 +379,7 @@ impl CompetitionInfo {
     pub async fn insert_rounds(&self, db: &impl ConnectionTrait) -> Result<(), DbErr> {
         use entity::prelude::Round;
         Round::insert_many(
-            self.date_range
+            self.date_range.date_times()
                 .iter()
                 .enumerate()
                 .map(|(i, d)| self.round_active_model(i + 1, *d)),
@@ -389,6 +389,7 @@ impl CompetitionInfo {
 
         Ok(())
     }
+
 
     pub async fn insert_players(
         &self,

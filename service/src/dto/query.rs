@@ -1,5 +1,6 @@
+use chrono::{DateTime, Utc};
 use itertools::Itertools;
-use sea_orm::prelude::Date;
+use sea_orm::prelude::{Date, DateTimeWithTimeZone};
 use sea_orm::ActiveValue::Set;
 use sea_orm::ColumnTrait;
 use sea_orm::QueryFilter;
@@ -137,12 +138,12 @@ impl CompetitionInfo {
         }
     }
 
-    pub(crate) fn round_active_model(&self, round_number: usize, date: Date) -> round::ActiveModel {
+    pub(crate) fn round_active_model(&self, round_number: usize, date: DateTime<chrono_tz::Tz>) -> round::ActiveModel {
         round::ActiveModel {
             id: NotSet,
             round_number: sea_orm::Set(round_number as i32),
             competition_id: sea_orm::Set(self.competition_id as i32),
-            date: sea_orm::Set(date),
+            date: sea_orm::Set(DateTimeWithTimeZone::from(date.fixed_offset())),
         }
     }
 

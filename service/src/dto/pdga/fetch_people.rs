@@ -191,11 +191,3 @@ pub async fn add_players(
     }
     Ok(())
 }
-
-#[cfg(test)]
-mod tests {
-
-    use super::*;
-    use std::fs::File;
-    use std::io::Read;
-}
