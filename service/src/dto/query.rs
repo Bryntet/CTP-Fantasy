@@ -1,6 +1,6 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime};
 use itertools::Itertools;
-use sea_orm::prelude::{Date, DateTimeWithTimeZone};
+use sea_orm::prelude::{ DateTimeWithTimeZone};
 use sea_orm::ActiveValue::Set;
 use sea_orm::ColumnTrait;
 use sea_orm::QueryFilter;
@@ -14,10 +14,6 @@ use crate::error::GenericError;
 
 use super::*;
 
-trait ToModel {
-    type Model;
-    fn to_model(&self) -> Self::Model;
-}
 
 impl UserLogin {
     pub(super) fn active_user(&self) -> user::ActiveModel {

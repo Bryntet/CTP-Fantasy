@@ -41,19 +41,14 @@ pub struct DateRange {
 }
 use cached::proc_macro::cached;
 
-#[cached]
-async fn date_range_new_cached(start: String, end: String, location: String, country: String) -> Option<DateRange> {
-    DateRange::new(start, end, location, country).await
-}
+
 
 impl DateRange {
+    pub async fn new(start: &str, end: &str, location: String, country: String) -> Option<Self> {
+        let tz = parse_tz_from_location(location,country).await.unwrap_or(chrono_tz::Tz::US__Hawaii);
 
-    pub async fn new(start: String, end: String, location: String, country: String) -> Option<Self> {
-
-        let tz = parse_tz_from_location(location,country).await.unwrap_or_default();
-
-        let start = dateparser::parse_with(&start, &tz, NaiveTime::from_hms_opt(0,0,0).unwrap()).ok()?;
-        let end = dateparser::parse_with(&end, &tz, NaiveTime::from_hms_opt(0,0,0).unwrap()).ok()?;
+        let start = dateparser::parse_with(start, &tz, NaiveTime::from_hms_opt(7,0,0).unwrap()).ok()?;
+        let end = dateparser::parse_with(end, &tz, NaiveTime::from_hms_opt(22,0,0).unwrap()).ok()?;
 
         let start = tz.from_utc_datetime(&start.naive_utc());
         let end = tz.from_utc_datetime(&end.naive_utc());
@@ -63,8 +58,8 @@ impl DateRange {
         })
 
     }
-    pub async fn new_cached(start: String, end: String, location: String, country: String) -> Option<Self> {
-        date_range_new_cached(start, end, location, country).await
+    async fn from_api_comp_info(info: &ApiCompetitionInfo) -> Option<Self> {
+        Self::new(&info.start_date,&info.end_date,info.location.clone(),info.country.clone()).await
     }
 
     pub fn len(&self) -> i64 {
@@ -99,18 +94,7 @@ pub struct CompetitionInfo {
     pub(crate) highest_completed_round: Option<u8>,
     pub(crate) date_range: DateRange,
 }
-#[cfg(test)]
-macro_rules! benchmark {
-    ($func:expr) => {
-        {
-            let start = std::time::Instant::now();
-            let res = $func;
-            let duration = start.elapsed();
-            dbg!(duration);
-            res
-        }
-    };
-}
+
 impl CompetitionInfo {
     pub async fn from_web(competition_id: u32) -> Result<Self, GenericError> {
         let url = format!("https://www.pdga.com/apps/tournament/live-api/live_results_fetch_event.php?TournID={competition_id}");
@@ -123,7 +107,7 @@ impl CompetitionInfo {
             .json()
             .await
             .map_err(|e| {
-                error!("PDGA issue while converting to json:{:#?}", e);
+                error!("PDGA issue while converting to json: {:#?}", e);
                 GenericError::PdgaGaveUp(
                     "Internal error while converting PDGA competition to internal format",
                 )
@@ -131,7 +115,7 @@ impl CompetitionInfo {
 
         let info = resp.data;
         let mut rounds = Vec::new();
-
+        let date_range = DateRange::from_api_comp_info(&info).await.unwrap();
         let divs = info
             .divisions
             .into_iter()
@@ -153,7 +137,6 @@ impl CompetitionInfo {
             )
         }
         let begin = std::time::Instant::now();
-        let date_range = DateRange::new_cached(info.start_date,info.end_date,info.location,info.country).await.unwrap();
         let duration = begin.elapsed();
         dbg!(duration);
 
@@ -220,22 +203,15 @@ mod tests {
     use super::*;
     use chrono::NaiveTime;
 
-
-
-
-
     #[tokio::test]
     async fn test_parse_date() {
         let url = "https://www.pdga.com/apps/tournament/live-api/live_results_fetch_event.php?TournID=73836";
 
         let resp: CompetitionInfoResponse = reqwest::get(url).await.unwrap().json().await.unwrap();
         dbg!(&resp.data.start_date, &resp.data.end_date);
-        if let Some(tz) = parse_tz_from_location(resp.data.location,resp.data.country).await {
-            let start = dateparser::parse_with(&resp.data.start_date, &tz, NaiveTime::from_hms_opt(0,0,0).unwrap());
-            let end = dateparser::parse_with(&resp.data.end_date, &tz, NaiveTime::from_hms_opt(0,0,0).unwrap());
-            dbg!(start,end);
+        if let Some(range) = DateRange::new(&resp.data.start_date,&resp.data.end_date,resp.data.location,resp.data.country).await {
+            dbg!(range);
         }
-
 
     }
 
