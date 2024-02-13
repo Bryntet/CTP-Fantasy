@@ -3,7 +3,6 @@ pub extern crate rocket;
 
 use dotenvy::dotenv;
 
-
 use rocket::fs::FileServer;
 use rocket::http::Status;
 

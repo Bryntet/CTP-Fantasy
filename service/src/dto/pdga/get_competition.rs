@@ -2,11 +2,11 @@ use crate::dto::{Division, RoundInformation};
 use crate::error::GenericError;
 use itertools::Itertools;
 
+use chrono::{DateTime, NaiveDate, NaiveTime, TimeZone, Utc};
 use rocket::error;
 use sea_orm::DbErr;
 use serde_derive::Deserialize;
 use std::collections::HashMap;
-use chrono::{DateTime, NaiveDate, NaiveTime, TimeZone, Utc};
 
 #[derive(Deserialize, Debug)]
 pub(super) struct CompetitionInfoResponse {
@@ -33,33 +33,36 @@ struct DivisionWrapper {
     division: Division,
 }
 
-
-#[derive(Debug,PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct DateRange {
     start: DateTime<chrono_tz::Tz>,
     end: DateTime<chrono_tz::Tz>,
 }
 use cached::proc_macro::cached;
 
-
-
 impl DateRange {
     pub async fn new(start: &str, end: &str, location: String, country: String) -> Option<Self> {
-        let tz = parse_tz_from_location(location,country).await.unwrap_or(chrono_tz::Tz::US__Hawaii);
+        let tz = parse_tz_from_location(location, country)
+            .await
+            .unwrap_or(chrono_tz::Tz::US__Hawaii);
 
-        let start = dateparser::parse_with(start, &tz, NaiveTime::from_hms_opt(7,0,0).unwrap()).ok()?;
-        let end = dateparser::parse_with(end, &tz, NaiveTime::from_hms_opt(22,0,0).unwrap()).ok()?;
+        let start =
+            dateparser::parse_with(start, &tz, NaiveTime::from_hms_opt(7, 0, 0).unwrap()).ok()?;
+        let end =
+            dateparser::parse_with(end, &tz, NaiveTime::from_hms_opt(22, 0, 0).unwrap()).ok()?;
 
         let start = tz.from_utc_datetime(&start.naive_utc());
         let end = tz.from_utc_datetime(&end.naive_utc());
-        Some(Self {
-            start,
-            end
-        })
-
+        Some(Self { start, end })
     }
     async fn from_api_comp_info(info: &ApiCompetitionInfo) -> Option<Self> {
-        Self::new(&info.start_date,&info.end_date,info.location.clone(),info.country.clone()).await
+        Self::new(
+            &info.start_date,
+            &info.end_date,
+            info.location.clone(),
+            info.country.clone(),
+        )
+        .await
     }
 
     pub fn len(&self) -> i64 {
@@ -77,13 +80,11 @@ impl DateRange {
         }
     }
 
-
-
     fn day(&self, day: i64) -> Option<DateTime<chrono_tz::Tz>> {
-        self.start.checked_add_days(chrono::Days::new((day-1) as u64))
+        self.start
+            .checked_add_days(chrono::Days::new((day - 1) as u64))
     }
 }
-
 
 #[derive(Debug, PartialEq)]
 pub struct CompetitionInfo {
@@ -146,19 +147,16 @@ impl CompetitionInfo {
             rounds,
             highest_completed_round: info.highest_completed_round,
             divisions: divs,
-            date_range
+            date_range,
         };
         Ok(out)
     }
 }
 
-
-
-
 mod blocking {
     use geocoding::{Forward, Openstreetmap, Point};
-    use rtzlib::{NedTimezone, CanPerformGeoLookup, OsmTimezone};
-    fn get_point(loc:&str) -> Option<Point<f32>> {
+    use rtzlib::{CanPerformGeoLookup, NedTimezone, OsmTimezone};
+    fn get_point(loc: &str) -> Option<Point<f32>> {
         if let Ok(v) = Openstreetmap::new().forward(loc) {
             if !v.is_empty() {
                 Some(v[0])
@@ -171,31 +169,34 @@ mod blocking {
     }
 
     #[inline(always)]
-    pub(super) fn parse_tz_from_location(location: String, country: String) -> Option<chrono_tz::Tz> {
+    pub(super) fn parse_tz_from_location(
+        location: String,
+        country: String,
+    ) -> Option<chrono_tz::Tz> {
         let address = location.clone() + ", " + &country;
-        let point= get_point(&address);
+        let point = get_point(&address);
         let point = match point {
-            None => {
-                get_point(&location)
-            },
-            Some(p) => Some(p)
+            None => get_point(&location),
+            Some(p) => Some(p),
         };
         if let Some(point) = point {
             let tz = NedTimezone::lookup(point.0.x, point.0.y);
             if !tz.is_empty() {
                 Some(tz[0].identifier.as_ref()?.parse().ok()?)
-            } else {None}
+            } else {
+                None
+            }
         } else {
             None
         }
-
     }
 }
 #[cached]
 async fn parse_tz_from_location(location: String, country: String) -> Option<chrono_tz::Tz> {
-    tokio::task::spawn_blocking(move || blocking::parse_tz_from_location(location, country )).await.ok()?
+    tokio::task::spawn_blocking(move || blocking::parse_tz_from_location(location, country))
+        .await
+        .ok()?
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -209,10 +210,16 @@ mod tests {
 
         let resp: CompetitionInfoResponse = reqwest::get(url).await.unwrap().json().await.unwrap();
         dbg!(&resp.data.start_date, &resp.data.end_date);
-        if let Some(range) = DateRange::new(&resp.data.start_date,&resp.data.end_date,resp.data.location,resp.data.country).await {
+        if let Some(range) = DateRange::new(
+            &resp.data.start_date,
+            &resp.data.end_date,
+            resp.data.location,
+            resp.data.country,
+        )
+        .await
+        {
             dbg!(range);
         }
-
     }
 
     #[tokio::test]

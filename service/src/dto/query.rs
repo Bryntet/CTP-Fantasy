@@ -1,6 +1,6 @@
-use chrono::{DateTime};
+use chrono::DateTime;
 use itertools::Itertools;
-use sea_orm::prelude::{ DateTimeWithTimeZone};
+use sea_orm::prelude::DateTimeWithTimeZone;
 use sea_orm::ActiveValue::Set;
 use sea_orm::ColumnTrait;
 use sea_orm::QueryFilter;
@@ -13,7 +13,6 @@ use crate::dto::pdga::{CompetitionInfo, PlayerScore, RoundStatus};
 use crate::error::GenericError;
 
 use super::*;
-
 
 impl UserLogin {
     pub(super) fn active_user(&self) -> user::ActiveModel {
@@ -134,7 +133,11 @@ impl CompetitionInfo {
         }
     }
 
-    pub(crate) fn round_active_model(&self, round_number: usize, date: DateTime<chrono_tz::Tz>) -> round::ActiveModel {
+    pub(crate) fn round_active_model(
+        &self,
+        round_number: usize,
+        date: DateTime<chrono_tz::Tz>,
+    ) -> round::ActiveModel {
         round::ActiveModel {
             id: NotSet,
             round_number: sea_orm::Set(round_number as i32),

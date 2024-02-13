@@ -85,7 +85,11 @@ impl MigrationTrait for Migration {
                             .to(Competition::Table, Competition::Id)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
-                    .col(ColumnDef::new(Round::Date).timestamp_with_time_zone().not_null())
+                    .col(
+                        ColumnDef::new(Round::Date)
+                            .timestamp_with_time_zone()
+                            .not_null(),
+                    )
                     .index(
                         Index::create()
                             .name("unique_competition_round")

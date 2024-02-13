@@ -382,7 +382,6 @@ impl RoundInformation {
             .json()
             .await
             .map_err(|_| {
-
                 GenericError::UnknownError(
                     "Internal error while converting PDGA round to internal format",
                 )
