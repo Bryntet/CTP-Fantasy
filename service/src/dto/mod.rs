@@ -40,7 +40,7 @@ pub struct FantasyPick {
 }
 #[derive(serde::Serialize, serde::Deserialize, JsonSchema, Debug)]
 pub struct FantasyPicks {
-    pub(crate) picks: Vec<FantasyPick>,
+    pub picks: Vec<FantasyPick>,
     pub(crate) owner: bool,
     pub(crate) fantasy_tournament_id: i32,
 }

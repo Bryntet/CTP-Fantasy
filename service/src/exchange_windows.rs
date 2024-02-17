@@ -17,7 +17,7 @@ pub async fn is_user_allowed_to_exchange(db: &impl ConnectionTrait, user_id: i32
 
 }
 
-async fn any_competitions_running(db: &impl ConnectionTrait, tournament: &entity::fantasy_tournament::Model) -> Result<bool, GenericError> {
+pub async fn any_competitions_running(db: &impl ConnectionTrait, tournament: &entity::fantasy_tournament::Model) -> Result<bool, GenericError> {
     let comps = get_competitions_in_fantasy_tournament(db, tournament.id).await?;
     Ok(comps.iter().any(|c|c.status==CompetitionStatus::Running))
 }
@@ -53,6 +53,15 @@ pub async fn see_which_users_can_exchange(db: &impl ConnectionTrait, tournament:
         }
     }
     Ok(allowed_users)
+}
+
+pub async fn has_exchange_begun(db: &impl ConnectionTrait, tournament_id: i32) -> Result<bool, GenericError> {
+    if let Some(tournament) = get_fantasy_tournament_model(db, tournament_id).await? {
+        let first_exchange_window = get_first_exchange_window_time(db, &tournament).await?;
+        Ok(first_exchange_window.map(|x|x<chrono::Utc::now().naive_local()).unwrap_or(false))
+    } else {
+        Err(GenericError::NotFound("Tournament not found"))
+    }
 }
 
 async fn get_first_exchange_window_time(db: &impl ConnectionTrait, tournament: &entity::fantasy_tournament::Model) -> Result<Option<NaiveDateTime>, GenericError>  {

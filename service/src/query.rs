@@ -3,6 +3,7 @@ use bcrypt::verify;
 use chrono::{Duration, NaiveDateTime, Timelike};
 use chrono_tz::Tz;
 use itertools::Itertools;
+use log::warn;
 use dto::InvitationStatus;
 use entity::prelude::*;
 use entity::sea_orm_active_enums::{CompetitionStatus, Division};
@@ -156,7 +157,7 @@ pub(crate) async fn get_fantasy_tournament_model(
     FantasyTournament::find_by_id(tournament_id).one(db).await.map_err(|_|GenericError::UnknownError("Unknown DB ERROR"))
 }
 
-pub use crate::exchange_windows::{see_which_users_can_exchange, is_user_allowed_to_exchange};
+pub use crate::exchange_windows::{see_which_users_can_exchange, is_user_allowed_to_exchange, has_exchange_begun};
 pub async fn get_user_participants_in_tournament(
     db: &impl ConnectionTrait,
     tournament_id: i32,
@@ -282,12 +283,12 @@ async fn get_player_face(
 }
 
 pub async fn get_user_picks_in_tournament(
-    db: &DatabaseConnection,
-    requester: user::Model,
+    db: &impl ConnectionTrait,
+    requester: &user::Model,
     user_id: i32,
     tournament_id: i32,
-    div: dto::Division,
-) -> Result<FantasyPicks, DbErr> {
+    div: &dto::Division,
+) -> Result<FantasyPicks, GenericError> {
     let picks = FantasyPick::find()
         .filter(
             fantasy_pick::Column::User
@@ -296,7 +297,10 @@ pub async fn get_user_picks_in_tournament(
                 .and(fantasy_pick::Column::Division.eq(div.to_string())),
         )
         .all(db)
-        .await?;
+        .await.map_err(|e|{
+        warn!("Error while getting picks: {:#?}", e);
+        GenericError::UnknownError("Unknown error while getting picks")
+    })?;
     let owner = requester.id == user_id;
 
     Ok(FantasyPicks {

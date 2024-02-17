@@ -11,7 +11,7 @@ use rocket::{
 };
 
 use rocket_okapi::{openapi, request::OpenApiFromRequest};
-use sea_orm::{DatabaseConnection, EntityTrait, ModelTrait, TransactionTrait};
+use sea_orm::{ConnectionTrait, DatabaseConnection, EntityTrait, ModelTrait, TransactionTrait};
 
 use crate::error;
 use crate::error::{GenericError, UserError};
@@ -35,6 +35,14 @@ pub struct AllowedToExchangeGuard(bool);
 impl AllowedToExchangeGuard {
     pub fn is_allowed(&self) -> bool {
         self.0
+    }
+
+    pub async fn is_move_allowed(&self, db: &impl ConnectionTrait, tournament_id: i32) -> bool {
+        if self.0 {
+            true
+        } else {
+            service::query::has_exchange_begun(db, tournament_id).await.unwrap_or(false)
+        }
     }
 }
 

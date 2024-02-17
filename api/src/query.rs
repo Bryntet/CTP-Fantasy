@@ -77,10 +77,10 @@ pub(crate) async fn get_user_picks(
 ) -> Result<Json<FantasyPicks>, GenericError> {
     let res = service::get_user_picks_in_tournament(
         db.inner(),
-        requester.to_user_model(db.inner()).await?,
+        &requester.to_user_model(db.inner()).await?,
         user_id,
         tournament_id,
-        division,
+        &division,
     )
     .await;
     //dbg!(&res);
