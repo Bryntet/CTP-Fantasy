@@ -194,62 +194,6 @@ pub(crate) async fn add_picks(
     }
 }
 
-
-
-#[openapi(tag = "Fantasy Tournament")]
-#[post(
-    "/fantasy-tournament/<fantasy_tournament_id>/user/<user_id>/picks/div/<division>/move",
-    format = "json",
-    data = "<json_picks>"
-)]
-pub(crate) async fn re_order_picks(
-    user: authenticate::UserAuthentication,
-    exchange: AllowedToExchangeGuard,
-    db: &State<DatabaseConnection>,
-    user_id: i32,
-    fantasy_tournament_id: i32,
-    json_picks: Json<Vec<FantasyPick>>,
-    division: service::dto::Division,
-) -> Result<String, GenericError> {
-    let db = db.inner();
-    let user = user.to_user_model(db).await?;
-    if user.id != user_id {
-        return Err(
-            UserError::NotPermitted("You are not permitted to add picks for this user").into(),
-        );
-    }
-    if !exchange.is_move_allowed(db, fantasy_tournament_id).await {
-        return Err(
-            GenericError::NotPermitted("You are not allowed to exchange picks at this time"),
-        );
-    }
-
-
-    let current_picks: FantasyPicks = service::query::get_user_picks_in_tournament(db, &user, user.id, fantasy_tournament_id, &division).await?;
-
-    let picks = json_picks.into_inner();
-    let all_picks_match = picks.iter().all(|p| {
-        current_picks.picks.iter().any(|other|other.pdga_number==p.pdga_number)
-    });
-    if all_picks_match {
-        let txn = db
-            .begin()
-            .await
-            .map_err(|_| GenericError::UnknownError("transaction start failed"))?;
-        for pick in picks {
-            pick.change_or_insert(&txn, user.id, fantasy_tournament_id, division.clone())
-                .await?;
-        }
-        txn.commit()
-            .await
-            .map_err(|_| GenericError::UnknownError("transaction failed"))?;
-        Ok("Successfully added picks".to_string())
-    } else {
-        Err(GenericError::BadRequest("Some of the picks you are trying to move are not in the tournament"))
-    }
-
-}
-
 #[openapi(tag = "Fantasy Tournament")]
 #[post("/fantasy-tournament/<fantasy_tournament_id>/invite/<invited_user>")]
 pub(crate) async fn invite_user(
