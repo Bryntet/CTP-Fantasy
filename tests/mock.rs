@@ -138,14 +138,14 @@ mod tests {
         slot: u8,
     ) -> LocalResponse {
         let div = div.to_string().to_uppercase();
-        let res = client
+        
+
+        client
             .put(format!(
                 "/fantasy-tournament/1/user/1/picks/div/{div}/{slot}/{player}"
             ))
             .dispatch()
-            .await;
-
-        res
+            .await
     }
     async fn any_pick(db: &DatabaseConnection) -> bool {
         let picks = entity::fantasy_pick::Entity::find().all(db).await.unwrap();

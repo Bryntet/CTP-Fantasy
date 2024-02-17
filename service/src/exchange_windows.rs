@@ -1,11 +1,11 @@
 use crate::query::get_fantasy_tournament_model;
 use crate::{
-    error::GenericError, get_competitions_in_fantasy_tournament, get_fantasy_tournament,
+    error::GenericError, get_competitions_in_fantasy_tournament,
     get_user_participants_in_tournament,
 };
 use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime, Timelike};
 use entity::sea_orm_active_enums::CompetitionStatus;
-use sea_orm::{ConnectionTrait, EntityTrait};
+use sea_orm::{ConnectionTrait};
 use std::ops::Add;
 
 pub async fn is_user_allowed_to_exchange(

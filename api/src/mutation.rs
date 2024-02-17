@@ -4,7 +4,7 @@ use rocket::State;
 use rocket_okapi::openapi;
 use sea_orm::RuntimeErr::SqlxError;
 use sea_orm::{DatabaseConnection, DbErr};
-use sea_orm::{IntoActiveModel, TransactionTrait, TryIntoModel};
+use sea_orm::{TransactionTrait};
 
 use error::GenericError;
 use service::dto::{forms, traits::InsertCompetition, FantasyPick, FantasyPicks, UserLogin};
