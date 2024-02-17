@@ -9,7 +9,7 @@ mod tests {
     use rocket::figment::Profile;
     use rocket::local::asynchronous::{Client, LocalResponse};
     use rocket::log::private::LevelFilter;
-    use rocket::{error, launch, warn, Config};
+    use rocket::{error, warn, Config};
     use sea_orm::{ConnectOptions, ConnectionTrait, Database, DatabaseConnection, EntityTrait};
     use service::dto::UserLogin;
 
@@ -21,8 +21,9 @@ mod tests {
         Database::connect(opt).await.expect("Database must exist")
     }
 
-    #[launch]
-    async fn rocket() -> _ {
+    use rocket::{Rocket, Build};
+
+    async fn rocket() -> Rocket<Build> {
         let config = Config {
             profile: Profile::Global,
             log_level: rocket::config::LogLevel::Critical,
