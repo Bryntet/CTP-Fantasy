@@ -124,7 +124,6 @@ impl CompetitionInfo {
         &self,
         level: entity::sea_orm_active_enums::CompetitionLevel,
     ) -> competition::ActiveModel {
-
         competition::ActiveModel {
             id: Set(self.competition_id as i32),
             status: Set(self.is_active().into()),

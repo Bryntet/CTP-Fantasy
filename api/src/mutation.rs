@@ -3,11 +3,11 @@ use rocket::serde::json::Json;
 use rocket::State;
 use rocket_okapi::openapi;
 use sea_orm::RuntimeErr::SqlxError;
-use sea_orm::{IntoActiveModel, TransactionTrait, TryIntoModel};
 use sea_orm::{DatabaseConnection, DbErr};
+use sea_orm::{IntoActiveModel, TransactionTrait, TryIntoModel};
 
 use error::GenericError;
-use service::dto::{forms, traits::InsertCompetition, FantasyPick, UserLogin, FantasyPicks};
+use service::dto::{forms, traits::InsertCompetition, FantasyPick, FantasyPicks, UserLogin};
 
 use crate::authenticate;
 use crate::authenticate::AllowedToExchangeGuard;
@@ -165,11 +165,21 @@ pub(crate) async fn add_picks(
         );
     }
 
-    let current_picks: FantasyPicks = service::query::get_user_picks_in_tournament(db, &user, user.id, fantasy_tournament_id, &division).await?;
+    let current_picks: FantasyPicks = service::query::get_user_picks_in_tournament(
+        db,
+        &user,
+        user.id,
+        fantasy_tournament_id,
+        &division,
+    )
+    .await?;
 
     let picks = json_picks.into_inner();
     let all_picks_match = picks.iter().all(|p| {
-        current_picks.picks.iter().any(|other|other.pdga_number==p.pdga_number)
+        current_picks
+            .picks
+            .iter()
+            .any(|other| other.pdga_number == p.pdga_number)
     });
 
     let move_allowed = exchange.is_move_allowed(db, fantasy_tournament_id).await && all_picks_match;
@@ -188,9 +198,9 @@ pub(crate) async fn add_picks(
             .map_err(|_| GenericError::UnknownError("transaction failed"))?;
         Ok("Successfully added or reordered picks".to_string())
     } else {
-        Err(
-            GenericError::NotPermitted("You are not allowed to exchange picks at this time"),
-        )
+        Err(GenericError::NotPermitted(
+            "You are not allowed to exchange picks at this time",
+        ))
     }
 }
 

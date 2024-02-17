@@ -391,11 +391,13 @@ impl RoundInformation {
         //dbg!(&url);
         tokio::time::sleep(std::time::Duration::from_millis(250)).await;
 
-        let text_response  = reqwest::get(url)
+        let text_response = reqwest::get(url)
             .await
             .map_err(|_| {
                 GenericError::UnknownError("Internal error while fetching round from PDGA")
-            })?.text().await;
+            })?
+            .text()
+            .await;
         let mut resp: ApiRes = serde_json::from_str(&text_response.unwrap()).map_err(|e| {
             dbg!("it errorred", e);
             GenericError::UnknownError(
@@ -476,7 +478,6 @@ impl RoundInformation {
         self.players.extend(other.players);
     }
 }
-
 
 #[cfg(test)]
 mod tests {

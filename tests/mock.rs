@@ -131,7 +131,12 @@ mod tests {
         !competitions.is_empty()
     }
 
-    pub async fn add_pick(client: &Client, player: i32, div: service::dto::Division, slot: u8) -> LocalResponse {
+    pub async fn add_pick(
+        client: &Client,
+        player: i32,
+        div: service::dto::Division,
+        slot: u8,
+    ) -> LocalResponse {
         let div = div.to_string().to_uppercase();
         let res = client
             .put(format!(
@@ -166,7 +171,6 @@ mod tests {
 
         assert!(!any_user_scores(&db).await);
 
-
         add_pick(&client, 69424, Division::MPO, 1).await;
         assert!(any_pick(&db).await);
 
@@ -176,7 +180,13 @@ mod tests {
         add_competition(&client, 75961, CompetitionLevel::Playoff).await;
 
         // Shouldn't be able to switch pick due to above competition being active
-        assert_eq!(add_pick(&client, 7438, Division::FPO, 3).await.status().code,403);
+        assert_eq!(
+            add_pick(&client, 7438, Division::FPO, 3)
+                .await
+                .status()
+                .code,
+            403
+        );
         let _ = refresh_user_scores_in_all(&db).await;
         let _ = service::mutation::update_active_rounds(&db).await;
 

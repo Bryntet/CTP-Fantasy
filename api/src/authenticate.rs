@@ -41,11 +41,12 @@ impl AllowedToExchangeGuard {
         if self.0 {
             true
         } else {
-            service::query::has_exchange_begun(db, tournament_id).await.unwrap_or(false)
+            service::query::has_exchange_begun(db, tournament_id)
+                .await
+                .unwrap_or(false)
         }
     }
 }
-
 
 #[rocket::async_trait]
 impl<'r> FromRequest<'r> for AllowedToExchangeGuard {
@@ -59,30 +60,32 @@ impl<'r> FromRequest<'r> for AllowedToExchangeGuard {
         let user = request.guard::<UserAuthentication>().await;
         let tournament_id = request.param::<u32>(1);
         if !user.is_success() {
-            Outcome::Error((Status::Unauthorized, Self::Error::NotFound("You are not authorized to do this for this user.")))
+            Outcome::Error((
+                Status::Unauthorized,
+                Self::Error::NotFound("You are not authorized to do this for this user."),
+            ))
         } else if let (Some(user), Some(Ok(tournament_id))) = (user.succeeded(), tournament_id) {
-
             let user = user.get_user(db).await;
 
             if let Ok(Some(user)) = user {
                 let user = user.id;
-                match service::query::is_user_allowed_to_exchange(db, user, tournament_id as i32).await {
-                    Ok(allowed) => {
-                        Outcome::Success(AllowedToExchangeGuard(allowed))
-                    }
-                    Err(e) => {
-                        Outcome::Error((Status::InternalServerError, e))
-                    }
+                match service::query::is_user_allowed_to_exchange(db, user, tournament_id as i32)
+                    .await
+                {
+                    Ok(allowed) => Outcome::Success(AllowedToExchangeGuard(allowed)),
+                    Err(e) => Outcome::Error((Status::InternalServerError, e)),
                 }
             } else {
                 Outcome::Error((Status::NoContent, Self::Error::NotFound("User not found")))
             }
         } else {
-            Outcome::Error((Status::NoContent, Self::Error::NotFound("Tournament id not found")))
+            Outcome::Error((
+                Status::NoContent,
+                Self::Error::NotFound("Tournament id not found"),
+            ))
         }
     }
 }
-
 
 impl TournamentOwner {
     async fn is_authenticated(&self, db: &DatabaseConnection) -> bool {
@@ -263,11 +266,6 @@ impl<'a> FromRequest<'a> for UserAuthentication {
             ))
     }
 }
-
-
-
-
-
 
 /*impl<'a> OpenApiFromRequest<'a> for CookieAuth {
     fn from_request_input(

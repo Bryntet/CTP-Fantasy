@@ -331,8 +331,7 @@ impl InsertCompetition for CompetitionInfo {
         db: &impl ConnectionTrait,
         level: sea_orm_active_enums::CompetitionLevel,
     ) -> Result<(), GenericError> {
-        let active =
-        self.active_model(level);
+        let active = self.active_model(level);
         dbg!(&active.status);
         active
             .insert(db)
@@ -403,8 +402,6 @@ impl CompetitionInfo {
         add_players(db, players, fantasy_tournament_id).await?;
         Ok(())
     }
-
-    
 
     pub async fn save_user_scores(
         &self,
