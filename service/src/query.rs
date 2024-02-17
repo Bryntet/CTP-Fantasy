@@ -1,7 +1,11 @@
+use std::ops::Add;
 use bcrypt::verify;
+use chrono::{Duration, NaiveDateTime, Timelike};
+use chrono_tz::Tz;
+use itertools::Itertools;
 use dto::InvitationStatus;
 use entity::prelude::*;
-use entity::sea_orm_active_enums::Division;
+use entity::sea_orm_active_enums::{CompetitionStatus, Division};
 use entity::*;
 
 use rocket_okapi::okapi::schemars;
@@ -98,6 +102,7 @@ impl From<sea_orm_active_enums::FantasyTournamentInvitationStatus> for Invitatio
         }
     }
 }
+
 pub async fn get_fantasy_tournaments(
     db: &DatabaseConnection,
     user_id: i32,
@@ -126,10 +131,10 @@ pub async fn get_fantasy_tournaments(
 }
 
 pub async fn get_fantasy_tournament(
-    db: &DatabaseConnection,
+    db: &impl ConnectionTrait,
     tournament_id: i32,
-) -> Result<Option<SimpleFantasyTournament>, DbErr> {
-    let t = FantasyTournament::find_by_id(tournament_id).one(db).await?;
+) -> Result<Option<SimpleFantasyTournament>, GenericError> {
+    let t = FantasyTournament::find_by_id(tournament_id).one(db).await.map_err(|_|GenericError::UnknownError("Unknown DB ERROR"))?;
 
     if let Some(t) = t {
         Ok(Some(SimpleFantasyTournament {
@@ -143,10 +148,19 @@ pub async fn get_fantasy_tournament(
     }
 }
 
-pub async fn get_participants(
-    db: &DatabaseConnection,
+
+pub(crate) async fn get_fantasy_tournament_model(
+    db: &impl ConnectionTrait,
     tournament_id: i32,
-) -> Result<Vec<dto::User>, DbErr> {
+) -> Result<Option<entity::fantasy_tournament::Model>, GenericError> {
+    FantasyTournament::find_by_id(tournament_id).one(db).await.map_err(|_|GenericError::UnknownError("Unknown DB ERROR"))
+}
+
+pub use crate::exchange_windows::{see_which_users_can_exchange, is_user_allowed_to_exchange};
+pub async fn get_user_participants_in_tournament(
+    db: &impl ConnectionTrait,
+    tournament_id: i32,
+) -> Result<Vec<dto::User>, GenericError> {
     let participants = UserInFantasyTournament::find()
         .filter(user_in_fantasy_tournament::Column::FantasyTournamentId.eq(tournament_id))
         .filter(
@@ -154,11 +168,11 @@ pub async fn get_participants(
                 .eq(sea_orm_active_enums::FantasyTournamentInvitationStatus::Accepted),
         )
         .all(db)
-        .await?;
+        .await.map_err(|_|GenericError::UnknownError("Unable to recieve users from database"))?;
 
     let mut out_things = Vec::new();
     for participant in participants {
-        if let Some(participant) = participant.find_related(User).one(db).await? {
+        if let Some(participant) = participant.find_related(User).one(db).await.map_err(|_|GenericError::UnknownError("Unable to recieve user from database"))? {
             let score = participant
                 .find_related(UserCompetitionScoreInFantasyTournament)
                 .filter(
@@ -166,7 +180,7 @@ pub async fn get_participants(
                         .eq(tournament_id),
                 )
                 .all(db)
-                .await?
+                .await.map_err(|_|GenericError::UnknownError("Unable to recieve user scores from database"))?
                 .iter()
                 .map(|score| {
                     dbg!(&score);
@@ -178,9 +192,6 @@ pub async fn get_participants(
                 name: participant.name,
                 score,
             };
-            #[cfg(debug_assertions)]
-            dbg!(&user);
-
             out_things.push(user);
         }
     }
@@ -484,5 +495,27 @@ pub async fn get_pending_competitions(
     }
     #[cfg(debug_assertions)]
     dbg!(&out_things);
+    Ok(out_things)
+}
+
+
+
+pub async fn get_users_in_tournament(
+    db: &impl ConnectionTrait,
+    tournament_id: i32,
+) -> Result<Vec<user::Model>, GenericError> {
+    let users_in_tournament = UserInFantasyTournament::find()
+        .filter(user_in_fantasy_tournament::Column::FantasyTournamentId.eq(tournament_id))
+        .all(db)
+        .await.map_err(|_| {
+            GenericError::UnknownError("Unknown error while trying to find users in tournament")
+        })?;
+
+    let mut out_things = Vec::new();
+    for user_in_tournament in users_in_tournament {
+        if let Some(user) = user_in_tournament.find_related(User).one(db).await.map_err(|_| GenericError::UnknownError("Unknown error while trying to find user"))? {
+            out_things.push(user);
+        }
+    }
     Ok(out_things)
 }

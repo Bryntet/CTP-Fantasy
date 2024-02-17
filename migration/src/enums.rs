@@ -43,6 +43,8 @@ pub(crate) enum Competition {
     Status,
     Rounds,
     Level,
+    EndedAt,
+    StartDate
 }
 
 #[derive(Iden, EnumIter)]

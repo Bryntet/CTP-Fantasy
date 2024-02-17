@@ -1,12 +1,11 @@
+use cached::proc_macro::cached;
+use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, TimeZone};
+use itertools::Itertools;
+use rocket::error;
+use serde_derive::Deserialize;
+
 use crate::dto::{Division, RoundInformation};
 use crate::error::GenericError;
-use itertools::Itertools;
-
-use chrono::{DateTime, NaiveDate, NaiveTime, TimeZone, Utc};
-use rocket::error;
-use sea_orm::DbErr;
-use serde_derive::Deserialize;
-use std::collections::HashMap;
 
 #[derive(Deserialize, Debug)]
 pub(super) struct CompetitionInfoResponse {
@@ -38,7 +37,6 @@ pub struct DateRange {
     start: DateTime<chrono_tz::Tz>,
     end: DateTime<chrono_tz::Tz>,
 }
-use cached::proc_macro::cached;
 
 impl DateRange {
     pub async fn new(start: &str, end: &str, location: String, country: String) -> Option<Self> {
@@ -65,6 +63,10 @@ impl DateRange {
         .await
     }
 
+    pub fn timezone(&self) -> chrono_tz::Tz {
+        self.start.timezone()
+    }
+
     pub fn len(&self) -> i64 {
         self.end.signed_duration_since(self.start).num_days()
     }
@@ -83,6 +85,10 @@ impl DateRange {
     fn day(&self, day: i64) -> Option<DateTime<chrono_tz::Tz>> {
         self.start
             .checked_add_days(chrono::Days::new((day - 1) as u64))
+    }
+
+    pub(crate) fn start_date(&self) -> NaiveDate {
+        self.start.naive_local().date()
     }
 }
 
@@ -117,6 +123,7 @@ impl CompetitionInfo {
         let info = resp.data;
         let mut rounds = Vec::new();
         let date_range = DateRange::from_api_comp_info(&info).await.unwrap();
+
         let divs = info
             .divisions
             .into_iter()
@@ -137,9 +144,6 @@ impl CompetitionInfo {
                     .await?,
             )
         }
-        let begin = std::time::Instant::now();
-        let duration = begin.elapsed();
-        dbg!(duration);
 
         let out = Self {
             name: info.name,
@@ -155,7 +159,8 @@ impl CompetitionInfo {
 
 mod blocking {
     use geocoding::{Forward, Openstreetmap, Point};
-    use rtzlib::{CanPerformGeoLookup, NedTimezone, OsmTimezone};
+    use rtzlib::{CanPerformGeoLookup, NedTimezone};
+
     fn get_point(loc: &str) -> Option<Point<f32>> {
         if let Ok(v) = Openstreetmap::new().forward(loc) {
             if !v.is_empty() {
@@ -200,9 +205,7 @@ async fn parse_tz_from_location(location: String, country: String) -> Option<chr
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
-    use chrono::NaiveTime;
 
     #[tokio::test]
     async fn test_parse_date() {

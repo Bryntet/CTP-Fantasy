@@ -1,4 +1,4 @@
-use chrono::DateTime;
+use chrono::{DateTime, TimeZone, Utc};
 use itertools::Itertools;
 use sea_orm::prelude::DateTimeWithTimeZone;
 use sea_orm::ActiveValue::Set;
@@ -124,12 +124,34 @@ impl CompetitionInfo {
         &self,
         level: entity::sea_orm_active_enums::CompetitionLevel,
     ) -> competition::ActiveModel {
+
         competition::ActiveModel {
             id: Set(self.competition_id as i32),
             status: Set(self.is_active().into()),
             name: Set(self.name.clone()),
             rounds: Set(self.date_range.len() as i32),
             level: Set(level),
+            ended_at: Set(self.status_to_finished()),
+            start_date: Set(self.date_range.start_date()),
+        }
+    }
+
+    fn status_to_finished(&self) -> Option<DateTimeWithTimeZone> {
+        match self.is_active() {
+            CompetitionStatus::Finished => {
+                let tz = self.date_range.timezone();
+                let now = Utc::now().naive_utc();
+                let local_time = tz.from_utc_datetime(&now);
+                /*let minute = local_time.minute();
+                let rounded_time = if minute < 30 {
+                    local_time.with_minute(30)?.with_second(0)?
+                } else {
+                    local_time.with_hour(local_time.hour() + 1)?.with_minute(0)?.with_second(0)?
+                };*/
+
+                Some(DateTimeWithTimeZone::from(local_time.fixed_offset()))
+            }
+            _ => None,
         }
     }
 
@@ -192,7 +214,7 @@ impl CompetitionInfo {
             match self.is_active() {
                 CompetitionStatus::Finished => highest as usize - 1,
                 CompetitionStatus::Active(round) => round - 1,
-                CompetitionStatus::Pending(round) => round - 1,
+                CompetitionStatus::Pending => 0,
             }
         } else {
             0
@@ -224,27 +246,23 @@ impl CompetitionInfo {
     }
 
     fn is_active(&self) -> CompetitionStatus {
-        let mut ret = CompetitionStatus::Pending(0);
-        let mut round = 0;
-        while round < self.rounds.len() {
-            let status = self.rounds[round].status();
-            ret = match status {
-                RoundStatus::Finished => CompetitionStatus::Finished,
-                RoundStatus::Pending => CompetitionStatus::Pending(round),
-                RoundStatus::Started => CompetitionStatus::Active(round),
-                RoundStatus::DNF => {
-                    panic!("UNREACHABLE ROUND HAS STATUS DNF")
-                }
-            };
-            round += 1;
+        let mut rounds = self.rounds.iter();
+        if rounds.all(|r| r.status() == RoundStatus::Finished) {
+            CompetitionStatus::Finished
+        } else if let Some(r) = rounds
+            .filter(|r| !(r.status() == RoundStatus::Started))
+            .map(|r| r.round_number)
+            .max()
+        {
+            CompetitionStatus::Active(r)
+        } else {
+            CompetitionStatus::Pending
         }
-
-        ret
     }
 }
 
 enum CompetitionStatus {
-    Pending(usize),
+    Pending,
     Active(usize),
     Finished,
 }
@@ -252,7 +270,7 @@ enum CompetitionStatus {
 impl From<CompetitionStatus> for sea_orm_active_enums::CompetitionStatus {
     fn from(status: CompetitionStatus) -> Self {
         match status {
-            CompetitionStatus::Pending(_) => sea_orm_active_enums::CompetitionStatus::NotStarted,
+            CompetitionStatus::Pending => sea_orm_active_enums::CompetitionStatus::NotStarted,
             CompetitionStatus::Active(_) => sea_orm_active_enums::CompetitionStatus::Running,
             CompetitionStatus::Finished => sea_orm_active_enums::CompetitionStatus::Finished,
         }

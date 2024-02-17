@@ -10,6 +10,7 @@ use error::GenericError;
 use service::dto::{forms, traits::InsertCompetition, FantasyPick, UserLogin};
 
 use crate::authenticate;
+use crate::authenticate::AllowedToExchangeGuard;
 use crate::error;
 use crate::error::{TournamentError, UserError};
 
@@ -43,7 +44,7 @@ use crate::error::{TournamentError, UserError};
 pub(crate) async fn create_tournament(
     tournament: Json<service::dto::CreateTournament>,
     db: &State<DatabaseConnection>,
-    user: authenticate::Authenticated,
+    user: authenticate::UserAuthentication,
 ) -> Result<(), GenericError> {
     let user_model = user.to_user_model(db.inner()).await?;
     let res = tournament
@@ -97,9 +98,11 @@ pub async fn create_user(
 ///
 /// A string indicating success
 #[openapi(tag = "Fantasy Tournament")]
+#[allow(clippy::too_many_arguments)]
 #[put("/fantasy-tournament/<fantasy_tournament_id>/user/<user_id>/picks/div/<division>/<slot>/<pdga_number>")]
 pub(crate) async fn add_pick(
-    user: authenticate::Authenticated,
+    user: authenticate::UserAuthentication,
+    exchange: AllowedToExchangeGuard,
     db: &State<DatabaseConnection>,
     user_id: i32,
     fantasy_tournament_id: i32,
@@ -108,6 +111,11 @@ pub(crate) async fn add_pick(
     division: service::dto::Division,
 ) -> Result<&'static str, GenericError> {
     let not_permitted = UserError::NotPermitted("You are not permitted to add picks for this user");
+    if !exchange.is_allowed() {
+        return Err(GenericError::NotPermitted(
+            "You are not allowed to exchange picks at this time",
+        ));
+    }
     let db = db.inner();
     let user = user.to_user_model(db).await?;
     if service::check_if_user_in_tournament(db, user.id, fantasy_tournament_id)
@@ -141,7 +149,8 @@ pub(crate) async fn add_pick(
     data = "<json_picks>"
 )]
 pub(crate) async fn add_picks(
-    user: authenticate::Authenticated,
+    user: authenticate::UserAuthentication,
+    exchange: AllowedToExchangeGuard,
     db: &State<DatabaseConnection>,
     user_id: i32,
     fantasy_tournament_id: i32,
@@ -152,6 +161,11 @@ pub(crate) async fn add_picks(
     if user.id != user_id {
         return Err(
             UserError::NotPermitted("You are not permitted to add picks for this user").into(),
+        );
+    }
+    if !exchange.is_allowed() {
+        return Err(
+            GenericError::NotPermitted("You are not allowed to exchange picks at this time"),
         );
     }
     let txn = db
@@ -188,7 +202,7 @@ pub(crate) async fn invite_user(
 #[openapi(tag = "Fantasy Tournament")]
 #[post("/fantasy-tournament/<fantasy_tournament_id>/answer-invite/<accepted>")]
 pub(crate) async fn answer_invite(
-    user: authenticate::Authenticated,
+    user: authenticate::UserAuthentication,
     db: &State<DatabaseConnection>,
     fantasy_tournament_id: i32,
     accepted: bool,

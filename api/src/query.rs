@@ -13,7 +13,7 @@ use service::{dto, SimpleFantasyTournament};
 #[get("/my-tournaments")]
 pub(crate) async fn see_tournaments(
     db: &State<DatabaseConnection>,
-    user: authenticate::Authenticated,
+    user: authenticate::UserAuthentication,
 ) -> Result<Json<Vec<SimpleFantasyTournament>>, GenericError> {
     let user_model = user.to_user_model(db.inner()).await?;
     match service::get_fantasy_tournaments(db.inner(), user_model.id).await {
@@ -40,7 +40,7 @@ pub(crate) async fn see_participants(
     db: &State<DatabaseConnection>,
     id: i32,
 ) -> Result<Json<Vec<dto::User>>, GenericError> {
-    match service::get_participants(db.inner(), id).await {
+    match service::get_user_participants_in_tournament(db.inner(), id).await {
         Ok(participants) => Ok(Json(participants)),
         Err(_) => Err(UserError::InvalidUserId("Unknown user").into()),
     }
@@ -50,7 +50,7 @@ pub(crate) async fn see_participants(
 #[get("/fantasy-tournament/<tournament_id>/user/<user_id>/picks/<pick_slot>")]
 pub(crate) async fn get_user_pick(
     db: &State<DatabaseConnection>,
-    requester: authenticate::Authenticated,
+    requester: authenticate::UserAuthentication,
     tournament_id: i32,
     user_id: i32,
     pick_slot: i32,
@@ -70,7 +70,7 @@ pub(crate) async fn get_user_pick(
 #[get("/fantasy-tournament/<tournament_id>/user/<user_id>/picks/div/<division>")]
 pub(crate) async fn get_user_picks(
     db: &State<DatabaseConnection>,
-    requester: authenticate::Authenticated,
+    requester: authenticate::UserAuthentication,
     tournament_id: i32,
     user_id: i32,
     division: dto::Division,
@@ -106,7 +106,7 @@ pub(crate) async fn get_divisions(
 #[get("/my-id")]
 pub(crate) async fn get_my_id(
     db: &State<DatabaseConnection>,
-    user: authenticate::Authenticated,
+    user: authenticate::UserAuthentication,
 ) -> Result<Json<i32>, GenericError> {
     let user_model = user.get_user(db.inner()).await?;
     if let Some(user_model) = user_model {

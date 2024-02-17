@@ -15,6 +15,8 @@ pub struct Model {
     pub status: CompetitionStatus,
     pub rounds: i32,
     pub level: CompetitionLevel,
+    pub ended_at: Option<DateTimeWithTimeZone>,
+    pub start_date: Date,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

@@ -171,11 +171,13 @@ pub async fn refresh_user_scores_in_fantasy(
     for comp_id in comp_ids {
         match dto::CompetitionInfo::from_web(comp_id).await {
             Err(GenericError::PdgaGaveUp(_)) => {
-                tokio::time::sleep(tokio::time::Duration::from_millis(250)).await;
-                dto::CompetitionInfo::from_web(comp_id)
-                    .await?
+                tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+                let comp = dto::CompetitionInfo::from_web(comp_id)
+                    .await?;
+                comp
                     .save_user_scores(db, fantasy_tournament_id)
-                    .await?
+                    .await?;
+
             }
             Ok(comp) => comp.save_user_scores(db, fantasy_tournament_id).await?,
             Err(e) => Err(e)?,

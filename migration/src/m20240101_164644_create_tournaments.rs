@@ -45,6 +45,8 @@ impl MigrationTrait for Migration {
                             .custom(CompetitionLevel::Table)
                             .not_null(),
                     )
+                    .col(ColumnDef::new(Competition::EndedAt).timestamp_with_time_zone())
+                    .col(ColumnDef::new(Competition::StartDate).date().not_null())
                     .to_owned(),
             )
             .await?;

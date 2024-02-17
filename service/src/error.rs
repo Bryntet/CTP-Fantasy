@@ -16,6 +16,8 @@ pub enum GenericError {
     UnknownError(&'static str),
     #[response(status = 500)]
     PdgaGaveUp(&'static str),
+    #[response(status = 403)]
+    NotPermitted(&'static str),
     TournamentError(TournamentError),
     UserError(UserError),
     CookieError(AuthError),
@@ -33,6 +35,7 @@ pub enum GenericError {
     #[response(status = 400)]
     BadRequest(&'static str),
 }
+
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Responder)]
 #[response(content_type = "json")]

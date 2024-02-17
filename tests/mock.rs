@@ -7,7 +7,7 @@ mod tests {
     use dotenvy::dotenv;
     use migration::MigratorTrait;
     use rocket::figment::Profile;
-    use rocket::local::asynchronous::Client;
+    use rocket::local::asynchronous::{Client, LocalResponse};
     use rocket::log::private::LevelFilter;
     use rocket::{error, launch, warn, Config};
     use sea_orm::{ConnectOptions, ConnectionTrait, Database, DatabaseConnection, EntityTrait};
@@ -122,7 +122,7 @@ mod tests {
             .json(&new_competition)
             .dispatch()
             .await;
-        if res.status().code >= 400 {
+        if res.status().code != 200 {
             warn!("{}", res.into_string().await.unwrap());
         }
     }
@@ -131,7 +131,7 @@ mod tests {
         !competitions.is_empty()
     }
 
-    pub async fn add_pick(client: &Client, player: i32, div: service::dto::Division, slot: u8) {
+    pub async fn add_pick(client: &Client, player: i32, div: service::dto::Division, slot: u8) -> LocalResponse {
         let div = div.to_string().to_uppercase();
         let res = client
             .put(format!(
@@ -139,9 +139,8 @@ mod tests {
             ))
             .dispatch()
             .await;
-        if res.status().code >= 400 {
-            error!("{}", res.into_string().await.unwrap());
-        }
+
+        res
     }
     async fn any_pick(db: &DatabaseConnection) -> bool {
         let picks = entity::fantasy_pick::Entity::find().all(db).await.unwrap();
@@ -165,16 +164,22 @@ mod tests {
         add_competition(&client, 73836, CompetitionLevel::Major).await;
         assert!(any_competition(&db).await);
 
-        add_pick(&client, 7438, Division::FPO, 3).await;
+        assert!(!any_user_scores(&db).await);
+
+
+        add_pick(&client, 69424, Division::MPO, 1).await;
         assert!(any_pick(&db).await);
 
         assert!(any_round_scores(&db).await);
         assert!(!any_user_scores(&db).await);
-        add_pick(&client, 69424, Division::MPO, 1).await;
-        let res = refresh_user_scores_in_all(&db).await;
-        if let Err(e) = res {
-            error!("Tried to refresh all user scores: {:?}", e)
-        }
+
+        add_competition(&client, 75961, CompetitionLevel::Playoff).await;
+
+        // Shouldn't be able to switch pick due to above competition being active
+        assert_eq!(add_pick(&client, 7438, Division::FPO, 3).await.status().code,403);
+        let _ = refresh_user_scores_in_all(&db).await;
+        let _ = service::mutation::update_active_rounds(&db).await;
+
         assert!(any_user_scores(&db).await);
     }
 }

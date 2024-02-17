@@ -5,7 +5,7 @@ use sea_orm::{sea_query, ConnectionTrait, EntityTrait};
 
 use serde::Deserialize;
 
-use crate::dto::pdga::player_scoring::{PlayerScore, RoundStatus};
+use crate::dto::pdga::player_scoring::{PlayerScore, PlayerStatus};
 use crate::dto::Division;
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -31,7 +31,7 @@ pub struct ApiPlayer {
     pub player_started_round: bool,
     #[serde(deserialize_with = "bool_from_int", rename = "Completed")]
     pub player_finished_round: bool,
-    pub running_place: u16,
+    pub running_place: Option<u16>,
     #[serde(rename = "RoundScore", deserialize_with = "flexible_number")]
     pub throws: u8,
     pub hole_scores: Vec<String>,
@@ -114,19 +114,27 @@ mod serde_things {
 use crate::error::GenericError;
 use serde_things::{bool_from_int, flexible_number};
 
+impl From<&ApiPlayer> for PlayerStatus {
+    fn from(p: &ApiPlayer) -> Self {
+        if p.throws == u8::MAX {
+            PlayerStatus::DidNotFinish
+        } else if p.player_finished_round {
+            if p.player_started_round {
+                PlayerStatus::Finished
+            } else {
+                PlayerStatus::DidNotStart
+            }
+        } else if p.player_started_round {
+            PlayerStatus::Started
+        } else {
+            PlayerStatus::Pending
+        }
+    }
+}
+
 impl From<ApiPlayer> for PlayerScore {
     fn from(p: ApiPlayer) -> Self {
-        let round_status = if p.player_started_round {
-            if p.player_finished_round {
-                RoundStatus::Finished
-            } else {
-                RoundStatus::Started
-            }
-        } else if p.player_finished_round || p.throws == u8::MAX {
-            RoundStatus::DNF
-        } else {
-            RoundStatus::Pending
-        };
+        let status: PlayerStatus = PlayerStatus::from(&p);
 
         Self {
             pdga_number: p.pdga_number,
@@ -137,8 +145,8 @@ impl From<ApiPlayer> for PlayerScore {
                 .iter()
                 .filter_map(|s| s.parse::<u8>().ok())
                 .collect(),
-            placement: p.running_place,
-            started: round_status,
+            placement: p.running_place.unwrap_or(0),
+            started: status,
             division: p.division,
             name: p.name,
             first_name: p.first_name,

@@ -2,7 +2,7 @@ use entity::prelude::User;
 use entity::{user, user_cookies};
 
 use rocket::http::{Cookie, CookieJar, Status};
-use rocket::outcome::IntoOutcome;
+use rocket::outcome::{IntoOutcome, Outcome};
 use rocket::serde::json::Json;
 use rocket::{
     get,
@@ -21,13 +21,60 @@ use sea_orm::QueryFilter;
 use user::Model as UserModel;
 use user_cookies::Model as CookieModel;
 #[derive(OpenApiFromRequest, Debug)]
-pub struct Authenticated(String);
+pub struct UserAuthentication(String);
 
 #[derive(OpenApiFromRequest, Debug)]
 pub struct TournamentOwner {
-    pub user: Authenticated,
+    pub user: UserAuthentication,
     pub tournament_id: u32,
 }
+
+#[derive(OpenApiFromRequest, Debug)]
+pub struct AllowedToExchangeGuard(bool);
+
+impl AllowedToExchangeGuard {
+    pub fn is_allowed(&self) -> bool {
+        self.0
+    }
+}
+
+
+#[rocket::async_trait]
+impl<'r> FromRequest<'r> for AllowedToExchangeGuard {
+    type Error = GenericError;
+
+    async fn from_request(request: &'r Request<'_>) -> request::Outcome<Self, Self::Error> {
+        let db = request
+            .rocket()
+            .state::<DatabaseConnection>()
+            .expect("Database not found");
+        let user = request.guard::<UserAuthentication>().await;
+        let tournament_id = request.param::<u32>(1);
+        if !user.is_success() {
+            Outcome::Error((Status::Unauthorized, Self::Error::NotFound("You are not authorized to do this for this user.")))
+        } else if let (Some(user), Some(Ok(tournament_id))) = (user.succeeded(), tournament_id) {
+
+            let user = user.get_user(db).await;
+
+            if let Ok(Some(user)) = user {
+                let user = user.id;
+                match service::query::is_user_allowed_to_exchange(db, user, tournament_id as i32).await {
+                    Ok(allowed) => {
+                        Outcome::Success(AllowedToExchangeGuard(allowed))
+                    }
+                    Err(e) => {
+                        Outcome::Error((Status::InternalServerError, e))
+                    }
+                }
+            } else {
+                Outcome::Error((Status::NoContent, Self::Error::NotFound("User not found")))
+            }
+        } else {
+            Outcome::Error((Status::NoContent, Self::Error::NotFound("Tournament id not found")))
+        }
+    }
+}
+
 
 impl TournamentOwner {
     async fn is_authenticated(&self, db: &DatabaseConnection) -> bool {
@@ -56,8 +103,8 @@ impl<'r> FromRequest<'r> for TournamentOwner {
             .rocket()
             .state::<DatabaseConnection>()
             .expect("Database not found");
-        let cookie: request::Outcome<Authenticated, Json<Self::Error>> =
-            request.guard::<Authenticated>().await;
+        let cookie: request::Outcome<UserAuthentication, Json<Self::Error>> =
+            request.guard::<UserAuthentication>().await;
 
         let t: Self = if let Some(cookie) = cookie.succeeded() {
             if let Some(Ok(t_id)) = request.param::<u32>(1) {
@@ -82,7 +129,7 @@ impl<'r> FromRequest<'r> for TournamentOwner {
     }
 }
 
-impl Authenticated {
+impl UserAuthentication {
     async fn get_cookie(
         &self,
         db: &DatabaseConnection,
@@ -183,7 +230,7 @@ impl Authenticated {
 
 // Implement the actual checks for the authentication
 #[rocket::async_trait]
-impl<'a> FromRequest<'a> for Authenticated {
+impl<'a> FromRequest<'a> for UserAuthentication {
     type Error = Json<AuthError>;
     async fn from_request(request: &'a Request<'_>) -> request::Outcome<Self, Self::Error> {
         let db = request
@@ -200,7 +247,7 @@ impl<'a> FromRequest<'a> for Authenticated {
             ));
         };
 
-        Authenticated::new_checked(cookie.value().to_string(), db)
+        UserAuthentication::new_checked(cookie.value().to_string(), db)
             .await
             .or_error((
                 Status::Forbidden,
@@ -208,6 +255,11 @@ impl<'a> FromRequest<'a> for Authenticated {
             ))
     }
 }
+
+
+
+
+
 
 /*impl<'a> OpenApiFromRequest<'a> for CookieAuth {
     fn from_request_input(
@@ -238,7 +290,7 @@ impl<'a> FromRequest<'a> for Authenticated {
 
 #[openapi(tag = "User")]
 #[get("/check-cookie")]
-pub async fn check_cookie(_user_cookie: Authenticated) -> &'static str {
+pub async fn check_cookie(_user_cookie: UserAuthentication) -> &'static str {
     "Authenticated"
 }
 
@@ -299,7 +351,7 @@ pub(crate) async fn login(
 pub(crate) async fn logout(
     db: &State<DatabaseConnection>,
     cookies: &CookieJar<'_>,
-    user: Authenticated,
+    user: UserAuthentication,
 ) -> Result<&'static str, GenericError> {
     user.remove_cookie(db.inner(), cookies).await?;
 
@@ -311,7 +363,7 @@ pub(crate) async fn logout(
 pub(crate) async fn logout_all(
     db: &State<DatabaseConnection>,
     cookies: &CookieJar<'_>,
-    user: Authenticated,
+    user: UserAuthentication,
 ) -> Result<&'static str, GenericError> {
     user.remove_all_cookies(db.inner(), cookies).await?;
 
