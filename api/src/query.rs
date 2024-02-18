@@ -58,9 +58,7 @@ pub(crate) async fn get_user_pick(
     if requester.to_user_model(db.inner()).await?.id != user_id {
         Err(UserError::NotPermitted("You are not permitted to view this pick").into())
     } else {
-        match service::get_user_pick_in_tournament(db.inner(), user_id, tournament_id, pick_slot)
-            .await
-        {
+        match service::get_user_pick_in_tournament(db.inner(), user_id, tournament_id, pick_slot).await {
             Ok(pick) => Ok(Json(pick)),
             Err(_) => Err(GenericError::NotFound("Pick not found")),
         }

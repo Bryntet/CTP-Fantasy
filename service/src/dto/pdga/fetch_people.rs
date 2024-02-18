@@ -118,6 +118,8 @@ impl From<&ApiPlayer> for PlayerStatus {
     fn from(p: &ApiPlayer) -> Self {
         if p.throws == u8::MAX {
             PlayerStatus::DidNotFinish
+        } else if p.running_place.is_some_and(|place| place == 0) {
+            PlayerStatus::DidNotStart
         } else if p.player_finished_round {
             if p.player_started_round {
                 PlayerStatus::Finished

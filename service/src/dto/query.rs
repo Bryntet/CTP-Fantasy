@@ -112,9 +112,7 @@ impl FantasyPick {
             )
             .one(db)
             .await
-            .map_err(|_| {
-                GenericError::UnknownError("Unknown error while trying to find pick in database")
-            })?;
+            .map_err(|_| GenericError::UnknownError("Unknown error while trying to find pick in database"))?;
         Ok(existing_pick)
     }
 }
@@ -126,7 +124,7 @@ impl CompetitionInfo {
     ) -> competition::ActiveModel {
         competition::ActiveModel {
             id: Set(self.competition_id as i32),
-            status: Set(self.is_active().into()),
+            status: Set(self.status().into()),
             name: Set(self.name.clone()),
             rounds: Set(self.date_range.len() as i32),
             level: Set(level),
@@ -136,7 +134,7 @@ impl CompetitionInfo {
     }
 
     fn status_to_finished(&self) -> Option<DateTimeWithTimeZone> {
-        match self.is_active() {
+        match self.status() {
             CompetitionStatus::Finished => {
                 let tz = self.date_range.timezone();
                 let now = Utc::now().naive_utc();
@@ -153,34 +151,6 @@ impl CompetitionInfo {
             _ => None,
         }
     }
-
-    pub(crate) fn round_active_model(
-        &self,
-        round_number: usize,
-        date: DateTime<chrono_tz::Tz>,
-    ) -> round::ActiveModel {
-        round::ActiveModel {
-            id: NotSet,
-            round_number: sea_orm::Set(round_number as i32),
-            competition_id: sea_orm::Set(self.competition_id as i32),
-            date: sea_orm::Set(DateTimeWithTimeZone::from(date.fixed_offset())),
-        }
-    }
-
-    /*pub(crate) async fn get_round(
-        &self,
-        db: &impl ConnectionTrait,
-        date: Date,
-    ) -> Result<Option<round::Model>, DbErr> {
-        Round::find()
-            .filter(
-                round::Column::Date
-                    .eq::<Date>(date)
-                    .and(round::Column::CompetitionId.eq(self.competition_id as i32)),
-            )
-            .one(db)
-            .await
-    }*/
 
     pub(crate) fn fantasy_model(
         &self,
@@ -202,17 +172,21 @@ impl CompetitionInfo {
     }
 
     pub(super) fn get_all_player_scores(&self) -> Vec<&PlayerScore> {
+        self.rounds.iter().flat_map(|r| r.players.iter()).collect_vec()
+    }
+
+    fn get_all_round_score_models(&self) -> Vec<entity::player_round_score::ActiveModel> {
         self.rounds
             .iter()
-            .flat_map(|r| r.players.iter())
-            .collect_vec()
+            .flat_map(|r| r.all_player_active_models(r.round_number as i32, self.competition_id as i32))
+            .collect()
     }
 
     fn current_round(&self) -> usize {
         if let Some(highest) = self.highest_completed_round {
-            match self.is_active() {
+            match self.status() {
                 CompetitionStatus::Finished => highest as usize - 1,
-                CompetitionStatus::Active(round) => round - 1,
+                CompetitionStatus::Active(round) => round,
                 CompetitionStatus::Pending => 0,
             }
         } else {
@@ -233,6 +207,7 @@ impl CompetitionInfo {
     ) -> Result<Vec<UserScore>, GenericError> {
         let mut user_scores: Vec<UserScore> = Vec::new();
         let players = self.get_current_player_scores();
+
         for player in players {
             let score = player
                 .get_user_fantasy_score(db, fantasy_tournament_id, self.competition_id)
@@ -244,16 +219,19 @@ impl CompetitionInfo {
         Ok(user_scores)
     }
 
-    fn is_active(&self) -> CompetitionStatus {
-        let mut rounds = self.rounds.iter();
-        if rounds.all(|r| r.status() == RoundStatus::Finished) {
+    fn status(&self) -> CompetitionStatus {
+        if self.rounds.iter().all(|r| r.status() == RoundStatus::Finished) {
             CompetitionStatus::Finished
-        } else if let Some(r) = rounds
-            .filter(|r| !(r.status() == RoundStatus::Started))
-            .map(|r| r.round_number)
-            .max()
+        } else if let Some(round) = self.rounds.iter().find(|r| r.status() == RoundStatus::Started) {
+            CompetitionStatus::Active(round.round_number - 1)
+        } else if let Some((round, _)) = self
+            .rounds
+            .iter()
+            .enumerate()
+            .filter(|(_, round)| round.status() == RoundStatus::Finished)
+            .max_by(|(idx, _), (other, _)| idx.cmp(other))
         {
-            CompetitionStatus::Active(r)
+            CompetitionStatus::Active(round)
         } else {
             CompetitionStatus::Pending
         }
@@ -264,6 +242,16 @@ enum CompetitionStatus {
     Pending,
     Active(usize),
     Finished,
+}
+
+impl From<RoundStatus> for sea_orm_active_enums::CompetitionStatus {
+    fn from(status: RoundStatus) -> Self {
+        match status {
+            RoundStatus::Pending => sea_orm_active_enums::CompetitionStatus::NotStarted,
+            RoundStatus::Started => sea_orm_active_enums::CompetitionStatus::Running,
+            RoundStatus::Finished => sea_orm_active_enums::CompetitionStatus::Finished,
+        }
+    }
 }
 
 impl From<CompetitionStatus> for sea_orm_active_enums::CompetitionStatus {

@@ -2,6 +2,7 @@ use cached::proc_macro::cached;
 use chrono::{DateTime, NaiveDate, NaiveTime, TimeZone};
 use itertools::Itertools;
 use rocket::error;
+use sea_orm::{ConnectionTrait, EntityTrait};
 use serde_derive::Deserialize;
 
 use crate::dto::{Division, RoundInformation};
@@ -44,10 +45,8 @@ impl DateRange {
             .await
             .unwrap_or(chrono_tz::Tz::US__Hawaii);
 
-        let start =
-            dateparser::parse_with(start, &tz, NaiveTime::from_hms_opt(7, 0, 0).unwrap()).ok()?;
-        let end =
-            dateparser::parse_with(end, &tz, NaiveTime::from_hms_opt(22, 0, 0).unwrap()).ok()?;
+        let start = dateparser::parse_with(start, &tz, NaiveTime::from_hms_opt(7, 0, 0).unwrap()).ok()?;
+        let end = dateparser::parse_with(end, &tz, NaiveTime::from_hms_opt(22, 0, 0).unwrap()).ok()?;
 
         let start = tz.from_utc_datetime(&start.naive_utc());
         let end = tz.from_utc_datetime(&end.naive_utc());
@@ -72,19 +71,21 @@ impl DateRange {
     }
 
     pub fn date_times(&self) -> Vec<DateTime<chrono_tz::Tz>> {
-        (0..self.len()).filter_map(|x| self.date_time(x)).collect()
+        (0..=self.len())
+            .filter_map(|x| self.date_time(x as u64))
+            .collect()
     }
-    fn date_time(&self, day: i64) -> Option<DateTime<chrono_tz::Tz>> {
-        if self.len() >= day {
-            Some(self.day(day)?)
+
+    fn date_time(&self, day: u64) -> Option<DateTime<chrono_tz::Tz>> {
+        if self.len() >= day as i64 {
+            Some(self.get_day(day)?)
         } else {
             None
         }
     }
 
-    fn day(&self, day: i64) -> Option<DateTime<chrono_tz::Tz>> {
-        self.start
-            .checked_add_days(chrono::Days::new((day - 1) as u64))
+    pub fn get_day(&self, day: u64) -> Option<DateTime<chrono_tz::Tz>> {
+        self.start.checked_add_days(chrono::Days::new(day))
     }
 
     pub(crate) fn start_date(&self) -> NaiveDate {
@@ -104,25 +105,11 @@ pub struct CompetitionInfo {
 
 impl CompetitionInfo {
     pub async fn from_web(competition_id: u32) -> Result<Self, GenericError> {
-        let url = format!("https://www.pdga.com/apps/tournament/live-api/live_results_fetch_event.php?TournID={competition_id}");
-        let resp: CompetitionInfoResponse = reqwest::get(url)
-            .await
-            .map_err(|e| {
-                error!("Unable to fetch competition from PDGA: {}", e);
-                GenericError::PdgaGaveUp("Internal error while fetching competition from PDGA")
-            })?
-            .json()
-            .await
-            .map_err(|e| {
-                error!("PDGA issue while converting to json: {:#?}", e);
-                GenericError::PdgaGaveUp(
-                    "Internal error while converting PDGA competition to internal format",
-                )
-            })?;
-
-        let info = resp.data;
+        let info = Self::get_pdga_competition_info(competition_id).await?;
         let mut rounds = Vec::new();
+        let time = std::time::Instant::now();
         let date_range = DateRange::from_api_comp_info(&info).await.unwrap();
+        println!("Time to get date range: {:?}", time.elapsed());
 
         let divs = info
             .divisions
@@ -138,10 +125,9 @@ impl CompetitionInfo {
             .dedup()
             .collect_vec();
 
-        for round_number in 1..=info.rounds {
+        for round_index in 1..=info.rounds {
             rounds.push(
-                RoundInformation::new(competition_id as usize, round_number as usize, divs.clone())
-                    .await?,
+                RoundInformation::new(competition_id as usize, round_index as usize, divs.clone()).await?,
             )
         }
 
@@ -154,6 +140,25 @@ impl CompetitionInfo {
             date_range,
         };
         Ok(out)
+    }
+
+    async fn get_pdga_competition_info(competition_id: u32) -> Result<ApiCompetitionInfo, GenericError> {
+        let url = format!("https://www.pdga.com/apps/tournament/live-api/live_results_fetch_event.php?TournID={competition_id}");
+        let resp: CompetitionInfoResponse = reqwest::get(url)
+            .await
+            .map_err(|e| {
+                error!("Unable to fetch competition from PDGA: {}", e);
+                GenericError::PdgaGaveUp("Internal error while fetching competition from PDGA")
+            })?
+            .json()
+            .await
+            .map_err(|e| {
+                error!("PDGA issue while converting to json: {:#?}", e);
+                GenericError::PdgaGaveUp(
+                    "Internal error while converting PDGA competition to internal format",
+                )
+            })?;
+        Ok(resp.data)
     }
 }
 
@@ -174,10 +179,7 @@ mod blocking {
     }
 
     #[inline(always)]
-    pub(super) fn parse_tz_from_location(
-        location: String,
-        country: String,
-    ) -> Option<chrono_tz::Tz> {
+    pub(super) fn parse_tz_from_location(location: String, country: String) -> Option<chrono_tz::Tz> {
         let address = location.clone() + ", " + &country;
         let point = get_point(&address);
         let point = match point {

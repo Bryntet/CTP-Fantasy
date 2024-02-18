@@ -16,6 +16,7 @@ itertools = "0.12.0"
 api = { path = "./api" }
 rocket = "0.5.0"
 service = {path = "./service" }
+chrono = "0.4.33"
 
 
 [dependencies.sea-orm]
@@ -44,3 +45,9 @@ migration = { path = "./migration" }
 opt-level = 3
 [profile.test.package.rtz]
 opt-level = 3
+
+
+[profile.profiling]
+inherits = "release"
+debug = true
+debug-assertions = true

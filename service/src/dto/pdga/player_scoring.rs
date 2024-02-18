@@ -6,11 +6,15 @@ use crate::dto::pdga::ApiPlayer;
 use crate::error::GenericError;
 use entity::prelude::{FantasyPick, User};
 use itertools::Itertools;
+use log::error;
+use rocket::http::hyper::body::HttpBody;
+use sea_orm::prelude::DateTimeWithTimeZone;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{sea_query, ModelTrait};
 use sea_orm::{ActiveModelTrait, ConnectionTrait, DbErr, EntityTrait, IntoActiveModel, NotSet};
 use sea_orm::{ColumnTrait, QueryFilter};
 
+use entity::round::Model;
 use serde::Deserialize;
 
 #[derive(Deserialize, PartialEq, Debug, Clone)]
@@ -79,27 +83,6 @@ pub struct PlayerScore {
 }
 
 impl PlayerScore {
-    pub async fn update_and_save(
-        &self,
-        db: &impl ConnectionTrait,
-        round: i32,
-        competition_id: i32,
-        div: &Division,
-    ) -> Result<(), GenericError> {
-        if let Some(score_update) = self
-            .round_score_active_model(db, round, competition_id, div.into())
-            .await
-        {
-            score_update
-                .save(db)
-                .await
-                .map_err(|_| GenericError::UnknownError("unable to save score to database"))?;
-        }
-        self.make_sure_player_in_competition(db, competition_id, div.into())
-            .await?;
-        Ok(())
-    }
-
     pub(crate) fn to_active_model(&self) -> entity::player::ActiveModel {
         entity::player::Model {
             pdga_number: self.pdga_number as i32,
@@ -121,42 +104,24 @@ impl PlayerScore {
         .into_active_model()
     }
     /// Returns ActiveModel if score is changed, otherwise None
-    async fn round_score_active_model(
+    pub(crate) fn round_score_active_model(
         &self,
-        db: &impl ConnectionTrait,
         round: i32,
         competition_id: i32,
-        division: entity::sea_orm_active_enums::Division,
+        division: &Division,
     ) -> Option<ActiveModel> {
-        let existing_score = player_round_score::Entity::find()
-            .filter(player_round_score::Column::PdgaNumber.eq(self.pdga_number))
-            .filter(player_round_score::Column::Round.eq(round))
-            .one(db)
-            .await
-            .map_err(|e| {
-                dbg!(&e);
-                e
-            });
-
-        match existing_score {
-            Ok(Some(score)) => {
-                if score.throws != self.throws as i32 {
-                    let mut score = score.into_active_model();
-                    score.throws = Set(self.throws as i32);
-                    Some(score)
-                } else {
-                    None
-                }
-            }
-            Err(_) | Ok(None) => Some(ActiveModel {
+        if matches!(self.started, PlayerStatus::Started | PlayerStatus::Finished) {
+            Some(ActiveModel {
                 id: NotSet,
                 pdga_number: Set(self.pdga_number as i32),
                 competition_id: Set(competition_id),
                 round: Set(round),
                 throws: Set(self.throws as i32),
-                division: Set(division),
+                division: Set(division.into()),
                 placement: Set(self.placement as i32),
-            }),
+            })
+        } else {
+            None
         }
     }
 
@@ -212,14 +177,16 @@ impl PlayerScore {
         fantasy_tournament_id: u32,
         competition_id: u32,
     ) -> Result<Option<UserScore>, GenericError> {
-        let competition_level = entity::competition::Entity::find()
+        let competition_level = if let Some(competition) = entity::competition::Entity::find()
             .filter(entity::competition::Column::Id.eq(competition_id as i32))
             .one(db)
             .await
-            .unwrap()
-            .unwrap()
-            .level
-            .into();
+            .map_err(|_| GenericError::UnknownError("Unable to find competition"))?
+        {
+            competition.level.into()
+        } else {
+            return Err(GenericError::NotFound("Competition not found"));
+        };
         let score = self.get_user_score(competition_level) as i32;
         if score > 0 {
             if let Ok(Some(user)) = self.get_user(db, fantasy_tournament_id).await {
@@ -253,13 +220,12 @@ impl PlayerScore {
             )
             .one(db)
             .await
-            .map_err(|_| {
-                GenericError::UnknownError("Pick not found due to unknown database error")
-            })?
+            .map_err(|_| GenericError::UnknownError("Pick not found due to unknown database error"))?
         {
-            pick.find_related(User).one(db).await.map_err(|_| {
-                GenericError::UnknownError("User not found due to unknown database error")
-            })
+            pick.find_related(User)
+                .one(db)
+                .await
+                .map_err(|_| GenericError::UnknownError("User not found due to unknown database error"))
         } else {
             Ok(None)
         }
@@ -365,9 +331,7 @@ impl RoundInformation {
                 .into_iter()
                 .filter_map(|p| {
                     let p: PlayerScore = p;
-                    if p.started != PlayerStatus::DidNotStart
-                        || p.started != PlayerStatus::DidNotFinish
-                    {
+                    if p.started != PlayerStatus::DidNotStart || p.started != PlayerStatus::DidNotFinish {
                         Some(p)
                     } else {
                         None
@@ -389,58 +353,37 @@ impl RoundInformation {
         let div_str = div.to_string().to_uppercase();
         let url = format!("https://www.pdga.com/apps/tournament/live-api/live_results_fetch_round.php?TournID={competition_id}&Round={round}&Division={div_str}");
         //dbg!(&url);
-        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+        //tokio::time::sleep(std::time::Duration::from_millis(250)).await;
 
-        let text_response = reqwest::get(url)
-            .await
-            .map_err(|_| {
-                GenericError::UnknownError("Internal error while fetching round from PDGA")
-            })?
-            .text()
-            .await;
-        let mut resp: ApiRes = serde_json::from_str(&text_response.unwrap()).map_err(|e| {
-            dbg!("it errorred", e);
-            GenericError::UnknownError(
-                "Internal error while converting PDGA round to internal format",
-            )
-        })?;
-        /*
         let mut resp: ApiRes = reqwest::get(url)
             .await
-            .map_err(|_| {
-                GenericError::UnknownError("Internal error while fetching round from PDGA")
-            })?
+            .map_err(|_| GenericError::UnknownError("Internal error while fetching round from PDGA"))?
             .json()
             .await
             .map_err(|_| {
-                GenericError::UnknownError(
-                    "Internal error while converting PDGA round to internal format",
-                )
+                GenericError::UnknownError("Internal error while converting PDGA round to internal format")
             })?;
-         */
+
         resp.data.div = div;
         Ok(resp.data)
     }
 
-    // TODO: Refactor to do one mass update instead of many small
-    pub async fn update_all(&self, db: &impl ConnectionTrait) -> Result<(), GenericError> {
-        for player in &self.players {
-            player
-                .update_and_save(
-                    db,
-                    self.round_number as i32,
-                    self.competition_id as i32,
-                    &player.division,
-                )
-                .await?;
-        }
-        Ok(())
+    pub fn all_player_scores(&self) -> Vec<PlayerScore> {
+        self.players.clone()
     }
 
-    pub async fn all_player_scores_exist_in_db(
+    pub fn all_player_active_models(
         &self,
-        db: &impl ConnectionTrait,
-    ) -> Result<bool, DbErr> {
+        round: i32,
+        competition_id: i32,
+    ) -> Vec<entity::player_round_score::ActiveModel> {
+        self.players
+            .iter()
+            .filter_map(|p| p.round_score_active_model(round, competition_id, &p.division))
+            .collect()
+    }
+
+    pub async fn all_player_scores_exist_in_db(&self, db: &impl ConnectionTrait) -> Result<bool, DbErr> {
         player_round_score::Entity::find()
             .filter(player_round_score::Column::Round.eq(self.round_number as i32))
             .all(db)
@@ -454,28 +397,29 @@ impl RoundInformation {
             .iter()
             .filter(|p| !p.started.is_troubled())
             .collect_vec();
-        if players.iter().all(|p| p.started == PlayerStatus::Finished) {
+
+        let is_majority_finished = players
+            .iter()
+            .filter(|p| p.started == PlayerStatus::Finished)
+            .count()
+            >= (players.len() / 2);
+        if players.iter().all(|p| p.started == PlayerStatus::Finished) || is_majority_finished {
             RoundStatus::Finished
         } else if players.iter().any(|p| p.started == PlayerStatus::Started) {
             RoundStatus::Started
-        } else if players
-            .iter()
-            .filter(|p| p.started == PlayerStatus::Finished)
-            .try_len()
-            .is_ok_and(|x| x > (players.len() / 2))
-        {
-            // If no players have started, and more than half of the players have finished
-            // then we can assume that they are DNF/DNS that have not been marked as such
-            RoundStatus::Finished
         } else {
             RoundStatus::Pending
         }
     }
 
-    pub fn combine(&mut self, other: Self) {
-        self.divs.extend(other.divs);
-        self.divs.dedup();
-        self.players.extend(other.players);
+    pub fn active_model(&self, date: DateTimeWithTimeZone) -> entity::round::ActiveModel {
+        entity::round::ActiveModel {
+            id: NotSet,
+            round_number: Set(self.round_number as i32),
+            competition_id: Set(self.competition_id as i32),
+            status: Set(self.status().into()),
+            date: Set(date),
+        }
     }
 }
 

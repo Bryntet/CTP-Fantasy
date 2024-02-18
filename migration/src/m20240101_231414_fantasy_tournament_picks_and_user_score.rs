@@ -90,11 +90,9 @@ impl MigrationTrait for Migration {
                             .to(User::Table, User::Id),
                     )
                     .col(
-                        ColumnDef::new(
-                            UserCompetitionScoreInFantasyTournament::FantasyTournamentId,
-                        )
-                        .integer()
-                        .not_null(),
+                        ColumnDef::new(UserCompetitionScoreInFantasyTournament::FantasyTournamentId)
+                            .integer()
+                            .not_null(),
                     )
                     .col(
                         ColumnDef::new(UserCompetitionScoreInFantasyTournament::Score)

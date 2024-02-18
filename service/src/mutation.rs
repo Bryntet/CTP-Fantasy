@@ -2,12 +2,13 @@ use entity::prelude::*;
 use entity::sea_orm_active_enums::FantasyTournamentInvitationStatus;
 use entity::*;
 use fantasy_tournament::Entity as FantasyTournament;
+use log::{error, warn};
 use rand::distributions::Alphanumeric;
 use rand::Rng;
 use rocket::http::{Cookie, CookieJar};
 use sea_orm::ActiveValue::*;
 use sea_orm::{
-    ActiveModelTrait, ConnectionTrait, DatabaseConnection, EntityTrait, IntoActiveModel,
+    sea_query, ActiveModelTrait, ConnectionTrait, DatabaseConnection, EntityTrait, IntoActiveModel,
     TransactionTrait,
 };
 use sea_orm::{ColumnTrait, QueryFilter};
@@ -55,10 +56,7 @@ pub async fn create_invite(
     receiver_name: String,
     fantasy_tournament_id: i32,
 ) -> Result<(), InviteError> {
-    let tournament = if let Ok(Some(t)) = FantasyTournament::find_by_id(fantasy_tournament_id)
-        .one(db)
-        .await
-    {
+    let tournament = if let Ok(Some(t)) = FantasyTournament::find_by_id(fantasy_tournament_id).one(db).await {
         t
     } else {
         return Err(InviteError::TournamentNotFound);
@@ -121,39 +119,22 @@ pub async fn answer_invite(
     }
 }
 use strum::IntoEnumIterator;
-pub async fn update_round(
-    db: &impl ConnectionTrait,
-    round: round::Model,
-    divisions: Option<Vec<dto::Division>>,
-) -> Result<(), GenericError> {
-    let divisions = divisions.unwrap_or(
-        Division::iter()
-            .filter(|d| !d.eq(&Division::Unknown))
-            .collect(),
-    );
-    let round_info = dto::RoundInformation::new(
-        round.competition_id as usize,
-        round.round_number as usize,
-        divisions,
-    )
-    .await
-    .map_err(|_| GenericError::UnknownError("Unable to fetch round information"))?;
-    round_info.update_all(db).await?;
-    Ok(())
-}
 
-pub async fn update_active_rounds(db: &DatabaseConnection) {
-    let rounds = query::active_rounds(db).await.unwrap();
-    update_rounds(db, rounds).await;
-}
+pub async fn update_active_competitions(db: &DatabaseConnection) -> Result<(), GenericError> {
+    let competitions = query::active_competitions(db).await?;
 
-pub async fn update_rounds(db: &DatabaseConnection, rounds: Vec<round::Model>) {
-    for round in rounds {
-        if let Ok(txn) = db.begin().await {
-            let _ = update_round(&txn, round, None).await;
-            txn.commit().await.expect("database failed");
+    for competition in competitions {
+        if let Ok(txn) = db.begin().await.map_err(|e| {
+            warn!("Unable to start transaction: {:#?}", e);
+        }) {
+            let _ = competition.save_round_scores(&txn).await;
+            let _ = txn.commit().await.map_err(|e| {
+                warn!("Unable to commit transaction: {:#?}", e);
+            });
         }
     }
+
+    Ok(())
 }
 
 // TODO: Refactor out the saving to DB
@@ -162,22 +143,32 @@ pub async fn refresh_user_scores_in_fantasy(
     db: &impl ConnectionTrait,
     fantasy_tournament_id: u32,
 ) -> Result<(), GenericError> {
-    let comp_ids: Vec<u32> =
-        crate::get_competitions_in_fantasy_tournament(db, fantasy_tournament_id as i32)
-            .await?
-            .iter()
-            .map(|c| c.id as u32)
-            .collect();
+    let comp_ids: Vec<u32> = crate::get_competitions_in_fantasy_tournament(db, fantasy_tournament_id as i32)
+        .await?
+        .iter()
+        .map(|c| c.id as u32)
+        .collect();
     for comp_id in comp_ids {
         match dto::CompetitionInfo::from_web(comp_id).await {
             Err(GenericError::PdgaGaveUp(_)) => {
-                tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+                tokio::time::sleep(tokio::time::Duration::from_millis(250)).await;
                 let comp = dto::CompetitionInfo::from_web(comp_id).await?;
                 comp.save_user_scores(db, fantasy_tournament_id).await?;
             }
             Ok(comp) => comp.save_user_scores(db, fantasy_tournament_id).await?,
             Err(e) => Err(e)?,
         }
+    }
+    Ok(())
+}
+
+pub async fn refresh_player_scores_in_active_competitions(
+    db: &impl ConnectionTrait,
+) -> Result<(), GenericError> {
+    let active_comps = crate::get_active_competitions(db).await?;
+    for comp in active_comps {
+        let comp_info = dto::CompetitionInfo::from_web(comp.id as u32).await?;
+        comp_info.save_round_scores(db).await?;
     }
     Ok(())
 }
@@ -199,3 +190,29 @@ pub async fn refresh_user_scores_in_all(db: &impl ConnectionTrait) -> Result<(),
         CompetitionInfo::from_web(comp.id).await.map(|c|)
     }
 }*/
+
+pub async fn update_or_insert_many_player_round_scores(
+    db: &impl ConnectionTrait,
+    scores: Vec<player_round_score::ActiveModel>,
+) -> Result<(), GenericError> {
+    player_round_score::Entity::insert_many(scores)
+        .on_conflict(
+            sea_query::OnConflict::columns([
+                player_round_score::Column::PdgaNumber,
+                player_round_score::Column::CompetitionId,
+                player_round_score::Column::Round,
+            ])
+            .update_columns([
+                player_round_score::Column::Throws,
+                player_round_score::Column::Placement,
+            ])
+            .to_owned(),
+        )
+        .exec(db)
+        .await
+        .map_err(|e| {
+            error!("Unable to insert player scores into database: {:#?}", e);
+            GenericError::UnknownError("Unable to insert player scores into database")
+        })?;
+    Ok(())
+}

@@ -87,6 +87,7 @@ pub(crate) enum Round {
     RoundNumber,
     CompetitionId,
     Date,
+    Status,
 }
 
 #[derive(Iden, EnumIter)]

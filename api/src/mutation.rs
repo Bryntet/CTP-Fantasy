@@ -3,8 +3,8 @@ use rocket::serde::json::Json;
 use rocket::State;
 use rocket_okapi::openapi;
 use sea_orm::RuntimeErr::SqlxError;
+use sea_orm::TransactionTrait;
 use sea_orm::{DatabaseConnection, DbErr};
-use sea_orm::{TransactionTrait};
 
 use error::GenericError;
 use service::dto::{forms, traits::InsertCompetition, FantasyPick, FantasyPicks, UserLogin};
@@ -47,10 +47,7 @@ pub(crate) async fn create_tournament(
     user: authenticate::UserAuthentication,
 ) -> Result<(), GenericError> {
     let user_model = user.to_user_model(db.inner()).await?;
-    let res = tournament
-        .into_inner()
-        .insert(db.inner(), user_model.id)
-        .await;
+    let res = tournament.into_inner().insert(db.inner(), user_model.id).await;
     match res {
         Ok(_) => Ok(()),
         Err(DbErr::Query(SqlxError(sqlx::Error::Database(error)))) => {
@@ -112,9 +109,9 @@ pub(crate) async fn add_pick(
 ) -> Result<&'static str, GenericError> {
     let not_permitted = UserError::NotPermitted("You are not permitted to add picks for this user");
     if !exchange.is_allowed() {
-        return Err(GenericError::NotPermitted(
+        Err(GenericError::NotPermitted(
             "You are not allowed to exchange picks at this time",
-        ));
+        ))?
     }
     let db = db.inner();
     let user = user.to_user_model(db).await?;
@@ -160,19 +157,12 @@ pub(crate) async fn add_picks(
     let db = db.inner();
     let user = user.to_user_model(db).await?;
     if user.id != user_id {
-        return Err(
-            UserError::NotPermitted("You are not permitted to add picks for this user").into(),
-        );
+        return Err(UserError::NotPermitted("You are not permitted to add picks for this user").into());
     }
 
-    let current_picks: FantasyPicks = service::query::get_user_picks_in_tournament(
-        db,
-        &user,
-        user.id,
-        fantasy_tournament_id,
-        &division,
-    )
-    .await?;
+    let current_picks: FantasyPicks =
+        service::query::get_user_picks_in_tournament(db, &user, user.id, fantasy_tournament_id, &division)
+            .await?;
 
     let picks = json_picks.into_inner();
     let all_picks_match = picks.iter().all(|p| {
@@ -246,34 +236,27 @@ pub(crate) async fn add_competition(
 ) -> Result<String, GenericError> {
     let db = db.inner();
     let txn = db.begin().await.map_err(|_| {
-        GenericError::UnknownError(
-            "internal error, please try again or contact support if problem persists",
-        )
+        GenericError::UnknownError("internal error, please try again or contact support if problem persists")
     })?;
     let competition_input = competition.into_inner();
-    let competition =
-        service::dto::CompetitionInfo::from_web(competition_input.competition_id).await?;
+    let competition = service::dto::CompetitionInfo::from_web(competition_input.competition_id).await?;
     if !competition.is_in_db(&txn).await? {
         competition
             .insert_in_db(&txn, competition_input.level.into())
             .await?
     }
-    competition
-        .insert_in_fantasy(&txn, fantasy_tournament_id)
-        .await?;
+    competition.insert_in_fantasy(&txn, fantasy_tournament_id).await?;
     competition
         .insert_players(&txn, Some(fantasy_tournament_id as i32))
         .await?;
 
-    txn.commit().await.map_err(|_| {
-        GenericError::UnknownError("Unknown error while trying to commit transaction")
-    })?;
-    let rounds =
-        service::get_rounds_in_competition(db, competition_input.competition_id as i32).await?;
-    service::mutation::update_rounds(db, rounds).await;
-    competition
-        .save_user_scores(db, fantasy_tournament_id)
-        .await?;
+    txn.commit()
+        .await
+        .map_err(|_| GenericError::UnknownError("Unknown error while trying to commit transaction"))?;
+
+    competition.save_round_scores(db).await?;
+
+    competition.save_user_scores(db, fantasy_tournament_id).await?;
     Ok("Successfully added competition".to_string())
 }
 

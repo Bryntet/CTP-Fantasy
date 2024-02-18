@@ -968,6 +968,7 @@ name = "ctp_fantasy"
 version = "0.1.0"
 dependencies = [
  "api",
+ "chrono",
  "dotenvy",
  "entity",
  "itertools 0.12.1",

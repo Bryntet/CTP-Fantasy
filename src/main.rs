@@ -26,5 +26,9 @@ async fn main() -> Result<(), rocket::Error> {
 }
 
 async fn check_active_rounds(db: &DatabaseConnection) {
-    service::mutation::update_active_rounds(db).await;
+    let _ = service::mutation::update_active_competitions(db)
+        .await
+        .map_err(|e| {
+            error!("Unable to update active competitions {:#?}", e);
+        });
 }

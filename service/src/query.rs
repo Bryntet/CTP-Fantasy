@@ -1,13 +1,11 @@
 use bcrypt::verify;
 
-
 use dto::InvitationStatus;
 use entity::prelude::*;
-use entity::sea_orm_active_enums::{Division};
+use entity::sea_orm_active_enums::Division;
 use entity::*;
 
 use log::warn;
-
 
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
@@ -16,18 +14,14 @@ use sea_orm::entity::prelude::*;
 use sea_orm::{DatabaseConnection, DbErr, EntityTrait};
 
 use crate::dto;
-use crate::dto::FantasyPicks;
+use crate::dto::{CompetitionInfo, FantasyPicks};
 use crate::error::GenericError;
 
 pub enum Auth {
     Password(String),
     Cookie(String),
 }
-pub async fn authenticate(
-    db: &DatabaseConnection,
-    username: String,
-    auth: Auth,
-) -> Result<bool, DbErr> {
+pub async fn authenticate(db: &DatabaseConnection, username: String, auth: Auth) -> Result<bool, DbErr> {
     let user = User::find()
         .filter(user::Column::Name.eq(username))
         .one(db)
@@ -91,15 +85,9 @@ pub struct SimpleFantasyTournament {
 impl From<sea_orm_active_enums::FantasyTournamentInvitationStatus> for InvitationStatus {
     fn from(status: sea_orm_active_enums::FantasyTournamentInvitationStatus) -> Self {
         match status {
-            sea_orm_active_enums::FantasyTournamentInvitationStatus::Accepted => {
-                InvitationStatus::Accepted
-            }
-            sea_orm_active_enums::FantasyTournamentInvitationStatus::Pending => {
-                InvitationStatus::Pending
-            }
-            sea_orm_active_enums::FantasyTournamentInvitationStatus::Declined => {
-                InvitationStatus::Declined
-            }
+            sea_orm_active_enums::FantasyTournamentInvitationStatus::Accepted => InvitationStatus::Accepted,
+            sea_orm_active_enums::FantasyTournamentInvitationStatus::Pending => InvitationStatus::Pending,
+            sea_orm_active_enums::FantasyTournamentInvitationStatus::Declined => InvitationStatus::Declined,
         }
     }
 }
@@ -115,10 +103,9 @@ pub async fn get_fantasy_tournaments(
 
     let mut out_things = Vec::new();
     for user_in_tournament in tournaments {
-        if let Some(tournament) =
-            FantasyTournament::find_by_id(user_in_tournament.fantasy_tournament_id)
-                .one(db)
-                .await?
+        if let Some(tournament) = FantasyTournament::find_by_id(user_in_tournament.fantasy_tournament_id)
+            .one(db)
+            .await?
         {
             out_things.push(SimpleFantasyTournament {
                 id: tournament.id,
@@ -195,9 +182,7 @@ pub async fn get_user_participants_in_tournament(
                 )
                 .all(db)
                 .await
-                .map_err(|_| {
-                    GenericError::UnknownError("Unable to recieve user scores from database")
-                })?
+                .map_err(|_| GenericError::UnknownError("Unable to recieve user scores from database"))?
                 .iter()
                 .map(|score| {
                     dbg!(&score);
@@ -220,10 +205,7 @@ pub async fn get_user_by_name(
     db: &DatabaseConnection,
     username: String,
 ) -> Result<Option<user::Model>, DbErr> {
-    User::find()
-        .filter(user::Column::Name.eq(username))
-        .one(db)
-        .await
+    User::find().filter(user::Column::Name.eq(username)).one(db).await
 }
 
 pub async fn get_user_pick_in_tournament(
@@ -283,10 +265,7 @@ async fn get_player_name(db: &DatabaseConnection, player_id: i32) -> Result<Stri
     }
 }
 
-async fn get_player_face(
-    db: &DatabaseConnection,
-    player_id: i32,
-) -> Result<Option<String>, GenericError> {
+async fn get_player_face(db: &DatabaseConnection, player_id: i32) -> Result<Option<String>, GenericError> {
     let player = Player::find_by_id(player_id)
         .one(db)
         .await
@@ -384,13 +363,8 @@ pub async fn get_tournament_divisions(
     Ok(picks.iter().map(|p| p.clone().division.into()).collect())
 }
 
-pub async fn is_competition_added(
-    db: &impl ConnectionTrait,
-    competition_id: u32,
-) -> Result<bool, DbErr> {
-    let comp = Competition::find_by_id(competition_id as i32)
-        .one(db)
-        .await?;
+pub async fn is_competition_added(db: &impl ConnectionTrait, competition_id: u32) -> Result<bool, DbErr> {
+    let comp = Competition::find_by_id(competition_id as i32).one(db).await?;
     Ok(comp.is_some())
 }
 
@@ -404,6 +378,33 @@ pub async fn active_rounds(db: &impl ConnectionTrait) -> Result<Vec<round::Model
         .await
 }
 
+pub async fn active_competitions(
+    db: &impl ConnectionTrait,
+) -> Result<Vec<dto::CompetitionInfo>, GenericError> {
+    let competition_models = Competition::find()
+        .filter(
+            competition::Column::Status
+                .eq(sea_orm_active_enums::CompetitionStatus::Running)
+                .or(competition::Column::Status
+                    .eq(sea_orm_active_enums::CompetitionStatus::NotStarted)
+                    .and(competition::Column::StartDate.lte(chrono::Utc::now().date_naive()))),
+        )
+        .all(db)
+        .await
+        .map_err(|_| GenericError::UnknownError("Unknown error while trying to find active competitions"))?;
+    let mut competitions = Vec::new();
+    for comp in competition_models {
+        CompetitionInfo::from_web(comp.id as u32)
+            .await
+            .map(|c| competitions.push(c))
+            .map_err(|e| {
+                warn!("Unable to fetch competition from PDGA: {:?}", e);
+                GenericError::PdgaGaveUp("Internal error while fetching competition from PDGA")
+            })?;
+    }
+    Ok(competitions)
+}
+
 pub async fn get_player_division_in_tournament(
     db: &impl ConnectionTrait,
     player_id: i32,
@@ -413,18 +414,13 @@ pub async fn get_player_division_in_tournament(
         .filter(
             player_division_in_fantasy_tournament::Column::PlayerPdgaNumber
                 .eq(player_id)
-                .and(
-                    player_division_in_fantasy_tournament::Column::FantasyTournamentId
-                        .eq(tournament_id),
-                ),
+                .and(player_division_in_fantasy_tournament::Column::FantasyTournamentId.eq(tournament_id)),
         )
         .one(db)
         .await
         .map(|p| p.map(|p| p.division.into()))
         .map_err(|_| {
-            GenericError::UnknownError(
-                "Unknown error while trying to find player division in tournament",
-            )
+            GenericError::UnknownError("Unknown error while trying to find player division in tournament")
         })
 }
 
@@ -466,10 +462,7 @@ pub async fn get_competitions_in_fantasy_tournament(
     fantasy_tournament_id: i32,
 ) -> Result<Vec<competition::Model>, GenericError> {
     let competitions = CompetitionInFantasyTournament::find()
-        .filter(
-            competition_in_fantasy_tournament::Column::FantasyTournamentId
-                .eq(fantasy_tournament_id),
-        )
+        .filter(competition_in_fantasy_tournament::Column::FantasyTournamentId.eq(fantasy_tournament_id))
         .all(db)
         .await
         .expect("good query");
@@ -527,9 +520,7 @@ pub async fn get_users_in_tournament(
         .filter(user_in_fantasy_tournament::Column::FantasyTournamentId.eq(tournament_id))
         .all(db)
         .await
-        .map_err(|_| {
-            GenericError::UnknownError("Unknown error while trying to find users in tournament")
-        })?;
+        .map_err(|_| GenericError::UnknownError("Unknown error while trying to find users in tournament"))?;
 
     let mut out_things = Vec::new();
     for user_in_tournament in users_in_tournament {

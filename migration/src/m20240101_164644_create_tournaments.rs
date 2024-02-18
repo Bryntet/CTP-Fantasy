@@ -54,11 +54,7 @@ impl MigrationTrait for Migration {
             .create_table(
                 Table::create()
                     .table(PhantomCompetition::Table)
-                    .col(
-                        ColumnDef::new(PhantomCompetition::Id)
-                            .integer()
-                            .primary_key(),
-                    )
+                    .col(ColumnDef::new(PhantomCompetition::Id).integer().primary_key())
                     .col(ColumnDef::new(PhantomCompetition::Name).string().not_null())
                     .col(ColumnDef::new(PhantomCompetition::Date).date().not_null())
                     .col(
@@ -73,31 +69,26 @@ impl MigrationTrait for Migration {
             .create_table(
                 Table::create()
                     .table(Round::Table)
-                    .col(
-                        ColumnDef::new(Round::Id)
-                            .integer()
-                            .auto_increment()
-                            .primary_key(),
-                    )
+                    .col(ColumnDef::new(Round::Id).integer().auto_increment().primary_key())
                     .col(ColumnDef::new(Round::RoundNumber).integer().not_null())
                     .col(ColumnDef::new(Round::CompetitionId).integer().not_null())
+                    .col(ColumnDef::new(Round::Date).timestamp_with_time_zone().not_null())
+                    .col(
+                        ColumnDef::new(Round::Status)
+                            .custom(CompetitionStatus::Table)
+                            .not_null(),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .from(Round::Table, Round::CompetitionId)
                             .to(Competition::Table, Competition::Id)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
-                    .col(
-                        ColumnDef::new(Round::Date)
-                            .timestamp_with_time_zone()
-                            .not_null(),
-                    )
                     .index(
                         Index::create()
                             .name("unique_competition_round")
                             .col(Round::CompetitionId)
                             .col(Round::RoundNumber)
-                            .col(Round::Date)
                             .unique(),
                     )
                     .to_owned(),
@@ -114,11 +105,7 @@ impl MigrationTrait for Migration {
                             .auto_increment()
                             .primary_key(),
                     )
-                    .col(
-                        ColumnDef::new(PlayerRoundScore::PDGANumber)
-                            .integer()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(PlayerRoundScore::PDGANumber).integer().not_null())
                     .foreign_key(
                         ForeignKey::create()
                             .from(PlayerRoundScore::Table, PlayerRoundScore::PDGANumber)
@@ -137,21 +124,13 @@ impl MigrationTrait for Migration {
                             .on_delete(ForeignKeyAction::Cascade),
                     )
                     .col(ColumnDef::new(PlayerRoundScore::Round).integer().not_null())
-                    .col(
-                        ColumnDef::new(PlayerRoundScore::Throws)
-                            .integer()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(PlayerRoundScore::Throws).integer().not_null())
                     .col(
                         ColumnDef::new(PlayerRoundScore::Division)
                             .custom(Division::Table)
                             .not_null(),
                     )
-                    .col(
-                        ColumnDef::new(PlayerRoundScore::Placement)
-                            .integer()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(PlayerRoundScore::Placement).integer().not_null())
                     .index(
                         Index::create()
                             .name("unique_round_score_competition_round")
@@ -193,10 +172,7 @@ impl MigrationTrait for Migration {
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .from(
-                                PlayerInCompetition::Table,
-                                PlayerInCompetition::CompetitionId,
-                            )
+                            .from(PlayerInCompetition::Table, PlayerInCompetition::CompetitionId)
                             .to(Competition::Table, Competition::Id)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
@@ -228,11 +204,7 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(FantasyTournament::Name).string().not_null())
-                    .col(
-                        ColumnDef::new(FantasyTournament::Owner)
-                            .integer()
-                            .not_null(),
-                    )
+                    .col(ColumnDef::new(FantasyTournament::Owner).integer().not_null())
                     .foreign_key(
                         ForeignKey::create()
                             .from(FantasyTournament::Table, FantasyTournament::Owner)
@@ -286,9 +258,7 @@ impl MigrationTrait for Migration {
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .name(
-                                "fk_phantom_competition_in_fantasy_tournament_phantom_competition",
-                            )
+                            .name("fk_phantom_competition_in_fantasy_tournament_phantom_competition")
                             .from(
                                 PhantomCompetitionInFantasyTournament::Table,
                                 PhantomCompetitionInFantasyTournament::PhantomCompetitionId,

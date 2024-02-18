@@ -1,11 +1,10 @@
 use crate::query::get_fantasy_tournament_model;
 use crate::{
-    error::GenericError, get_competitions_in_fantasy_tournament,
-    get_user_participants_in_tournament,
+    error::GenericError, get_competitions_in_fantasy_tournament, get_user_participants_in_tournament,
 };
 use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime, Timelike};
 use entity::sea_orm_active_enums::CompetitionStatus;
-use sea_orm::{ConnectionTrait};
+use sea_orm::ConnectionTrait;
 use std::ops::Add;
 
 pub async fn is_user_allowed_to_exchange(
@@ -14,9 +13,11 @@ pub async fn is_user_allowed_to_exchange(
     tournament_id: i32,
 ) -> Result<bool, GenericError> {
     if let Some(tournament) = get_fantasy_tournament_model(db, tournament_id).await? {
+        #[cfg(feature = "async_test")]
+        dbg!("hi");
+
         let users = see_which_users_can_exchange(db, &tournament).await?;
-        Ok(!any_competitions_running(db, &tournament).await?
-            && users.iter().any(|u| u.id == user_id))
+        Ok(!any_competitions_running(db, &tournament).await? && users.iter().any(|u| u.id == user_id))
     } else {
         Err(GenericError::NotFound("Tournament not found"))
     }
@@ -35,8 +36,8 @@ pub async fn see_which_users_can_exchange(
     tournament: &entity::fantasy_tournament::Model,
 ) -> Result<Vec<crate::dto::User>, GenericError> {
     let first_exchange_window = get_first_exchange_window_time(db, tournament).await?;
-    let now = chrono::Utc::now().naive_local();
 
+    let now = chrono::Utc::now().naive_local();
     let mut users = get_user_participants_in_tournament(db, tournament.id).await?;
     // Sort by score
     users.sort_by(|a, b| a.score.cmp(&b.score));
@@ -68,10 +69,7 @@ pub async fn see_which_users_can_exchange(
     Ok(allowed_users)
 }
 
-pub async fn has_exchange_begun(
-    db: &impl ConnectionTrait,
-    tournament_id: i32,
-) -> Result<bool, GenericError> {
+pub async fn has_exchange_begun(db: &impl ConnectionTrait, tournament_id: i32) -> Result<bool, GenericError> {
     if let Some(tournament) = get_fantasy_tournament_model(db, tournament_id).await? {
         let first_exchange_window = get_first_exchange_window_time(db, &tournament).await?;
         Ok(first_exchange_window

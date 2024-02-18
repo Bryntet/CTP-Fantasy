@@ -2,14 +2,16 @@ use std::fmt::Display;
 
 use bcrypt::{hash, DEFAULT_COST};
 use itertools::Itertools;
+use log::error;
 
 use rocket::http::CookieJar;
 use rocket::request::FromParam;
 use rocket::warn;
+use sea_orm::sea_query::OnConflict;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
-    sea_query, ActiveModelTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait,
-    ModelTrait, NotSet, TransactionTrait,
+    sea_query, ActiveModelTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait, ModelTrait, NotSet,
+    TransactionTrait,
 };
 
 use entity::fantasy_pick;
@@ -19,7 +21,7 @@ use entity::prelude::{
 };
 use entity::sea_orm_active_enums::FantasyTournamentInvitationStatus;
 
-use crate::dto::pdga::add_players;
+use crate::dto::pdga::{add_players, RoundStatus};
 use crate::error::GenericError;
 use crate::error::PlayerError;
 use crate::{generate_cookie, player_exists};
@@ -38,12 +40,8 @@ impl FantasyPick {
         if !player_exists(db, self.pdga_number).await {
             Err(PlayerError::NotFound.into())
         } else {
-            let actual_player_div = super::super::get_player_division_in_tournament(
-                db,
-                self.pdga_number,
-                tournament_id,
-            )
-            .await;
+            let actual_player_div =
+                super::super::get_player_division_in_tournament(db, self.pdga_number, tournament_id).await;
             let actual_player_div = match actual_player_div {
                 Err(_) => Err(GenericError::UnknownError("Unable to get player division")),
                 Ok(None) => Err(GenericError::NotFound("Player not in tournament")),
@@ -51,9 +49,7 @@ impl FantasyPick {
             }?;
 
             if !actual_player_div.eq(&div) {
-                Err(GenericError::Conflict(
-                    "Player division does not match division",
-                ))?
+                Err(GenericError::Conflict("Player division does not match division"))?
             }
 
             let person_in_slot =
@@ -76,17 +72,12 @@ impl FantasyPick {
                     .await
                     .map_err(|_| GenericError::UnknownError("Unable to remove pick"))?;
             }
-            self.insert(db, user_id, tournament_id, actual_player_div)
-                .await?;
+            self.insert(db, user_id, tournament_id, actual_player_div).await?;
             Ok(())
         }
     }
 
-    async fn is_benched(
-        &self,
-        db: &impl ConnectionTrait,
-        tournament_id: i32,
-    ) -> Result<bool, GenericError> {
+    async fn is_benched(&self, db: &impl ConnectionTrait, tournament_id: i32) -> Result<bool, GenericError> {
         Ok(self.slot > (super::super::get_tournament_bench_limit(db, tournament_id).await?))
     }
 
@@ -194,9 +185,7 @@ impl UserLogin {
             .map_err(|e| {
                 e.sql_err()
                     .map(|_| GenericError::Conflict("Username already taken"))
-                    .unwrap_or_else(|| {
-                        GenericError::UnknownError("Unable to insert user into database")
-                    })
+                    .unwrap_or_else(|| GenericError::UnknownError("Unable to insert user into database"))
             })?
             .last_insert_id;
         let hashed_password = hash(&self.password, DEFAULT_COST).expect("hashing should work");
@@ -331,15 +320,10 @@ impl InsertCompetition for CompetitionInfo {
         db: &impl ConnectionTrait,
         level: sea_orm_active_enums::CompetitionLevel,
     ) -> Result<(), GenericError> {
-        let active = self.active_model(level);
-        dbg!(&active.status);
-        active
-            .insert(db)
-            .await
-            .map_err(|_| GenericError::UnknownError("Unable to insert competition in database"))?;
-        self.insert_rounds(db)
+        self.insert_competition_in_db(db, level)
             .await
             .map_err(|_| GenericError::UnknownError("Unable to insert rounds in database"))?;
+        self.insert_rounds(db).await?;
         Ok(())
     }
 
@@ -352,22 +336,28 @@ impl InsertCompetition for CompetitionInfo {
         match Competition::find_by_id(self.competition_id as i32)
             .one(db)
             .await
-            .map_err(|_| {
-                GenericError::UnknownError("Internal error while trying to get competition")
-            })? {
+            .map_err(|_| GenericError::UnknownError("Internal error while trying to get competition"))?
+        {
             Some(c) => {
                 match c
                     .find_related(CompetitionInFantasyTournament)
                     .one(db)
-                    .await.map_err(|_|GenericError::UnknownError("Internal db error while trying to find competition in fantasy tournament"))?
-                {
+                    .await
+                    .map_err(|_| {
+                        GenericError::UnknownError(
+                            "Internal db error while trying to find competition in fantasy tournament",
+                        )
+                    })? {
                     Some(_) => Err(GenericError::Conflict("Competition already added")),
                     None => {
-                        CompetitionInFantasyTournament::insert(
-                            self.fantasy_model(fantasy_tournament_id),
-                        )
-                        .exec(db)
-                        .await.map_err(|_|GenericError::UnknownError("Unable to insert competition into fanatasy tournament due to unknown db error"))?;
+                        CompetitionInFantasyTournament::insert(self.fantasy_model(fantasy_tournament_id))
+                            .exec(db)
+                            .await
+                            .map_err(|_| {
+                                GenericError::UnknownError(
+                                    "Unable to insert competition into fanatasy tournament due to unknown db error",
+                                )
+                            })?;
                         Ok(())
                     }
                 }
@@ -378,18 +368,65 @@ impl InsertCompetition for CompetitionInfo {
 }
 
 impl CompetitionInfo {
-    pub async fn insert_rounds(&self, db: &impl ConnectionTrait) -> Result<(), DbErr> {
-        use entity::prelude::Round;
-        Round::insert_many(
-            self.date_range
-                .date_times()
-                .iter()
-                .enumerate()
-                .map(|(i, d)| self.round_active_model(i + 1, *d)),
-        )
-        .exec(db)
-        .await?;
+    pub async fn insert_rounds(&self, db: &impl ConnectionTrait) -> Result<(), GenericError> {
+        use entity::round::{Column as RoundColumn, Entity as RoundEnt};
 
+        let cols = [RoundColumn::CompetitionId, RoundColumn::RoundNumber];
+        let times = self.date_range.date_times();
+        let round_models = self
+            .rounds
+            .iter()
+            .enumerate()
+            .map(|(idx, round)| round.active_model(times[idx].fixed_offset()))
+            .collect_vec();
+        if !round_models.is_empty() {
+            RoundEnt::insert_many(round_models)
+                .on_conflict(
+                    OnConflict::columns(cols)
+                        .update_column(RoundColumn::Status)
+                        .to_owned(),
+                )
+                .exec(db)
+                .await
+                .map_err(|e| {
+                    error!("Unable to insert rounds into database: {:#?}", e);
+                    GenericError::UnknownError("Unable to insert rounds into database")
+                })?;
+        }
+        Ok(())
+    }
+
+    pub async fn save_round_scores(&self, db: &impl ConnectionTrait) -> Result<(), GenericError> {
+        // TODO: ADD STATUS TO ROUND
+
+        super::super::update_or_insert_many_player_round_scores(
+            db,
+            self.rounds
+                .iter()
+                .filter(|r| r.status() != RoundStatus::Pending)
+                .flat_map(|r| {
+                    r.all_player_active_models(r.round_number as i32, self.competition_id as i32)
+                        .into_iter()
+                })
+                .collect_vec(),
+        )
+        .await
+    }
+
+    async fn insert_competition_in_db(
+        &self,
+        db: &impl ConnectionTrait,
+        level: sea_orm_active_enums::CompetitionLevel,
+    ) -> Result<(), GenericError> {
+        let active = self.active_model(level);
+        active
+            .insert(db)
+            .await
+            .map_err(|_| GenericError::UnknownError("Unable to insert competition in database"))?;
+        Ok(())
+    }
+
+    pub async fn save(&self, db: &impl ConnectionTrait) -> Result<(), GenericError> {
         Ok(())
     }
 
@@ -413,9 +450,7 @@ impl CompetitionInfo {
             user_competition_score_in_fantasy_tournament::Entity::insert_many(
                 user_scores
                     .into_iter()
-                    .dedup_by(|a, b| {
-                        a.competition_id == b.competition_id && a.pdga_num == b.pdga_num
-                    })
+                    .dedup_by(|a, b| a.competition_id == b.competition_id && a.pdga_num == b.pdga_num)
                     .map(|p| p.into_active_model(self.competition_id as i32)),
             )
             .on_conflict(
@@ -432,9 +467,7 @@ impl CompetitionInfo {
             .await
             .map_err(|e| {
                 dbg!(e);
-                GenericError::UnknownError(
-                    "Unable to insert user score from competition into database",
-                )
+                GenericError::UnknownError("Unable to insert user score from competition into database")
             })?;
         }
         Ok(())

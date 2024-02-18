@@ -80,9 +80,7 @@ pub struct LoginInput {
     pub password: String,
 }
 
-#[derive(
-    Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq, FromFormField, EnumIter, Default,
-)]
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq, FromFormField, EnumIter, Default)]
 pub enum Division {
     MPO,
     FPO,
@@ -129,7 +127,6 @@ impl FromParam<'_> for CompetitionLevel {
     type Error = GenericError;
 
     fn from_param(param: &'_ str) -> Result<Self, Self::Error> {
-        serde_json::from_str(param)
-            .map_err(|_| GenericError::BadRequest("Invalid competition level"))
+        serde_json::from_str(param).map_err(|_| GenericError::BadRequest("Invalid competition level"))
     }
 }

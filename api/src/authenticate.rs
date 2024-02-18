@@ -69,9 +69,7 @@ impl<'r> FromRequest<'r> for AllowedToExchangeGuard {
 
             if let Ok(Some(user)) = user {
                 let user = user.id;
-                match service::query::is_user_allowed_to_exchange(db, user, tournament_id as i32)
-                    .await
-                {
+                match service::query::is_user_allowed_to_exchange(db, user, tournament_id as i32).await {
                     Ok(allowed) => Outcome::Success(AllowedToExchangeGuard(allowed)),
                     Err(e) => Outcome::Error((Status::InternalServerError, e)),
                 }
@@ -124,10 +122,7 @@ impl<'r> FromRequest<'r> for TournamentOwner {
                     tournament_id: t_id,
                 }
             } else {
-                return None.or_error((
-                    Status::BadRequest,
-                    AuthError::Invalid("Invalid tournament id"),
-                ));
+                return None.or_error((Status::BadRequest, AuthError::Invalid("Invalid tournament id")));
             }
         } else {
             return None.or_error((Status::Unauthorized, AuthError::Missing("No cookie found")));
@@ -141,20 +136,14 @@ impl<'r> FromRequest<'r> for TournamentOwner {
 }
 
 impl UserAuthentication {
-    async fn get_cookie(
-        &self,
-        db: &DatabaseConnection,
-    ) -> Result<Option<CookieModel>, GenericError> {
+    async fn get_cookie(&self, db: &DatabaseConnection) -> Result<Option<CookieModel>, GenericError> {
         entity::prelude::UserCookies::find_by_id(self.0.to_owned())
             .one(db)
             .await
             .map_err(|_| GenericError::UnknownError("db error while finding cookie"))
     }
 
-    pub(crate) async fn get_user(
-        &self,
-        db: &DatabaseConnection,
-    ) -> Result<Option<UserModel>, GenericError> {
+    pub(crate) async fn get_user(&self, db: &DatabaseConnection) -> Result<Option<UserModel>, GenericError> {
         let cookie = self.get_cookie(db).await?;
         if let Some(cookie) = cookie {
             return User::find_by_id(cookie.user_id)
@@ -252,10 +241,7 @@ impl<'a> FromRequest<'a> for UserAuthentication {
         let cookie: Cookie = if let Some(cookie) = request.cookies().get_private("auth") {
             cookie
         } else {
-            return None.or_error((
-                Status::Unauthorized,
-                AuthError::Missing("No cookie found").into(),
-            ));
+            return None.or_error((Status::Unauthorized, AuthError::Missing("No cookie found").into()));
         };
 
         UserAuthentication::new_checked(cookie.value().to_string(), db)

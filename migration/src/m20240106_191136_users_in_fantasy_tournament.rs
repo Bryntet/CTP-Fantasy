@@ -36,10 +36,7 @@ impl MigrationTrait for Migration {
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .from(
-                                UserInFantasyTournament::Table,
-                                UserInFantasyTournament::UserId,
-                            )
+                            .from(UserInFantasyTournament::Table, UserInFantasyTournament::UserId)
                             .to(User::Table, User::Id),
                     )
                     .col(

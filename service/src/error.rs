@@ -171,7 +171,8 @@ impl OpenApiResponderInner for GenericError {
                 description: "\
                 # [422 Unprocessable Entity](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/422)\n\
                 This response is given when you request body is not correctly formatted. \
-                ".to_string(),
+                "
+                .to_string(),
                 ..Default::default()
             }),
         );
@@ -181,7 +182,8 @@ impl OpenApiResponderInner for GenericError {
                 description: "\
                 # [500 Internal Server Error](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500)\n\
                 This response is given when something wend wrong on the server. \
-                ".to_string(),
+                "
+                .to_string(),
                 ..Default::default()
             }),
         );
