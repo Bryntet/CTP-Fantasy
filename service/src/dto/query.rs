@@ -126,7 +126,7 @@ impl CompetitionInfo {
             id: Set(self.competition_id as i32),
             status: Set(self.status().into()),
             name: Set(self.name.clone()),
-            rounds: Set(self.date_range.len() as i32),
+            rounds: Set(self.amount_of_rounds as i32),
             level: Set(level),
             ended_at: Set(self.status_to_finished()),
             start_date: Set(self.date_range.start_date()),
@@ -220,7 +220,10 @@ impl CompetitionInfo {
     }
 
     fn status(&self) -> CompetitionStatus {
-        if self.rounds.iter().all(|r| r.status() == RoundStatus::Finished) {
+        dbg!(&self.rounds.iter().map(|r|r.status()).collect_vec());
+        if self.rounds.len() < self.amount_of_rounds {
+            CompetitionStatus::Active(self.rounds.len())
+        }  else if self.rounds.iter().all(|r| r.status() == RoundStatus::Finished) {
             CompetitionStatus::Finished
         } else if let Some(round) = self.rounds.iter().find(|r| r.status() == RoundStatus::Started) {
             CompetitionStatus::Active(round.round_number - 1)

@@ -67,14 +67,15 @@ impl<'r> FromRequest<'r> for AllowedToExchangeGuard {
         } else if let (Some(user), Some(Ok(tournament_id))) = (user.succeeded(), tournament_id) {
             let user = user.get_user(db).await;
 
-            if let Ok(Some(user)) = user {
-                let user = user.id;
-                match service::query::is_user_allowed_to_exchange(db, user, tournament_id as i32).await {
-                    Ok(allowed) => Outcome::Success(AllowedToExchangeGuard(allowed)),
-                    Err(e) => Outcome::Error((Status::InternalServerError, e)),
+            match user {
+                Ok(user) => {
+                    let user = user.id;
+                    match service::query::is_user_allowed_to_exchange(db, user, tournament_id as i32).await {
+                        Ok(allowed) => Outcome::Success(AllowedToExchangeGuard(allowed)),
+                        Err(e) => Outcome::Error((Status::InternalServerError, e)),
+                    }
                 }
-            } else {
-                Outcome::Error((Status::NoContent, Self::Error::NotFound("User not found")))
+                Err(e) => Outcome::Error((Status::NoContent, e)),
             }
         } else {
             Outcome::Error((
@@ -143,23 +144,20 @@ impl UserAuthentication {
             .map_err(|_| GenericError::UnknownError("db error while finding cookie"))
     }
 
-    pub(crate) async fn get_user(&self, db: &DatabaseConnection) -> Result<Option<UserModel>, GenericError> {
+    pub(crate) async fn get_user(&self, db: &DatabaseConnection) -> Result<UserModel, GenericError> {
         let cookie = self.get_cookie(db).await?;
         if let Some(cookie) = cookie {
-            return User::find_by_id(cookie.user_id)
+            User::find_by_id(cookie.user_id)
                 .one(db)
                 .await
-                .map_err(|_| UserError::InvalidUserId("User not found").into());
-        }
-        Err(AuthError::Invalid("You do not have permission to do this.").into())
-    }
-
-    pub async fn to_user_model(&self, db: &DatabaseConnection) -> Result<UserModel, GenericError> {
-        if let Ok(Some(user)) = self.get_user(db).await {
-            Ok(user)
+                .map_err(|_| GenericError::UnknownError("db error while finding user"))?.ok_or(UserError::InvalidUserId("User not found").into())
         } else {
             Err(AuthError::Invalid("You do not have permission to do this.").into())
         }
+    }
+
+    pub async fn to_user_model(&self, db: &DatabaseConnection) -> Result<UserModel, GenericError> {
+        self.get_user(db).await
     }
 
     fn remove_from_jar(cookies: &CookieJar<'_>) {
@@ -186,27 +184,27 @@ impl UserAuthentication {
         db: &DatabaseConnection,
         cookies: &CookieJar<'_>,
     ) -> Result<&'static str, GenericError> {
-        if let Ok(Some(user)) = self.get_user(db).await {
-            let txn = db
-                .begin()
+        let user = self.get_user(db).await?;
+        let txn = db
+            .begin()
+            .await
+            .map_err(|_| GenericError::UnknownError("Unable to begin txn"))?;
+        for cookie in user
+            .find_related(user_cookies::Entity)
+            .all(&txn)
+            .await
+            .map_err(|_| GenericError::UnknownError("Error while trying to find cookie"))?
+        {
+            cookie
+                .delete(&txn)
                 .await
-                .map_err(|_| GenericError::UnknownError("Unable to begin txn"))?;
-            for cookie in user
-                .find_related(user_cookies::Entity)
-                .all(&txn)
-                .await
-                .map_err(|_| GenericError::UnknownError("Error while trying to find cookie"))?
-            {
-                cookie
-                    .delete(&txn)
-                    .await
-                    .map_err(|_| GenericError::UnknownError("Unable to delete cookie."))?;
-            }
-            txn.commit()
-                .await
-                .map_err(|_| GenericError::UnknownError("Unable to commit txn"))?;
-            Self::remove_from_jar(cookies);
+                .map_err(|_| GenericError::UnknownError("Unable to delete cookie."))?;
         }
+        txn.commit()
+            .await
+            .map_err(|_| GenericError::UnknownError("Unable to commit txn"))?;
+        Self::remove_from_jar(cookies);
+
 
         Ok("Successfully logged out")
     }

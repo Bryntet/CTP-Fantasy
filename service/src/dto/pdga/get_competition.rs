@@ -101,6 +101,7 @@ pub struct CompetitionInfo {
     pub(crate) rounds: Vec<RoundInformation>,
     pub(crate) highest_completed_round: Option<u8>,
     pub(crate) date_range: DateRange,
+    pub(crate) amount_of_rounds: usize
 }
 
 impl CompetitionInfo {
@@ -138,6 +139,7 @@ impl CompetitionInfo {
             highest_completed_round: info.highest_completed_round,
             divisions: divs,
             date_range,
+            amount_of_rounds: info.rounds as usize,
         };
         Ok(out)
     }

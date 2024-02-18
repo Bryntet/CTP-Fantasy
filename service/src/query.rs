@@ -279,7 +279,7 @@ async fn get_player_face(db: &DatabaseConnection, player_id: i32) -> Result<Opti
 
 pub async fn get_user_picks_in_tournament(
     db: &impl ConnectionTrait,
-    requester: &user::Model,
+    requester_id: i32,
     user_id: i32,
     tournament_id: i32,
     div: &dto::Division,
@@ -297,7 +297,7 @@ pub async fn get_user_picks_in_tournament(
             warn!("Error while getting picks: {:#?}", e);
             GenericError::UnknownError("Unknown error while getting picks")
         })?;
-    let owner = requester.id == user_id;
+    let owner = requester_id == user_id;
 
     Ok(FantasyPicks {
         picks: {

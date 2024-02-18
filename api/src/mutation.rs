@@ -161,7 +161,7 @@ pub(crate) async fn add_picks(
     }
 
     let current_picks: FantasyPicks =
-        service::query::get_user_picks_in_tournament(db, &user, user.id, fantasy_tournament_id, &division)
+        service::query::get_user_picks_in_tournament(db, user.id, user.id, fantasy_tournament_id, &division)
             .await?;
 
     let picks = json_picks.into_inner();

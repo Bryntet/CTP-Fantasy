@@ -75,7 +75,7 @@ pub(crate) async fn get_user_picks(
 ) -> Result<Json<FantasyPicks>, GenericError> {
     let res = service::get_user_picks_in_tournament(
         db.inner(),
-        &requester.to_user_model(db.inner()).await?,
+        requester.get_user(db).await?.id,
         user_id,
         tournament_id,
         &division,
@@ -87,6 +87,30 @@ pub(crate) async fn get_user_picks(
         Err(_) => Err(UserError::InvalidUserId("Unknown user").into()),
     }
 }
+
+#[openapi(tag = "Fantasy Tournament")]
+#[get("/fantasy-tournament/<tournament_id>/user/<user_id>/picks/div/<division>")]
+pub(crate) async fn get_user_picks_no_cookie(
+    db: &State<DatabaseConnection>,
+    user_id: i32,
+    tournament_id: i32,
+    division: dto::Division,
+) -> Result<Json<FantasyPicks>, GenericError> {
+    let res = service::get_user_picks_in_tournament(
+        db.inner(),
+        0,
+        user_id,
+        tournament_id,
+        &division,
+    )
+        .await;
+    //dbg!(&res);
+    match res {
+        Ok(picks) => Ok(Json(picks)),
+        Err(_) => Err(UserError::InvalidUserId("Unknown user").into()),
+    }
+}
+
 
 #[openapi(tag = "Fantasy Tournament")]
 #[get("/fantasy-tournament/<tournament_id>/divisions")]
@@ -106,12 +130,7 @@ pub(crate) async fn get_my_id(
     db: &State<DatabaseConnection>,
     user: authenticate::UserAuthentication,
 ) -> Result<Json<i32>, GenericError> {
-    let user_model = user.get_user(db.inner()).await?;
-    if let Some(user_model) = user_model {
-        Ok(Json(user_model.id))
-    } else {
-        Err(UserError::InvalidUserId("Unknown user").into())
-    }
+    Ok(Json(user.get_user(db.inner()).await?.id))
 }
 
 #[openapi(tag = "Fantasy Tournament")]

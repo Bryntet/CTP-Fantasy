@@ -54,11 +54,6 @@ pub async fn get_db() -> DatabaseConnection {
     Database::connect(opt).await.expect("CAN'T CONNECT TO DB")
 }
 
-#[catch(default)]
-fn catchiiing(status: Status, req: &Request) -> String {
-    dbg!(&status, &req);
-    format!("{} ({})", status, req)
-}
 
 pub fn routes() -> Vec<Route> {
     openapi_get_routes![
@@ -121,7 +116,7 @@ pub async fn launch() -> Rocket<Build> {
                 .to_cors()
                 .unwrap(),
         )
-        .register("/api", catchers![general_not_found, catchiiing])
+        .register("/api", catchers![general_not_found])
         .mount("/", FileServer::from(flutter_path))
 
     //.configure(conf)
