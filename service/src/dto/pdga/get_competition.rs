@@ -1,9 +1,7 @@
-use std::alloc::Layout;
 use cached::proc_macro::cached;
 use chrono::{DateTime, NaiveDate, NaiveTime, TimeZone};
 use itertools::Itertools;
 use rocket::error;
-use sea_orm::{ConnectionTrait, EntityTrait};
 use serde_derive::Deserialize;
 
 use crate::dto::{Division, RoundInformation};
@@ -102,7 +100,7 @@ pub struct CompetitionInfo {
     pub(crate) rounds: Vec<RoundInformation>,
     pub(crate) highest_completed_round: Option<u8>,
     pub(crate) date_range: DateRange,
-    pub(crate) amount_of_rounds: usize
+    pub(crate) amount_of_rounds: usize,
 }
 
 impl CompetitionInfo {
@@ -127,7 +125,9 @@ impl CompetitionInfo {
             .collect_vec();
         let mut rounds = Vec::new();
         for round_index in 1..=info.rounds {
-            if let Ok(round) = RoundInformation::new(competition_id as usize, round_index as usize, divs.clone()).await {
+            if let Ok(round) =
+                RoundInformation::new(competition_id as usize, round_index as usize, divs.clone()).await
+            {
                 rounds.push(round);
             } else {
                 rounds.push(RoundInformation::phantom(round_index, competition_id as usize));
@@ -218,7 +218,6 @@ mod tests {
         let url = "https://www.pdga.com/apps/tournament/live-api/live_results_fetch_event.php?TournID=73836";
 
         let resp: CompetitionInfoResponse = reqwest::get(url).await.unwrap().json().await.unwrap();
-        dbg!(&resp.data.start_date, &resp.data.end_date);
         if let Some(range) = DateRange::new(
             &resp.data.start_date,
             &resp.data.end_date,
@@ -235,6 +234,4 @@ mod tests {
     async fn test_competition_info() {
         let info = CompetitionInfo::from_web(77583).await.unwrap();
     }
-
-
 }

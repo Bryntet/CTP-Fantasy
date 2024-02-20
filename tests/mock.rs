@@ -4,14 +4,14 @@ use rocket::async_test;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::ops::{Add, Sub};
+    use std::ops::{Sub};
 
     use dotenvy::dotenv;
     use migration::MigratorTrait;
     use rocket::figment::Profile;
     use rocket::local::asynchronous::{Client, LocalResponse};
     use rocket::log::private::LevelFilter;
-    use rocket::{error, warn, Config};
+    use rocket::{error, warn, Config, info};
     use sea_orm::{
         ActiveModelTrait, ConnectOptions, ConnectionTrait, Database, DatabaseConnection, EntityTrait,
         IntoActiveModel,
@@ -32,7 +32,7 @@ mod tests {
     async fn rocket() -> Rocket<Build> {
         let config = Config {
             profile: Profile::Global,
-            log_level: rocket::config::LogLevel::Critical,
+            log_level: rocket::config::LogLevel::Normal,
             cli_colors: true,
             secret_key: rocket::config::SecretKey::from(&[1u8; 64]),
             ..Default::default()
@@ -177,10 +177,12 @@ mod tests {
         active.ended_at = Set(new_end);
         active.save(&db).await.unwrap();
 
-        dbg!(add_pick(&client, 69424, Division::MPO, 1)
-            .await
-            .into_string()
-            .await);
+
+            add_pick(&client, 69424, Division::MPO, 1)
+                .await
+                .into_string()
+                .await;
+
 
         assert!(any_pick(&db).await);
 
@@ -197,7 +199,13 @@ mod tests {
         let _ = service::mutation::update_active_competitions(&db).await;
         assert!(any_user_scores(&db).await);
 
-
         add_competition(&client, 77775, CompetitionLevel::Elite).await;
+
+        for comp_id in [77775,77758,77759,77760,77761,77762,77763,77764,77765,77766,77768,77769,77771,77772,77773,77774,78647,78666,78654,78655,78646] {
+            info!("Adding competition {}", comp_id);
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            add_competition(&client, comp_id, CompetitionLevel::Major).await;
+        }
+        panic!();
     }
 }

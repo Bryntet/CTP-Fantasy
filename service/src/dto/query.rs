@@ -1,5 +1,6 @@
-use chrono::{DateTime, TimeZone, Utc};
+use chrono::{TimeZone, Utc};
 use itertools::Itertools;
+use log::error;
 use sea_orm::prelude::DateTimeWithTimeZone;
 use sea_orm::ActiveValue::Set;
 use sea_orm::ColumnTrait;
@@ -19,6 +20,7 @@ impl UserLogin {
         user::ActiveModel {
             id: NotSet,
             name: Set(self.username.clone()),
+            admin: Set(false),
         }
     }
     pub(super) fn active_authentication(
@@ -196,7 +198,10 @@ impl CompetitionInfo {
 
     pub(super) fn get_current_player_scores(&self) -> &Vec<PlayerScore> {
         let current_round = self.current_round();
-        //dbg!(current_round);
+        dbg!(current_round);
+        if current_round >= self.rounds.len() {
+            error!("Current round is higher than rounds length");
+        }
         &self.rounds[current_round].players
     }
 
@@ -220,10 +225,9 @@ impl CompetitionInfo {
     }
 
     fn status(&self) -> CompetitionStatus {
-        dbg!(&self.rounds.iter().map(|r|r.status()).collect_vec());
         if self.rounds.len() < self.amount_of_rounds {
             CompetitionStatus::Active(self.rounds.len())
-        }  else if self.rounds.iter().all(|r| r.status() == RoundStatus::Finished) {
+        } else if self.rounds.iter().all(|r| r.status() == RoundStatus::Finished) {
             CompetitionStatus::Finished
         } else if let Some(round) = self.rounds.iter().find(|r| r.status() == RoundStatus::Started) {
             CompetitionStatus::Active(round.round_number - 1)

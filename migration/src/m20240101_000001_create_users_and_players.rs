@@ -24,6 +24,7 @@ impl MigrationTrait for Migration {
                             .primary_key(),
                     )
                     .col(ColumnDef::new(User::Name).string().unique_key().not_null())
+                    .col(ColumnDef::new(User::Admin).boolean().not_null())
                     .to_owned(),
             )
             .await?;

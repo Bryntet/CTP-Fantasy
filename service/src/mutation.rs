@@ -13,7 +13,6 @@ use sea_orm::{
 };
 use sea_orm::{ColumnTrait, QueryFilter};
 
-use crate::dto::Division;
 use crate::error::{GenericError, InviteError};
 use crate::{dto, query};
 
@@ -52,7 +51,7 @@ pub async fn generate_cookie(
 
 pub async fn create_invite(
     db: &DatabaseConnection,
-    sender: user::Model,
+    sender: &user::Model,
     receiver_name: String,
     fantasy_tournament_id: i32,
 ) -> Result<(), InviteError> {
@@ -89,7 +88,7 @@ pub async fn create_invite(
 }
 pub async fn answer_invite(
     db: &DatabaseConnection,
-    user: user::Model,
+    user: &user::Model,
     fantasy_tournament_id: i32,
     invitation_status: bool,
 ) -> Result<(), InviteError> {
@@ -118,7 +117,6 @@ pub async fn answer_invite(
         Err(InviteError::UserNotFound)
     }
 }
-use strum::IntoEnumIterator;
 
 pub async fn update_active_competitions(db: &DatabaseConnection) -> Result<(), GenericError> {
     let competitions = query::active_competitions(db).await?;

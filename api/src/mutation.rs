@@ -2,9 +2,8 @@ use rocket::http::CookieJar;
 use rocket::serde::json::Json;
 use rocket::State;
 use rocket_okapi::openapi;
-use sea_orm::RuntimeErr::SqlxError;
 use sea_orm::TransactionTrait;
-use sea_orm::{DatabaseConnection, DbErr};
+use sea_orm::{DatabaseConnection};
 
 use error::GenericError;
 use service::dto::{forms, traits::InsertCompetition, FantasyPick, FantasyPicks, UserLogin};
@@ -12,7 +11,7 @@ use service::dto::{forms, traits::InsertCompetition, FantasyPick, FantasyPicks, 
 use crate::authenticate;
 use crate::authenticate::AllowedToExchangeGuard;
 use crate::error;
-use crate::error::{TournamentError, UserError};
+use crate::error::{ UserError};
 
 /// # Create a fantasy tournament
 ///
@@ -46,22 +45,9 @@ pub(crate) async fn create_tournament(
     db: &State<DatabaseConnection>,
     user: authenticate::UserAuthentication,
 ) -> Result<(), GenericError> {
-    let user_model = user.to_user_model(db.inner()).await?;
-    let res = tournament.into_inner().insert(db.inner(), user_model.id).await;
-    match res {
-        Ok(_) => Ok(()),
-        Err(DbErr::Query(SqlxError(sqlx::Error::Database(error)))) => {
-            let msg = error.message();
-            if msg.contains("violates foreign key constraint \"fantasy_tournament_owner_fkey\"") {
-                Err(UserError::InvalidUserId("Your user id seems to be invalid?").into())
-            } else if msg.contains("violates unique constraint") {
-                Err(TournamentError::TournamentNameConflict("Username already taken").into())
-            } else {
-                Err(GenericError::UnknownError("Unknown error"))
-            }
-        }
-        Err(_) => Err(GenericError::UnknownError("Unknown error")),
-    }
+    let user_model = user.to_user_model()?;
+    tournament.into_inner().insert(db.inner(), user_model.id).await?;
+    Ok(())
 }
 /// # Create a user
 ///
@@ -114,7 +100,7 @@ pub(crate) async fn add_pick(
         ))?
     }
     let db = db.inner();
-    let user = user.to_user_model(db).await?;
+    let user = user.to_user_model()?;
     if service::check_if_user_in_tournament(db, user.id, fantasy_tournament_id)
         .await
         .unwrap_or(false)
@@ -155,7 +141,7 @@ pub(crate) async fn add_picks(
     division: service::dto::Division,
 ) -> Result<String, GenericError> {
     let db = db.inner();
-    let user = user.to_user_model(db).await?;
+    let user = user.to_user_model()?;
     if user.id != user_id {
         return Err(UserError::NotPermitted("You are not permitted to add picks for this user").into());
     }
@@ -202,7 +188,7 @@ pub(crate) async fn invite_user(
     fantasy_tournament_id: i32,
     invited_user: String,
 ) -> Result<String, GenericError> {
-    let user = auth.user.to_user_model(db).await?;
+    let user = auth.user.to_user_model()?;
     match service::create_invite(db, user, invited_user, fantasy_tournament_id).await {
         Ok(_) => Ok("Successfully invited user".to_string()),
         Err(e) => Err(e.into()),
@@ -217,7 +203,7 @@ pub(crate) async fn answer_invite(
     fantasy_tournament_id: i32,
     accepted: bool,
 ) -> Result<String, GenericError> {
-    let user = user.to_user_model(db).await?;
+    let user = user.to_user_model()?;
     match service::answer_invite(db, user, fantasy_tournament_id, accepted).await {
         Ok(()) => Ok("Successfully answered invite".to_string()),
         Err(e) => Err(e.into()),

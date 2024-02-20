@@ -20,8 +20,9 @@ use sea_orm::ColumnTrait;
 use sea_orm::QueryFilter;
 use user::Model as UserModel;
 use user_cookies::Model as CookieModel;
+
 #[derive(OpenApiFromRequest, Debug)]
-pub struct UserAuthentication(String);
+pub struct UserAuthentication(Authentication);
 
 #[derive(OpenApiFromRequest, Debug)]
 pub struct TournamentOwner {
@@ -65,7 +66,7 @@ impl<'r> FromRequest<'r> for AllowedToExchangeGuard {
                 Self::Error::NotFound("You are not authorized to do this for this user."),
             ))
         } else if let (Some(user), Some(Ok(tournament_id))) = (user.succeeded(), tournament_id) {
-            let user = user.get_user(db).await;
+            let user = user.to_user_model();
 
             match user {
                 Ok(user) => {
@@ -75,7 +76,7 @@ impl<'r> FromRequest<'r> for AllowedToExchangeGuard {
                         Err(e) => Outcome::Error((Status::InternalServerError, e)),
                     }
                 }
-                Err(e) => Outcome::Error((Status::NoContent, e)),
+                Err(e) => Outcome::Error((Status::Unauthorized, e)),
             }
         } else {
             Outcome::Error((
@@ -86,13 +87,43 @@ impl<'r> FromRequest<'r> for AllowedToExchangeGuard {
     }
 }
 
-impl TournamentOwner {
-    async fn is_authenticated(&self, db: &DatabaseConnection) -> bool {
-        if let Ok(Some(c)) = self.user.get_cookie(db).await {
-            c.user_id == self.get_owner_id(db).await.unwrap_or(-1)
-        } else {
-            false
+#[derive(Debug)]
+enum Authentication {
+    Authenticated { cookie: CookieModel, user: UserModel },
+    NotAuthenticated,
+}
+
+impl Authentication {
+    pub fn is_authenticated(&self, user_id: i32) -> bool {
+        match self {
+            Self::Authenticated { user, .. } => user.admin || user.id == user_id,
+            _ => false,
         }
+    }
+
+    pub fn is_admin(&self) -> bool {
+        match self {
+            Self::Authenticated { user, .. } => user.admin,
+            _ => false,
+        }
+    }
+
+    pub async fn in_tournament(&self, db: &DatabaseConnection, tournament_id: i32) -> Result<bool,GenericError> {
+        match self {
+            Self::Authenticated { user, .. } => {
+                user.find_related(entity::fantasy_tournament::Entity).filter(entity::fantasy_tournament::Column::Id.eq(tournament_id)).one(db).await.map(|c| c.is_some()).map_err(|e| {
+                    error!("Error while trying to find tournament by id: {}", e);
+                    GenericError::UnknownError("Error while trying to find tournament by id")
+                })
+            }
+            _ => Ok(false),
+        }
+    }
+}
+
+impl TournamentOwner {
+    async fn is_authenticated(&self, db: &DatabaseConnection) -> Result<bool, GenericError> {
+        Ok(self.user.0.is_admin()|self.user.0.is_authenticated(self.get_owner_id(db).await?))
     }
 
     async fn get_owner_id(&self, db: &DatabaseConnection) -> Result<i32, GenericError> {
@@ -106,7 +137,7 @@ impl TournamentOwner {
 }
 #[rocket::async_trait]
 impl<'r> FromRequest<'r> for TournamentOwner {
-    type Error = AuthError;
+    type Error = GenericError;
 
     async fn from_request(request: &'r Request<'_>) -> request::Outcome<Self, Self::Error> {
         let db = request
@@ -123,41 +154,55 @@ impl<'r> FromRequest<'r> for TournamentOwner {
                     tournament_id: t_id,
                 }
             } else {
-                return None.or_error((Status::BadRequest, AuthError::Invalid("Invalid tournament id")));
+                return None.or_error((Status::BadRequest, AuthError::Invalid("Invalid tournament id").into()));
             }
         } else {
-            return None.or_error((Status::Unauthorized, AuthError::Missing("No cookie found")));
+            return None.or_error((Status::Unauthorized, AuthError::Missing("No cookie found").into()));
         };
 
-        t.is_authenticated(db)
-            .await
-            .then_some(t)
-            .or_error((Status::Unauthorized, AuthError::WrongPassword("")))
+        match t.is_authenticated(db).await {
+            Ok(true) => Outcome::Success(t),
+            Ok(false) | Err(_) => Outcome::Error((Status::Unauthorized, AuthError::WrongPassword("You do not have permission to do that").into())),
+
+        }
     }
 }
 
 impl UserAuthentication {
-    async fn get_cookie(&self, db: &DatabaseConnection) -> Result<Option<CookieModel>, GenericError> {
-        entity::prelude::UserCookies::find_by_id(self.0.to_owned())
+    pub async fn new(db:&impl ConnectionTrait,cookie: &str) -> Result<Self, GenericError> {
+        Ok(Self(Self::get_authentication(db, cookie).await?))
+    }
+
+    async fn get_db_cookie(db: &impl ConnectionTrait, cookie: &str) -> Result<CookieModel, GenericError> {
+        entity::prelude::UserCookies::find_by_id(cookie)
             .one(db)
             .await
-            .map_err(|_| GenericError::UnknownError("db error while finding cookie"))
+            .map_err(|_| GenericError::UnknownError("db error while finding cookie"))?.ok_or(AuthError::Invalid("Cookie not found").into())
     }
 
-    pub(crate) async fn get_user(&self, db: &DatabaseConnection) -> Result<UserModel, GenericError> {
-        let cookie = self.get_cookie(db).await?;
-        if let Some(cookie) = cookie {
-            User::find_by_id(cookie.user_id)
-                .one(db)
-                .await
-                .map_err(|_| GenericError::UnknownError("db error while finding user"))?.ok_or(UserError::InvalidUserId("User not found").into())
+    async fn get_user_from_db(db: &impl ConnectionTrait, cookie: &CookieModel) -> Result<Option<UserModel>, GenericError> {
+        Ok(cookie.find_related(user::Entity).one(db).await.map_err(|e| {
+            error!("Error while trying to find user by cookie: {}", e);
+            GenericError::UnknownError("Error while trying to find user by cookie")
+        })?)
+    }
+
+    async fn get_authentication(db: &impl ConnectionTrait, cookie: &str) -> Result<Authentication, GenericError> {
+        let cookie = Self::get_db_cookie(db,cookie).await?;
+        if let Some(user) = Self::get_user_from_db(db, &cookie).await? {
+            Ok(Authentication::Authenticated { cookie, user })
         } else {
-            Err(AuthError::Invalid("You do not have permission to do this.").into())
+            Ok(Authentication::NotAuthenticated)
         }
+
     }
 
-    pub async fn to_user_model(&self, db: &DatabaseConnection) -> Result<UserModel, GenericError> {
-        self.get_user(db).await
+
+    pub fn to_user_model(&self) -> Result<&UserModel, GenericError> {
+        match self.0 {
+            Authentication::Authenticated { ref user, .. } => Ok(user),
+            _ => Err(AuthError::Missing("No user found").into()),
+        }
     }
 
     fn remove_from_jar(cookies: &CookieJar<'_>) {
@@ -169,14 +214,17 @@ impl UserAuthentication {
         db: &DatabaseConnection,
         cookies: &CookieJar<'_>,
     ) -> Result<&'static str, GenericError> {
-        if let Ok(Some(cookie)) = self.get_cookie(db).await {
-            cookie
-                .delete(db)
-                .await
-                .map_err(|_| GenericError::UnknownError("Error while trying to delete cookie"))?;
-            Self::remove_from_jar(cookies);
+        match self.0 {
+            Authentication::Authenticated { cookie, .. } => {
+                cookie
+                    .delete(db)
+                    .await
+                    .map_err(|_| GenericError::UnknownError("Error while trying to delete cookie"))?;
+                Self::remove_from_jar(cookies);
+                Ok("Successfully logged out")
+            }
+            _ => Err(AuthError::Invalid("Cannot remove non-existing cookie").into()),
         }
-        Ok("Successfully logged out")
     }
 
     pub async fn remove_all_cookies(
@@ -184,44 +232,40 @@ impl UserAuthentication {
         db: &DatabaseConnection,
         cookies: &CookieJar<'_>,
     ) -> Result<&'static str, GenericError> {
-        let user = self.get_user(db).await?;
-        let txn = db
-            .begin()
-            .await
-            .map_err(|_| GenericError::UnknownError("Unable to begin txn"))?;
-        for cookie in user
-            .find_related(user_cookies::Entity)
-            .all(&txn)
-            .await
-            .map_err(|_| GenericError::UnknownError("Error while trying to find cookie"))?
-        {
-            cookie
-                .delete(&txn)
-                .await
-                .map_err(|_| GenericError::UnknownError("Unable to delete cookie."))?;
-        }
-        txn.commit()
-            .await
-            .map_err(|_| GenericError::UnknownError("Unable to commit txn"))?;
-        Self::remove_from_jar(cookies);
-
-
-        Ok("Successfully logged out")
-    }
-
-    async fn is_valid(&self, db: &DatabaseConnection) -> bool {
-        if let Ok(c) = self.get_cookie(db).await {
-            c.is_some()
-        } else {
-            false
+        match self.0 {
+            Authentication::Authenticated { user, .. } => {
+                let txn = db
+                    .begin()
+                    .await
+                    .map_err(|_| GenericError::UnknownError("Unable to begin txn"))?;
+                for cookie in user
+                    .find_related(user_cookies::Entity)
+                    .all(&txn)
+                    .await
+                    .map_err(|_| GenericError::UnknownError("Error while trying to find cookie"))?
+                {
+                    cookie
+                        .delete(&txn)
+                        .await
+                        .map_err(|_| GenericError::UnknownError("Unable to delete cookie"))?;
+                }
+                txn.commit()
+                    .await
+                    .map_err(|_| GenericError::UnknownError("Unable to commit txn"))?;
+                Self::remove_from_jar(cookies);
+                Ok("Successfully logged out")
+            }
+            _ => Err(AuthError::Invalid("Cannot remove non-existing cookie").into()),
         }
     }
-    pub async fn new_checked(cookie: String, db: &DatabaseConnection) -> Option<Self> {
-        let cookie = Self(cookie);
-        if cookie.is_valid(db).await {
-            Some(cookie)
-        } else {
-            None
+
+
+
+    // Function that returns an auth error if the user is not authenticated
+    pub async fn require_authentication(&self) -> Result<(), GenericError> {
+        match self.0 {
+            Authentication::Authenticated { .. } => Ok(()),
+            _ => Err(AuthError::Invalid("You do not have permission to do that").into()),
         }
     }
 }
@@ -229,7 +273,7 @@ impl UserAuthentication {
 // Implement the actual checks for the authentication
 #[rocket::async_trait]
 impl<'a> FromRequest<'a> for UserAuthentication {
-    type Error = Json<AuthError>;
+    type Error = Json<GenericError>;
     async fn from_request(request: &'a Request<'_>) -> request::Outcome<Self, Self::Error> {
         let db = request
             .rocket()
@@ -239,15 +283,14 @@ impl<'a> FromRequest<'a> for UserAuthentication {
         let cookie: Cookie = if let Some(cookie) = request.cookies().get_private("auth") {
             cookie
         } else {
-            return None.or_error((Status::Unauthorized, AuthError::Missing("No cookie found").into()));
+            return None.or_error((Status::Unauthorized, Json(AuthError::Missing("No cookie found").into())));
         };
 
-        UserAuthentication::new_checked(cookie.value().to_string(), db)
-            .await
-            .or_error((
-                Status::Forbidden,
-                AuthError::WrongPassword("You do not have permission to do that").into(),
-            ))
+        match UserAuthentication::new(db,cookie.value(), )
+            .await {
+            Ok(auth) => Outcome::Success(auth),
+            Err(e) => Outcome::Error((Status::Unauthorized, Json(e))),
+        }
     }
 }
 

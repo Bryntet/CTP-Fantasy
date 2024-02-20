@@ -7,14 +7,12 @@ use crate::error::GenericError;
 use entity::prelude::{FantasyPick, User};
 use itertools::Itertools;
 use log::error;
-use rocket::http::hyper::body::HttpBody;
 use sea_orm::prelude::DateTimeWithTimeZone;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{sea_query, ModelTrait};
-use sea_orm::{ActiveModelTrait, ConnectionTrait, DbErr, EntityTrait, IntoActiveModel, NotSet};
+use sea_orm::{ConnectionTrait, DbErr, EntityTrait, IntoActiveModel, NotSet};
 use sea_orm::{ColumnTrait, QueryFilter};
 
-use entity::round::Model;
 use serde::Deserialize;
 use serde_with::serde_as;
 
@@ -47,9 +45,7 @@ impl Layout {
             unit: Some(Unit::Meters),
         }
     }
-
 }
-
 
 #[derive(Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "PascalCase")]
@@ -274,7 +270,7 @@ pub struct RoundInformation {
     pub round_number: usize,
     pub competition_id: usize,
     pub divs: Vec<Division>,
-    phantom: bool
+    phantom: bool,
 }
 
 impl RoundInformation {
@@ -331,7 +327,7 @@ impl RoundInformation {
             round_number: round_number as usize,
             competition_id,
             divs: vec![],
-            phantom: true
+            phantom: true,
         }
     }
 
@@ -375,7 +371,7 @@ impl RoundInformation {
             round_number,
             competition_id,
             divs,
-            phantom: false
+            phantom: false,
         }
     }
 
@@ -462,12 +458,12 @@ impl RoundInformation {
 
 #[cfg(test)]
 mod tests {
-    use crate::dto::pdga::player_scoring::{ApiRes};
+    use crate::dto::pdga::player_scoring::ApiRes;
 
     #[test]
     fn test_parse_comp() {
-        use std::fs;
         use serde_json::from_str;
+        use std::fs;
 
         // Specify the path to your JSON file
         let path = "/home/brynte/RustroverProjects/CTP-Fantasy/pdga_schema/round_thing.json";
@@ -480,7 +476,6 @@ mod tests {
 
         // Now you can use `info` for your assertions
     }
-
 
     #[test]
     fn test_pdga_round() {

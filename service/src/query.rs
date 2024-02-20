@@ -5,7 +5,7 @@ use entity::prelude::*;
 use entity::sea_orm_active_enums::Division;
 use entity::*;
 
-use log::warn;
+use log::{error, warn};
 
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
@@ -92,21 +92,21 @@ impl From<sea_orm_active_enums::FantasyTournamentInvitationStatus> for Invitatio
     }
 }
 
-pub async fn get_fantasy_tournaments(
+pub async fn get_users_fantasy_tournaments(
     db: &DatabaseConnection,
-    user_id: i32,
-) -> Result<Vec<SimpleFantasyTournament>, DbErr> {
-    let tournaments = UserInFantasyTournament::find()
-        .filter(user_in_fantasy_tournament::Column::UserId.eq(user_id))
-        .all(db)
-        .await?;
+    user: &user::Model,
+) -> Result<Vec<SimpleFantasyTournament>, GenericError> {
+    let tournaments = user.find_related(user_in_fantasy_tournament::Entity).all(db).await.map_err(|e|{
+        error!("Error while getting tournaments: {:#?}", e);
+        GenericError::UnknownError("Unknown error while getting tournaments")
+    })?;
 
     let mut out_things = Vec::new();
     for user_in_tournament in tournaments {
-        if let Some(tournament) = FantasyTournament::find_by_id(user_in_tournament.fantasy_tournament_id)
-            .one(db)
-            .await?
-        {
+        if let Some(tournament) = user_in_tournament.find_related(fantasy_tournament::Entity).one(db).await.map_err(|e|{
+            error!("Error while getting tournament: {:#?}", e);
+            GenericError::UnknownError("Unknown error while getting tournament")
+        })? {
             out_things.push(SimpleFantasyTournament {
                 id: tournament.id,
                 name: tournament.name.to_string(),
@@ -121,6 +121,7 @@ pub async fn get_fantasy_tournaments(
 pub async fn get_fantasy_tournament(
     db: &impl ConnectionTrait,
     tournament_id: i32,
+    user_admin_id: Option<i32>
 ) -> Result<Option<SimpleFantasyTournament>, GenericError> {
     let t = FantasyTournament::find_by_id(tournament_id)
         .one(db)
@@ -132,7 +133,7 @@ pub async fn get_fantasy_tournament(
             id: t.id,
             name: t.name.to_string(),
             invitation_status: InvitationStatus::Accepted,
-            owner_id: t.owner,
+            owner_id: user_admin_id.unwrap_or(t.owner),
         }))
     } else {
         Ok(None)
@@ -185,7 +186,6 @@ pub async fn get_user_participants_in_tournament(
                 .map_err(|_| GenericError::UnknownError("Unable to recieve user scores from database"))?
                 .iter()
                 .map(|score| {
-                    dbg!(&score);
                     score.score
                 })
                 .sum::<i32>();

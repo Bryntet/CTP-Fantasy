@@ -7,6 +7,7 @@ pub(crate) enum User {
     Table,
     Id,
     Name,
+    Admin,
 }
 
 #[derive(DeriveIden)]

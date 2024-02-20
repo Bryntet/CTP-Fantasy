@@ -4,9 +4,9 @@ pub extern crate rocket;
 use dotenvy::dotenv;
 
 use rocket::fs::FileServer;
-use rocket::http::Status;
 
-use rocket::{Build, Request, Rocket, Route};
+
+use rocket::{Build, Rocket, Route};
 use rocket_cors::AllowedOrigins;
 use rocket_okapi::openapi_get_routes;
 use rocket_okapi::rapidoc::{make_rapidoc, GeneralConfig, HideShowConfig, RapiDocConfig};
@@ -77,6 +77,7 @@ pub fn routes() -> Vec<Route> {
         get_user_pick,
         get_divisions,
         add_competition,
+        get_user_picks_no_cookie
     ]
 }
 

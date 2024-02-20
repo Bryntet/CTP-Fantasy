@@ -9,10 +9,7 @@ use rocket::request::FromParam;
 use rocket::warn;
 use sea_orm::sea_query::OnConflict;
 use sea_orm::ActiveValue::Set;
-use sea_orm::{
-    sea_query, ActiveModelTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait, ModelTrait, NotSet,
-    TransactionTrait,
-};
+use sea_orm::{sea_query, ActiveModelTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait, ModelTrait, NotSet, TransactionTrait, SqlErr};
 
 use entity::fantasy_pick;
 use entity::prelude::{
@@ -211,10 +208,20 @@ impl UserScore {
 }
 
 impl CreateTournament {
-    pub async fn insert(&self, db: &DatabaseConnection, owner_id: i32) -> Result<(), DbErr> {
+    pub async fn insert(&self, db: &DatabaseConnection, owner_id: i32) -> Result<(), GenericError> {
         let tour = FantasyTournament::insert(self.clone().into_active_model(owner_id))
             .exec(db)
-            .await?;
+            .await
+            .map_err(|e| {
+                match e.sql_err() {
+                    Some(SqlErr::UniqueConstraintViolation(_)) => GenericError::Conflict("Tournament name already taken"),
+                    Some(SqlErr::ForeignKeyConstraintViolation(_)) => GenericError::NotFound("Owner not found"),
+                    _ => {
+                        error!("Unable to insert fantasy tournament: {:#?}", e.sql_err());
+                        GenericError::UnknownError("Unable to insert fantasy tournament")
+                    }
+                }
+            })?;
         UserInFantasyTournament::insert(user_in_fantasy_tournament::ActiveModel {
             id: NotSet,
             user_id: Set(owner_id),
@@ -222,8 +229,25 @@ impl CreateTournament {
             invitation_status: Set(FantasyTournamentInvitationStatus::Accepted),
         })
         .exec(db)
-        .await?;
-        FantasyTournamentDivs::insert(self.divisions.clone(), db, tour.last_insert_id).await?;
+        .await.map_err(|e|{
+            match e.sql_err() {
+                Some(SqlErr::UniqueConstraintViolation(_)) => GenericError::Conflict("User already in tournament"),
+                Some(SqlErr::ForeignKeyConstraintViolation(_)) => GenericError::NotFound("User not found"),
+                _ => {
+                    error!("Unable to insert user in fantasy tournament: {:#?}", e.sql_err());
+                    GenericError::UnknownError("Unable to insert user in fantasy tournament")
+                }
+            }
+        })?;
+        FantasyTournamentDivs::insert(self.divisions.clone(), db, tour.last_insert_id).await.map_err(|e| {
+            match e.sql_err() {
+                Some(SqlErr::ForeignKeyConstraintViolation(_)) => GenericError::NotFound("Division not found"),
+                _ => {
+                    error!("Unable to insert fantasy tournament divisions: {:#?}", e.sql_err());
+                    GenericError::UnknownError("Unable to insert fantasy tournament divisions")
+                }
+            }
+        })?;
 
         Ok(())
     }
@@ -373,14 +397,19 @@ impl CompetitionInfo {
 
         let cols = vec![RoundColumn::CompetitionId, RoundColumn::RoundNumber];
         let times = self.date_range.date_times();
+
+        if times.len() != self.rounds.len() {
+            return Err(GenericError::UnknownError("Unable to insert rounds into database"));
+        }
         let round_models = self
             .rounds
             .iter()
             .enumerate()
-            .map(|(idx, round)| round.active_model(times[idx].fixed_offset()))
+            .map(|(idx, round)| {
+                round.active_model(times[idx].fixed_offset())
+            })
             .collect_vec();
 
-        dbg!(&round_models);
         if !round_models.is_empty() {
             RoundEnt::insert_many(round_models)
                 .on_conflict(
@@ -401,7 +430,8 @@ impl CompetitionInfo {
     pub async fn save_round_scores(&self, db: &impl ConnectionTrait) -> Result<(), GenericError> {
         // TODO: ADD STATUS TO ROUND
 
-        let rounds =  self.rounds
+        let rounds = self
+            .rounds
             .iter()
             .filter(|r| r.status() != RoundStatus::Pending)
             .flat_map(|r| {
@@ -410,15 +440,10 @@ impl CompetitionInfo {
             })
             .collect_vec();
         if !rounds.is_empty() {
-            super::super::update_or_insert_many_player_round_scores(
-                db,
-                rounds,
-            )
-                .await
+            super::super::update_or_insert_many_player_round_scores(db, rounds).await
         } else {
             Ok(())
         }
-
     }
 
     async fn insert_competition_in_db(
@@ -434,9 +459,6 @@ impl CompetitionInfo {
         Ok(())
     }
 
-    pub async fn save(&self, db: &impl ConnectionTrait) -> Result<(), GenericError> {
-        Ok(())
-    }
 
     pub async fn insert_players(
         &self,
@@ -474,7 +496,7 @@ impl CompetitionInfo {
             .exec(db)
             .await
             .map_err(|e| {
-                dbg!(e);
+                error!("Unable to insert user scores into database: {:#?}", e);
                 GenericError::UnknownError("Unable to insert user score from competition into database")
             })?;
         }

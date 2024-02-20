@@ -15,8 +15,8 @@ pub(crate) async fn see_tournaments(
     db: &State<DatabaseConnection>,
     user: authenticate::UserAuthentication,
 ) -> Result<Json<Vec<SimpleFantasyTournament>>, GenericError> {
-    let user_model = user.to_user_model(db.inner()).await?;
-    match service::get_fantasy_tournaments(db.inner(), user_model.id).await {
+    let user_model = user.to_user_model()?;
+    match service::get_users_fantasy_tournaments(db.inner(), &user_model).await {
         Ok(tournaments) => Ok(Json(tournaments)),
         Err(_) => Err(TournamentError::NotFound("Tournament not found").into()),
     }
@@ -26,6 +26,7 @@ pub(crate) async fn see_tournaments(
 #[get("/fantasy-tournament/<id>")]
 pub(crate) async fn get_tournament(
     db: &State<DatabaseConnection>,
+    auth: authenticate::UserAuthentication,
     id: i32,
 ) -> Result<Json<SimpleFantasyTournament>, GenericError> {
     match service::get_fantasy_tournament(db.inner(), id).await {
@@ -55,7 +56,7 @@ pub(crate) async fn get_user_pick(
     user_id: i32,
     pick_slot: i32,
 ) -> Result<Json<FantasyPick>, GenericError> {
-    if requester.to_user_model(db.inner()).await?.id != user_id {
+    if requester.to_user_model()?.id != user_id {
         Err(UserError::NotPermitted("You are not permitted to view this pick").into())
     } else {
         match service::get_user_pick_in_tournament(db.inner(), user_id, tournament_id, pick_slot).await {
@@ -75,7 +76,7 @@ pub(crate) async fn get_user_picks(
 ) -> Result<Json<FantasyPicks>, GenericError> {
     let res = service::get_user_picks_in_tournament(
         db.inner(),
-        requester.get_user(db).await?.id,
+        requester.to_user_model()?.id,
         user_id,
         tournament_id,
         &division,
@@ -89,7 +90,7 @@ pub(crate) async fn get_user_picks(
 }
 
 #[openapi(tag = "Fantasy Tournament")]
-#[get("/fantasy-tournament/<tournament_id>/user/<user_id>/picks/div/<division>")]
+#[get("/fantasy-tournament/<tournament_id>/user/<user_id>/picks/div/<division>", rank = 2)]
 pub(crate) async fn get_user_picks_no_cookie(
     db: &State<DatabaseConnection>,
     user_id: i32,
@@ -127,10 +128,9 @@ pub(crate) async fn get_divisions(
 #[openapi(tag = "User")]
 #[get("/my-id")]
 pub(crate) async fn get_my_id(
-    db: &State<DatabaseConnection>,
     user: authenticate::UserAuthentication,
 ) -> Result<Json<i32>, GenericError> {
-    Ok(Json(user.get_user(db.inner()).await?.id))
+    Ok(Json(user.to_user_model()?.id))
 }
 
 #[openapi(tag = "Fantasy Tournament")]
