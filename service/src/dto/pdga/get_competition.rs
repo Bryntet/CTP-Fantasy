@@ -108,7 +108,7 @@ impl CompetitionInfo {
         let info = Self::get_pdga_competition_info(competition_id).await?;
         let time = std::time::Instant::now();
         let date_range = DateRange::from_api_comp_info(&info).await.unwrap();
-        println!("Time to get date range: {:?}", time.elapsed());
+        //println!("Time to get date range: {:?}", time.elapsed());
 
         let divs = info
             .divisions

@@ -198,7 +198,7 @@ impl CompetitionInfo {
 
     pub(super) fn get_current_player_scores(&self) -> &Vec<PlayerScore> {
         let current_round = self.current_round();
-        dbg!(current_round);
+        //dbg!(current_round);
         if current_round >= self.rounds.len() {
             error!("Current round is higher than rounds length");
         }
