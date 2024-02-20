@@ -181,10 +181,10 @@ impl UserAuthentication {
     }
 
     async fn get_user_from_db(db: &impl ConnectionTrait, cookie: &CookieModel) -> Result<Option<UserModel>, GenericError> {
-        Ok(cookie.find_related(user::Entity).one(db).await.map_err(|e| {
+        cookie.find_related(user::Entity).one(db).await.map_err(|e| {
             error!("Error while trying to find user by cookie: {}", e);
             GenericError::UnknownError("Error while trying to find user by cookie")
-        })?)
+        })
     }
 
     async fn get_authentication(db: &impl ConnectionTrait, cookie: &str) -> Result<Authentication, GenericError> {

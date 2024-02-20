@@ -16,7 +16,7 @@ pub(crate) async fn see_tournaments(
     user: authenticate::UserAuthentication,
 ) -> Result<Json<Vec<SimpleFantasyTournament>>, GenericError> {
     let user_model = user.to_user_model()?;
-    match service::get_users_fantasy_tournaments(db.inner(), &user_model).await {
+    match service::get_users_fantasy_tournaments(db.inner(),user_model).await {
         Ok(tournaments) => Ok(Json(tournaments)),
         Err(_) => Err(TournamentError::NotFound("Tournament not found").into()),
     }
