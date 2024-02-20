@@ -29,7 +29,15 @@ pub(crate) async fn get_tournament(
     auth: authenticate::UserAuthentication,
     id: i32,
 ) -> Result<Json<SimpleFantasyTournament>, GenericError> {
-    match service::get_fantasy_tournament(db.inner(), id).await {
+    if let Ok(model) = auth.to_user_model() {
+        if model.admin {
+            return match service::get_fantasy_tournament(db.inner(), id, Some(model.id)).await {
+                Ok(Some(tournament)) => Ok(Json(tournament)),
+                Ok(None) | Err(_) => Err(TournamentError::NotFound("Tournament not found").into()),
+            };
+        }
+    }
+    match service::get_fantasy_tournament(db.inner(), id, None).await {
         Ok(Some(tournament)) => Ok(Json(tournament)),
         Ok(None) | Err(_) => Err(TournamentError::NotFound("Tournament not found").into()),
     }
