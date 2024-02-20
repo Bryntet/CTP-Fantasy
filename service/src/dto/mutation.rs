@@ -371,7 +371,7 @@ impl CompetitionInfo {
     pub async fn insert_rounds(&self, db: &impl ConnectionTrait) -> Result<(), GenericError> {
         use entity::round::{Column as RoundColumn, Entity as RoundEnt};
 
-        let cols = [RoundColumn::CompetitionId, RoundColumn::RoundNumber];
+        let cols = vec![RoundColumn::CompetitionId, RoundColumn::RoundNumber];
         let times = self.date_range.date_times();
         let round_models = self
             .rounds
@@ -379,6 +379,8 @@ impl CompetitionInfo {
             .enumerate()
             .map(|(idx, round)| round.active_model(times[idx].fixed_offset()))
             .collect_vec();
+
+        dbg!(&round_models);
         if !round_models.is_empty() {
             RoundEnt::insert_many(round_models)
                 .on_conflict(
@@ -399,18 +401,24 @@ impl CompetitionInfo {
     pub async fn save_round_scores(&self, db: &impl ConnectionTrait) -> Result<(), GenericError> {
         // TODO: ADD STATUS TO ROUND
 
-        super::super::update_or_insert_many_player_round_scores(
-            db,
-            self.rounds
-                .iter()
-                .filter(|r| r.status() != RoundStatus::Pending)
-                .flat_map(|r| {
-                    r.all_player_active_models(r.round_number as i32, self.competition_id as i32)
-                        .into_iter()
-                })
-                .collect_vec(),
-        )
-        .await
+        let rounds =  self.rounds
+            .iter()
+            .filter(|r| r.status() != RoundStatus::Pending)
+            .flat_map(|r| {
+                r.all_player_active_models(r.round_number as i32, self.competition_id as i32)
+                    .into_iter()
+            })
+            .collect_vec();
+        if !rounds.is_empty() {
+            super::super::update_or_insert_many_player_round_scores(
+                db,
+                rounds,
+            )
+                .await
+        } else {
+            Ok(())
+        }
+
     }
 
     async fn insert_competition_in_db(

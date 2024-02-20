@@ -1,3 +1,4 @@
+use std::alloc::Layout;
 use cached::proc_macro::cached;
 use chrono::{DateTime, NaiveDate, NaiveTime, TimeZone};
 use itertools::Itertools;
@@ -107,7 +108,6 @@ pub struct CompetitionInfo {
 impl CompetitionInfo {
     pub async fn from_web(competition_id: u32) -> Result<Self, GenericError> {
         let info = Self::get_pdga_competition_info(competition_id).await?;
-        let mut rounds = Vec::new();
         let time = std::time::Instant::now();
         let date_range = DateRange::from_api_comp_info(&info).await.unwrap();
         println!("Time to get date range: {:?}", time.elapsed());
@@ -125,11 +125,13 @@ impl CompetitionInfo {
             })
             .dedup()
             .collect_vec();
-
+        let mut rounds = Vec::new();
         for round_index in 1..=info.rounds {
-            rounds.push(
-                RoundInformation::new(competition_id as usize, round_index as usize, divs.clone()).await?,
-            )
+            if let Ok(round) = RoundInformation::new(competition_id as usize, round_index as usize, divs.clone()).await {
+                rounds.push(round);
+            } else {
+                rounds.push(RoundInformation::phantom(round_index, competition_id as usize));
+            }
         }
 
         let out = Self {
@@ -233,4 +235,6 @@ mod tests {
     async fn test_competition_info() {
         let info = CompetitionInfo::from_web(77583).await.unwrap();
     }
+
+
 }

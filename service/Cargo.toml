@@ -27,6 +27,7 @@ rtz = {version= "*", default-features = false, features = ["tz-osm", "tz-ned"] }
 geocoding = { version = "*", default-features = false, features = ["rustls-tls"] }
 chrono-tz = "0.8.5"
 cached = {version= "0.48.1", features = ["async"] }
+serde_with = "3.6.1"
 
 [dependencies.sea-orm]
 version = "0.12.10" # sea-orm version

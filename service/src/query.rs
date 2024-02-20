@@ -284,12 +284,13 @@ pub async fn get_user_picks_in_tournament(
     tournament_id: i32,
     div: &dto::Division,
 ) -> Result<FantasyPicks, GenericError> {
+    let div: sea_orm_active_enums::Division = div.into();
     let picks = FantasyPick::find()
         .filter(
             fantasy_pick::Column::User
                 .eq(user_id)
                 .and(fantasy_pick::Column::FantasyTournamentId.eq(tournament_id))
-                .and(fantasy_pick::Column::Division.eq(div.to_string())),
+                .and(fantasy_pick::Column::Division.eq(div)),
         )
         .all(db)
         .await

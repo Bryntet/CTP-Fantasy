@@ -16,9 +16,11 @@ use sea_orm::{ColumnTrait, QueryFilter};
 
 use entity::round::Model;
 use serde::Deserialize;
+use serde_with::serde_as;
 
-#[derive(Deserialize, PartialEq, Debug, Clone)]
+#[derive(Deserialize, PartialEq, Debug, Clone, Default, Copy)]
 enum Unit {
+    #[default]
     Meters,
     Feet,
 }
@@ -29,19 +31,31 @@ struct ApiRes {
 
 #[derive(Deserialize, PartialEq, Debug, Clone)]
 #[serde(rename_all = "PascalCase")]
-struct Layout {
+pub(crate) struct Layout {
     #[serde(rename = "Detail")]
     holes: Vec<Hole>,
-    length: u32,
+    length: Option<u32>,
     #[serde(rename = "Units")]
-    unit: Unit,
+    unit: Option<Unit>,
 }
+
+impl Layout {
+    pub fn phantom() -> Self {
+        Layout {
+            holes: vec![],
+            length: Some(0),
+            unit: Some(Unit::Meters),
+        }
+    }
+
+}
+
 
 #[derive(Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "PascalCase")]
 pub struct Hole {
     pub par: u32,
-    #[serde(rename = "HoleOrdinal")]
+    #[serde(rename = "Ordinal")]
     pub hole_number: u32,
     pub length: Option<u32>,
 }
@@ -232,18 +246,23 @@ impl PlayerScore {
     }
 }
 
+use serde_with::VecSkipError;
+
+#[serde_as]
 #[derive(Deserialize, Debug)]
 struct RoundFromApi {
     layouts: Vec<Layout>,
+    #[serde_as(as = "VecSkipError<_>")]
     scores: Vec<ApiPlayer>,
     #[serde(skip)]
     div: Division,
 }
 
-fn fix_length(length: u32, unit: &Unit) -> u32 {
-    match unit {
-        Unit::Feet => (length as f64 * 0.3048).round() as u32,
-        Unit::Meters => length,
+fn fix_length(length: Option<u32>, unit: Option<Unit>) -> Option<u32> {
+    match (unit, length) {
+        (Some(Unit::Feet), Some(length)) => Some((length as f64 * 0.3048).round() as u32),
+        (Some(Unit::Meters), Some(length)) => Some(length),
+        _ => None,
     }
 }
 
@@ -255,6 +274,7 @@ pub struct RoundInformation {
     pub round_number: usize,
     pub competition_id: usize,
     pub divs: Vec<Division>,
+    phantom: bool
 }
 
 impl RoundInformation {
@@ -303,6 +323,18 @@ impl RoundInformation {
         }
     }
 
+    pub fn phantom(round_number: u8, competition_id: usize) -> Self {
+        RoundInformation {
+            holes: vec![],
+            players: vec![],
+            course_length: 0,
+            round_number: round_number as usize,
+            competition_id,
+            divs: vec![],
+            phantom: true
+        }
+    }
+
     fn make_self(
         player_scores: Vec<PlayerScore>,
         layout: Layout,
@@ -316,13 +348,14 @@ impl RoundInformation {
             .map(|h| Hole {
                 par: h.par,
                 hole_number: h.hole_number,
-                length: h.length.map(|l| fix_length(l, &layout.unit)),
+                length: fix_length(h.length, layout.unit),
             })
             .collect_vec();
 
         let length = match layout.unit {
-            Unit::Feet => (layout.length as f64 * 0.3048).round() as u32,
-            Unit::Meters => (layout.length as f64).round() as u32,
+            Some(Unit::Feet) => (layout.length.unwrap_or_default() as f64 * 0.3048).round() as u32,
+            Some(Unit::Meters) => (layout.length.unwrap_or_default() as f64).round() as u32,
+            None => 0,
         };
 
         RoundInformation {
@@ -342,6 +375,7 @@ impl RoundInformation {
             round_number,
             competition_id,
             divs,
+            phantom: false
         }
     }
 
@@ -360,7 +394,8 @@ impl RoundInformation {
             .map_err(|_| GenericError::UnknownError("Internal error while fetching round from PDGA"))?
             .json()
             .await
-            .map_err(|_| {
+            .map_err(|e| {
+                error!("Unable to parse PDGA round response: {}", e);
                 GenericError::UnknownError("Internal error while converting PDGA round to internal format")
             })?;
 
@@ -403,7 +438,9 @@ impl RoundInformation {
             .filter(|p| p.started == PlayerStatus::Finished)
             .count()
             >= (players.len() / 2);
-        if players.iter().all(|p| p.started == PlayerStatus::Finished) || is_majority_finished {
+        if self.phantom {
+            RoundStatus::Pending
+        } else if players.iter().all(|p| p.started == PlayerStatus::Finished) || is_majority_finished {
             RoundStatus::Finished
         } else if players.iter().any(|p| p.started == PlayerStatus::Started) {
             RoundStatus::Started
@@ -425,6 +462,25 @@ impl RoundInformation {
 
 #[cfg(test)]
 mod tests {
+    use crate::dto::pdga::player_scoring::{ApiRes};
+
+    #[test]
+    fn test_parse_comp() {
+        use std::fs;
+        use serde_json::from_str;
+
+        // Specify the path to your JSON file
+        let path = "/home/brynte/RustroverProjects/CTP-Fantasy/pdga_schema/round_thing.json";
+
+        // Read the file content
+        let content = fs::read_to_string(path).expect("Could not read file");
+
+        // Deserialize the content into ApiCompetitionInfo
+        let info: ApiRes = from_str(&content).expect("Could not deserialize file content");
+
+        // Now you can use `info` for your assertions
+    }
+
 
     #[test]
     fn test_pdga_round() {

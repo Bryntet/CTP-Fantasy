@@ -177,10 +177,10 @@ mod tests {
         active.ended_at = Set(new_end);
         active.save(&db).await.unwrap();
 
-        add_pick(&client, 69424, Division::MPO, 1)
+        dbg!(add_pick(&client, 69424, Division::MPO, 1)
             .await
             .into_string()
-            .await;
+            .await);
 
         assert!(any_pick(&db).await);
 
@@ -196,5 +196,8 @@ mod tests {
 
         let _ = service::mutation::update_active_competitions(&db).await;
         assert!(any_user_scores(&db).await);
+
+
+        add_competition(&client, 77775, CompetitionLevel::Elite).await;
     }
 }

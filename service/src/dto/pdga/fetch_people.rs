@@ -4,6 +4,7 @@ use rocket_okapi::okapi::schemars::JsonSchema;
 use sea_orm::{sea_query, ConnectionTrait, EntityTrait};
 
 use serde::Deserialize;
+use serde_derive::Serialize;
 
 use crate::dto::pdga::player_scoring::{PlayerScore, PlayerStatus};
 use crate::dto::Division;
