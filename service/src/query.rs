@@ -96,26 +96,42 @@ pub async fn get_users_fantasy_tournaments(
     db: &DatabaseConnection,
     user: &user::Model,
 ) -> Result<Vec<SimpleFantasyTournament>, GenericError> {
-    let tournaments = user.find_related(user_in_fantasy_tournament::Entity).all(db).await.map_err(|e|{
-        error!("Error while getting tournaments: {:#?}", e);
-        GenericError::UnknownError("Unknown error while getting tournaments")
-    })?;
+    if user.admin {
+        let a = fantasy_tournament::Entity::find().all(db).await.map_err(|e|{
+            error!("Error while getting tournaments: {:#?}", e);
+            GenericError::UnknownError("Unknown error while getting tournaments")
+        })?.iter().map(|t| {
+            SimpleFantasyTournament {
+                id: t.id,
+                name: t.name.to_string(),
+                invitation_status: InvitationStatus::Accepted,
+                owner_id: t.owner,
+            }
+        }).collect();
+        Ok(a)
+    } else {
+        let tournaments = user.find_related(user_in_fantasy_tournament::Entity).all(db).await.map_err(|e|{
+            error!("Error while getting tournaments: {:#?}", e);
+            GenericError::UnknownError("Unknown error while getting tournaments")
+        })?;
 
-    let mut out_things = Vec::new();
-    for user_in_tournament in tournaments {
-        if let Some(tournament) = user_in_tournament.find_related(fantasy_tournament::Entity).one(db).await.map_err(|e|{
-            error!("Error while getting tournament: {:#?}", e);
-            GenericError::UnknownError("Unknown error while getting tournament")
-        })? {
-            out_things.push(SimpleFantasyTournament {
-                id: tournament.id,
-                name: tournament.name.to_string(),
-                invitation_status: user_in_tournament.invitation_status.into(),
-                owner_id: tournament.owner,
-            });
+        let mut out_things = Vec::new();
+        for user_in_tournament in tournaments {
+            if let Some(tournament) = user_in_tournament.find_related(fantasy_tournament::Entity).one(db).await.map_err(|e|{
+                error!("Error while getting tournament: {:#?}", e);
+                GenericError::UnknownError("Unknown error while getting tournament")
+            })? {
+                out_things.push(SimpleFantasyTournament {
+                    id: tournament.id,
+                    name: tournament.name.to_string(),
+                    invitation_status: user_in_tournament.invitation_status.into(),
+                    owner_id: tournament.owner,
+                });
+            }
         }
+        Ok(out_things)
     }
-    Ok(out_things)
+    
 }
 
 pub async fn get_fantasy_tournament(
