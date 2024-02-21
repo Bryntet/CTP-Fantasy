@@ -177,10 +177,10 @@ mod tests {
         active.save(&db).await.unwrap();
 
 
-            add_pick(&client, 69424, Division::MPO, 1)
-                .await
-                .into_string()
-                .await;
+        add_pick(&client, 69424, Division::MPO, 1)
+            .await
+            .into_string()
+            .await;
 
 
         assert!(any_pick(&db).await);
