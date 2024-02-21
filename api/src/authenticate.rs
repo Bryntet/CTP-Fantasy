@@ -67,7 +67,7 @@ impl<'r> FromRequest<'r> for AllowedToExchangeGuard {
             ))
         } else if let (Some(user), Some(Ok(tournament_id))) = (user.succeeded(), tournament_id) {
             let user = user.to_user_model();
-
+            
             match user {
                 Ok(user) => {
                     let user = user.id;

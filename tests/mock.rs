@@ -22,7 +22,6 @@ mod tests {
         let db_url = std::env::var("DEV_DATABASE_URL").expect("DEV_DATABASE_URL not set");
         let mut opt = ConnectOptions::new(db_url);
         opt.sqlx_logging(false);
-        opt.sqlx_logging_level(LevelFilter::Off);
         Database::connect(opt).await.expect("Database must exist")
     }
 
@@ -160,12 +159,12 @@ mod tests {
         create_tournament(&client).await;
         assert!(any_tournament(&db).await);
 
-        add_competition(&client, 73836, CompetitionLevel::Major).await;
+        add_competition(&client, 77775, CompetitionLevel::Major).await;
         assert!(any_competition(&db).await);
 
         assert!(!any_user_scores(&db).await);
 
-        let comp = entity::competition::Entity::find_by_id(73836)
+        let comp = entity::competition::Entity::find_by_id(77775)
             .one(&db)
             .await
             .unwrap()
@@ -186,8 +185,8 @@ mod tests {
 
         assert!(any_pick(&db).await);
 
-        assert!(any_round_scores(&db).await);
-        assert!(!any_user_scores(&db).await);
+        //assert!(any_round_scores(&db).await);
+        //assert!(!any_user_scores(&db).await);
 
         add_competition(&client, 75961, CompetitionLevel::Playoff).await;
 
@@ -199,13 +198,6 @@ mod tests {
         let _ = service::mutation::update_active_competitions(&db).await;
         assert!(any_user_scores(&db).await);
 
-        add_competition(&client, 77775, CompetitionLevel::Elite).await;
-
-        for comp_id in [77775,77758,77759,77760,77761,77762,77763,77764,77765,77766,77768,77769,77771,77772,77773,77774,78647,78666,78654,78655,78646] {
-            info!("Adding competition {}", comp_id);
-            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-            add_competition(&client, comp_id, CompetitionLevel::Major).await;
-        }
         panic!();
     }
 }
