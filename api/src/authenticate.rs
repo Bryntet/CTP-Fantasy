@@ -67,7 +67,7 @@ impl<'r> FromRequest<'r> for AllowedToExchangeGuard {
             ))
         } else if let (Some(user), Some(Ok(tournament_id))) = (user.succeeded(), tournament_id) {
             let user = user.to_user_model();
-            
+
             match user {
                 Ok(user) => {
                     let user = user.id;
@@ -108,7 +108,7 @@ impl Authentication {
         }
     }
 
-    pub async fn in_tournament(&self, db: &DatabaseConnection, tournament_id: i32) -> Result<bool,GenericError> {
+    /*pub async fn in_tournament(&self, db: &DatabaseConnection, tournament_id: i32) -> Result<bool,GenericError> {
         match self {
             Self::Authenticated { user, .. } => {
                 user.find_related(entity::fantasy_tournament::Entity).filter(entity::fantasy_tournament::Column::Id.eq(tournament_id)).one(db).await.map(|c| c.is_some()).map_err(|e| {
@@ -118,7 +118,7 @@ impl Authentication {
             }
             _ => Ok(false),
         }
-    }
+    }*/
 }
 
 impl TournamentAuthentication {
@@ -128,7 +128,7 @@ impl TournamentAuthentication {
             user: user_auth,
         })
     }
-    
+
     pub fn assure_ownership(&self) -> Result<(), GenericError> {
         if !self.is_owner {
             Err(AuthError::Invalid("You are not the owner of this tournament").into())
@@ -136,14 +136,14 @@ impl TournamentAuthentication {
             Ok(())
         }
     }
-    
+
     pub async fn is_authenticated(&self) -> bool {
         self.user.0.is_admin() || match self.user.0 {
             Authentication::Authenticated{..} => true,
             Authentication::NotAuthenticated => false,
-        } 
+        }
     }
-    
+
     async fn get_internal_authentication(user: &UserAuthentication, db: &DatabaseConnection, tournament_id:i32) -> Result<bool, GenericError> {
         Ok(user.0.is_admin()|user.0.is_authenticated(Self::get_owner_id(db,tournament_id).await?))
     }
@@ -156,7 +156,7 @@ impl TournamentAuthentication {
             .map(|c| c.owner)
             .ok_or(UserError::InvalidUserId("User not found").into())
     }
-    
+
 }
 #[rocket::async_trait]
 impl<'r> FromRequest<'r> for TournamentAuthentication {

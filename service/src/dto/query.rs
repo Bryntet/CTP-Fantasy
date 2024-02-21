@@ -7,11 +7,9 @@ use sea_orm::ColumnTrait;
 use sea_orm::QueryFilter;
 use sea_orm::{ConnectionTrait, EntityTrait, NotSet};
 
-use entity::{user, user_authentication};
 //use entity::prelude::Round;
 
-use crate::dto::pdga::{CompetitionInfo, PlayerScore, RoundStatus};
-use crate::error::GenericError;
+use crate::dto::pdga::{PlayerScore, RoundStatus};
 
 use super::*;
 
@@ -177,12 +175,12 @@ impl CompetitionInfo {
         self.rounds.iter().flat_map(|r| r.players.iter()).collect_vec()
     }
 
-    fn get_all_round_score_models(&self) -> Vec<entity::player_round_score::ActiveModel> {
+    /*fn get_all_round_score_models(&self) -> Vec<entity::player_round_score::ActiveModel> {
         self.rounds
             .iter()
             .flat_map(|r| r.all_player_active_models(r.round_number as i32, self.competition_id as i32))
             .collect()
-    }
+    }*/
 
     fn current_round(&self) -> usize {
         if let Some(highest) = self.highest_completed_round {

@@ -9,7 +9,7 @@ use itertools::Itertools;
 use log::error;
 use sea_orm::prelude::DateTimeWithTimeZone;
 use sea_orm::ActiveValue::Set;
-use sea_orm::{sea_query, ModelTrait};
+use sea_orm::{ModelTrait};
 use sea_orm::{ConnectionTrait, DbErr, EntityTrait, IntoActiveModel, NotSet};
 use sea_orm::{ColumnTrait, QueryFilter};
 
@@ -36,7 +36,7 @@ pub(crate) struct Layout {
     #[serde(rename = "Units")]
     unit: Option<Unit>,
 }
-
+/*
 impl Layout {
     pub fn phantom() -> Self {
         Layout {
@@ -45,7 +45,7 @@ impl Layout {
             unit: Some(Unit::Meters),
         }
     }
-}
+}*/
 
 #[derive(Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "PascalCase")]
@@ -135,7 +135,7 @@ impl PlayerScore {
         }
     }
 
-    async fn make_sure_player_in_competition(
+    /*async fn make_sure_player_in_competition(
         &self,
         db: &impl ConnectionTrait,
         competition_id: i32,
@@ -161,7 +161,7 @@ impl PlayerScore {
         .map_err(|_| GenericError::UnknownError("Unable to add player in competition"))?;
 
         Ok(())
-    }
+    }*/
 
     fn get_user_score(&self, level: CompetitionLevel) -> u8 {
         ((match self.placement {

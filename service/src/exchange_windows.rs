@@ -6,7 +6,6 @@ use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime, Timelike};
 use entity::sea_orm_active_enums::CompetitionStatus;
 use sea_orm::ConnectionTrait;
 use std::ops::Add;
-use log::info;
 use rocket::error;
 
 pub async fn is_user_allowed_to_exchange(

@@ -5,13 +5,11 @@ use itertools::Itertools;
 use log::error;
 
 use rocket::http::CookieJar;
-use rocket::request::FromParam;
 use rocket::warn;
 use sea_orm::sea_query::OnConflict;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{sea_query, ActiveModelTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait, ModelTrait, NotSet, TransactionTrait, SqlErr};
 
-use entity::fantasy_pick;
 use entity::prelude::{
     FantasyTournament, PhantomCompetitionInFantasyTournament, User, UserAuthentication,
     UserCompetitionScoreInFantasyTournament, UserInFantasyTournament,
@@ -19,11 +17,9 @@ use entity::prelude::{
 use entity::sea_orm_active_enums::FantasyTournamentInvitationStatus;
 
 use crate::dto::pdga::{add_players, RoundStatus};
-use crate::error::GenericError;
 use crate::error::PlayerError;
 use crate::{generate_cookie, player_exists};
 
-use super::pdga::CompetitionInfo;
 use super::*;
 
 impl FantasyPick {
