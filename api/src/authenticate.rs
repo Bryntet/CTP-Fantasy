@@ -25,9 +25,9 @@ use user_cookies::Model as CookieModel;
 pub struct UserAuthentication(Authentication);
 
 #[derive(OpenApiFromRequest, Debug)]
-pub struct TournamentOwner {
+pub struct TournamentAuthentication {
     pub user: UserAuthentication,
-    pub tournament_id: u32,
+    is_owner: bool,
 }
 
 #[derive(OpenApiFromRequest, Debug)]
@@ -121,22 +121,45 @@ impl Authentication {
     }
 }
 
-impl TournamentOwner {
-    async fn is_authenticated(&self, db: &DatabaseConnection) -> Result<bool, GenericError> {
-        Ok(self.user.0.is_admin()|self.user.0.is_authenticated(self.get_owner_id(db).await?))
+impl TournamentAuthentication {
+    async fn new(user_auth: UserAuthentication,db: &DatabaseConnection, tournament_id:i32) -> Result<Self, GenericError> {
+        Ok(Self {
+            is_owner: Self::get_internal_authentication(&user_auth, db, tournament_id).await?,
+            user: user_auth,
+        })
+    }
+    
+    pub fn assure_ownership(&self) -> Result<(), GenericError> {
+        if !self.is_owner {
+            Err(AuthError::Invalid("You are not the owner of this tournament").into())
+        } else {
+            Ok(())
+        }
+    }
+    
+    pub async fn is_authenticated(&self) -> bool {
+        self.user.0.is_admin() || match self.user.0 {
+            Authentication::Authenticated{..} => true,
+            Authentication::NotAuthenticated => false,
+        } 
+    }
+    
+    async fn get_internal_authentication(user: &UserAuthentication, db: &DatabaseConnection, tournament_id:i32) -> Result<bool, GenericError> {
+        Ok(user.0.is_admin()|user.0.is_authenticated(Self::get_owner_id(db,tournament_id).await?))
     }
 
-    async fn get_owner_id(&self, db: &DatabaseConnection) -> Result<i32, GenericError> {
-        entity::fantasy_tournament::Entity::find_by_id(self.tournament_id as i32)
+    async fn get_owner_id(db: &DatabaseConnection, tournament_id: i32) -> Result<i32, GenericError> {
+        entity::fantasy_tournament::Entity::find_by_id(tournament_id )
             .one(db)
             .await
             .map_err(|_| GenericError::UnknownError("Unable to find tournament by id"))?
             .map(|c| c.owner)
             .ok_or(UserError::InvalidUserId("User not found").into())
     }
+    
 }
 #[rocket::async_trait]
-impl<'r> FromRequest<'r> for TournamentOwner {
+impl<'r> FromRequest<'r> for TournamentAuthentication {
     type Error = GenericError;
 
     async fn from_request(request: &'r Request<'_>) -> request::Outcome<Self, Self::Error> {
@@ -147,23 +170,17 @@ impl<'r> FromRequest<'r> for TournamentOwner {
         let cookie: request::Outcome<UserAuthentication, Json<Self::Error>> =
             request.guard::<UserAuthentication>().await;
 
-        let t: Self = if let Some(cookie) = cookie.succeeded() {
-            if let Some(Ok(t_id)) = request.param::<u32>(1) {
-                Self {
-                    user: cookie,
-                    tournament_id: t_id,
+        if let Some(cookie) = cookie.succeeded() {
+            if let Some(Ok(t_id)) = request.param::<i32>(1) {
+                match TournamentAuthentication::new(cookie,db,t_id).await {
+                    Ok(success) =>Outcome::Success(success),
+                    Err(e) => Outcome::Error((Status::BadRequest, e)),
                 }
             } else {
-                return None.or_error((Status::BadRequest, AuthError::Invalid("Invalid tournament id").into()));
+                None.or_error((Status::BadRequest, AuthError::Invalid("Invalid tournament id").into()))
             }
         } else {
-            return None.or_error((Status::Unauthorized, AuthError::Missing("No cookie found").into()));
-        };
-
-        match t.is_authenticated(db).await {
-            Ok(true) => Outcome::Success(t),
-            Ok(false) | Err(_) => Outcome::Error((Status::Unauthorized, AuthError::WrongPassword("You do not have permission to do that").into())),
-
+            None.or_error((Status::Unauthorized, AuthError::Missing("No cookie found").into()))
         }
     }
 }
@@ -197,6 +214,12 @@ impl UserAuthentication {
 
     }
 
+    pub fn assure_authorized(&self) -> Result<(), GenericError> {
+        match self.0 {
+            Authentication::Authenticated {..} => Ok(()),
+            _ => Err(AuthError::Missing("You are not authorized to do that").into()),
+        }
+    }
 
     pub fn to_user_model(&self) -> Result<&UserModel, GenericError> {
         match self.0 {

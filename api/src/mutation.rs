@@ -142,7 +142,7 @@ pub(crate) async fn add_picks(
 ) -> Result<String, GenericError> {
     let db = db.inner();
     let user = user.to_user_model()?;
-    if user.id != user_id {
+    if user.id != user_id && !user.admin {
         return Err(UserError::NotPermitted("You are not permitted to add picks for this user").into());
     }
 
@@ -183,13 +183,13 @@ pub(crate) async fn add_picks(
 #[openapi(tag = "Fantasy Tournament")]
 #[post("/fantasy-tournament/<fantasy_tournament_id>/invite/<invited_user>")]
 pub(crate) async fn invite_user(
-    auth: authenticate::TournamentOwner,
+    auth: authenticate::TournamentAuthentication,
     db: &State<DatabaseConnection>,
     fantasy_tournament_id: i32,
     invited_user: String,
 ) -> Result<String, GenericError> {
-    let user = auth.user.to_user_model()?;
-    match service::create_invite(db, user, invited_user, fantasy_tournament_id).await {
+    auth.assure_ownership()?;
+    match service::create_invite(db, invited_user, fantasy_tournament_id).await {
         Ok(_) => Ok("Successfully invited user".to_string()),
         Err(e) => Err(e.into()),
     }
@@ -215,11 +215,12 @@ pub(crate) async fn answer_invite(
     data = "<competition>"
 )]
 pub(crate) async fn add_competition(
-    _auth: authenticate::TournamentOwner,
+    auth: authenticate::TournamentAuthentication,
     db: &State<DatabaseConnection>,
     fantasy_tournament_id: u32,
     competition: Json<forms::AddCompetition>,
 ) -> Result<String, GenericError> {
+    auth.assure_ownership()?;
     let db = db.inner();
     let txn = db.begin().await.map_err(|_| {
         GenericError::UnknownError("internal error, please try again or contact support if problem persists")
@@ -245,6 +246,3 @@ pub(crate) async fn add_competition(
     competition.save_user_scores(db, fantasy_tournament_id).await?;
     Ok("Successfully added competition".to_string())
 }
-
-//#[openapi(tag="Fantasy Tournament")]
-//#[post("/fantasy-tournament/<fantasy_tournament_id>/add-competition/<competition_id>/placeholder/")]

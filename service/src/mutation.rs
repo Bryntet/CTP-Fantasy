@@ -51,19 +51,10 @@ pub async fn generate_cookie(
 
 pub async fn create_invite(
     db: &DatabaseConnection,
-    sender: &user::Model,
     receiver_name: String,
     fantasy_tournament_id: i32,
 ) -> Result<(), InviteError> {
-    let tournament = if let Ok(Some(t)) = FantasyTournament::find_by_id(fantasy_tournament_id).one(db).await {
-        t
-    } else {
-        return Err(InviteError::TournamentNotFound);
-    };
-
-    if tournament.owner != sender.id {
-        return Err(InviteError::NotOwner);
-    }
+    
     let invited_user = if let Ok(Some(u)) = crate::get_user_by_name(db, receiver_name).await {
         u
     } else {
