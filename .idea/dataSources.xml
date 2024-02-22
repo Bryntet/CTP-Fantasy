@@ -15,5 +15,12 @@
       <jdbc-url>jdbc:postgresql://localhost:5432/dev_ctp_fantasy</jdbc-url>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
+    <data-source source="LOCAL" name="On pi" uuid="3883a064-44f6-45dd-b57c-445f29b6f1d0">
+      <driver-ref>postgresql</driver-ref>
+      <synchronize>true</synchronize>
+      <jdbc-driver>org.postgresql.Driver</jdbc-driver>
+      <jdbc-url>jdbc:postgresql://localhost:5432/ctp_fantasy</jdbc-url>
+      <working-dir>$ProjectFileDir$</working-dir>
+    </data-source>
   </component>
 </project>
