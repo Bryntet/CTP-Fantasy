@@ -4,7 +4,7 @@ mod pdga;
 mod query;
 
 use rocket::request::FromParam;
-use rocket::FromFormField;
+use rocket::{FromFormField};
 
 use entity::*;
 
@@ -12,6 +12,7 @@ use crate::error::GenericError;
 pub use pdga::{CompetitionInfo, RoundInformation};
 use rocket::serde::{Deserialize, Serialize};
 use rocket_okapi::okapi::schemars::{self, JsonSchema};
+use sea_orm::ConnectionTrait;
 use strum_macros::EnumIter;
 
 pub mod traits {
@@ -30,6 +31,26 @@ pub struct CreateTournament {
     pub amount_in_bench: Option<i32>,
 }
 
+#[derive(Serialize, Deserialize, JsonSchema, Debug)]
+pub struct Competition {
+    pub name: String,
+    pub competition_id: i32,
+    pub level: CompetitionLevel,
+}
+impl Competition {
+    
+    pub async fn all_in_fantasy_tournament(db: &impl ConnectionTrait, tournament_id: i32) -> Result<Vec<Self>, GenericError> {
+        Ok(super::get_competitions_in_fantasy_tournament(db, tournament_id).await?
+            .into_iter()
+            .map(|c| Self {
+                level: c.level.into(),
+                name: c.name,
+                competition_id: c.id,
+            })
+            .collect())
+    
+    }
+}
 #[derive(Deserialize, Serialize, JsonSchema, Debug)]
 pub struct FantasyPick {
     pub slot: i32,

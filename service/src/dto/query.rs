@@ -5,7 +5,7 @@ use sea_orm::prelude::DateTimeWithTimeZone;
 use sea_orm::ActiveValue::Set;
 use sea_orm::ColumnTrait;
 use sea_orm::QueryFilter;
-use sea_orm::{ConnectionTrait, EntityTrait, NotSet};
+use sea_orm::{EntityTrait, NotSet};
 
 //use entity::prelude::Round;
 

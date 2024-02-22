@@ -77,7 +77,8 @@ pub fn routes() -> Vec<Route> {
         get_user_pick,
         get_divisions,
         add_competition,
-        get_user_picks_no_cookie
+        get_user_picks_no_cookie,
+        get_competitions
     ]
 }
 

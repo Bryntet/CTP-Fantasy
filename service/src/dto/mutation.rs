@@ -3,13 +3,12 @@ use std::fmt::Display;
 use bcrypt::{hash, DEFAULT_COST};
 use itertools::Itertools;
 use log::error;
-use rocket::futures::FutureExt;
 
 use rocket::http::CookieJar;
 use rocket::warn;
 use sea_orm::sea_query::OnConflict;
 use sea_orm::ActiveValue::Set;
-use sea_orm::{sea_query, ActiveModelTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait, ModelTrait, NotSet, TransactionTrait, SqlErr};
+use sea_orm::{sea_query, ActiveModelTrait, DatabaseConnection, DbErr, EntityTrait, ModelTrait, NotSet, TransactionTrait, SqlErr};
 
 use entity::prelude::{
     FantasyTournament, PhantomCompetitionInFantasyTournament, User, UserAuthentication,

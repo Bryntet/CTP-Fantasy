@@ -152,3 +152,12 @@ pub(crate) async fn get_max_picks(
         Err(_) => Err(TournamentError::NotFound("Tournament not found").into()),
     }
 }
+
+#[openapi(tag = "Fantasy Tournament")]
+#[get("/fantasy-tournament/<tournament_id>/competitions")]
+pub(crate) async fn get_competitions(
+    db: &State<DatabaseConnection>,
+    tournament_id: i32,
+) -> Result<Json<Vec<dto::Competition>>, GenericError> {
+    Ok(Json(dto::Competition::all_in_fantasy_tournament(db.inner(), tournament_id).await?))
+}

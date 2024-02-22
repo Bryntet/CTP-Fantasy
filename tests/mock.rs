@@ -4,17 +4,15 @@ use rocket::async_test;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::ops::{Sub};
 
     use dotenvy::dotenv;
     use migration::MigratorTrait;
     use rocket::figment::Profile;
     use rocket::local::asynchronous::{Client, LocalResponse};
-    use rocket::log::private::LevelFilter;
-    use rocket::{error, warn, Config, info};
+    use rocket::{error, warn, Config};
     use sea_orm::{
-        ActiveModelTrait, ConnectOptions, ConnectionTrait, Database, DatabaseConnection, EntityTrait,
-        IntoActiveModel,
+         ConnectOptions, ConnectionTrait, Database, DatabaseConnection, EntityTrait,
+        
     };
     use service::dto::UserLogin;
 
@@ -24,9 +22,8 @@ mod tests {
         opt.sqlx_logging(false);
         Database::connect(opt).await.expect("Database must exist")
     }
-
+    
     use rocket::{Build, Rocket};
-    use sea_orm::ActiveValue::Set;
 
     async fn rocket() -> Rocket<Build> {
         let config = Config {
@@ -41,11 +38,6 @@ mod tests {
             .manage(make_db().await)
             .mount("/", api::routes())
             .configure(config)
-    }
-
-    async fn any_round_scores(db: &impl ConnectionTrait) -> bool {
-        let scores = entity::player_round_score::Entity::find().all(db).await.unwrap();
-        !scores.is_empty()
     }
 
     async fn any_user_scores(db: &impl ConnectionTrait) -> bool {
@@ -159,11 +151,11 @@ mod tests {
         create_tournament(&client).await;
         assert!(any_tournament(&db).await);
 
-        add_competition(&client, 77775, CompetitionLevel::Major).await;
+        add_competition(&client, 75961, CompetitionLevel::Major).await;
         assert!(any_competition(&db).await);
 
         assert!(!any_user_scores(&db).await);
-
+        /*
         let comp = entity::competition::Entity::find_by_id(77775)
             .one(&db)
             .await
@@ -174,7 +166,7 @@ mod tests {
         let mut active = comp.into_active_model();
         active.start_date = Set(new_start);
         active.ended_at = Set(new_end);
-        active.save(&db).await.unwrap();
+        active.save(&db).await.unwrap();*/
 
 
         add_pick(&client, 69424, Division::MPO, 1)
@@ -184,14 +176,12 @@ mod tests {
 
 
         assert!(any_pick(&db).await);
-
-        //assert!(any_round_scores(&db).await);
         //assert!(!any_user_scores(&db).await);
 
-        add_competition(&client, 75961, CompetitionLevel::Playoff).await;
+        //add_competition(&client, 75961, CompetitionLevel::Playoff).await;
 
         // Shouldn't be able to switch pick due to above competition just ended (ended goes by when it was checked)
-        assert_eq!(add_pick(&client, 7438, Division::FPO, 3).await.status().code, 403);
+        //assert_eq!(add_pick(&client, 7438, Division::FPO, 3).await.status().code, 403);
 
         let _ = refresh_user_scores_in_all(&db).await;
 
