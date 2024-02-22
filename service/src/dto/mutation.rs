@@ -3,6 +3,7 @@ use std::fmt::Display;
 use bcrypt::{hash, DEFAULT_COST};
 use itertools::Itertools;
 use log::error;
+use rocket::futures::FutureExt;
 
 use rocket::http::CookieJar;
 use rocket::warn;
@@ -31,43 +32,53 @@ impl FantasyPick {
         div: Division,
     ) -> Result<(), GenericError> {
         if !player_exists(db, self.pdga_number).await {
-            Err(PlayerError::NotFound.into())
-        } else {
-            let actual_player_div =
-                super::super::get_player_division_in_tournament(db, self.pdga_number, tournament_id).await;
-            let actual_player_div = match actual_player_div {
-                Err(_) => Err(GenericError::UnknownError("Unable to get player division")),
-                Ok(None) => Err(GenericError::NotFound("Player not in tournament")),
-                Ok(Some(v)) => Ok(v),
-            }?;
-
-            if !actual_player_div.eq(&div) {
-                Err(GenericError::Conflict("Player division does not match division"))?
-            }
-
-            let person_in_slot =
-                Self::player_in_slot(db, user_id, tournament_id, self.slot, (&div).into()).await?;
-
-            if let Some(player) = person_in_slot {
-                let player: fantasy_pick::ActiveModel = player.into();
-                player
-                    .delete(db)
-                    .await
-                    .map_err(|_| GenericError::UnknownError("Unable to remove pick"))?;
-            }
-
-            if let Some(player) =
-                Self::player_already_chosen(db, user_id, tournament_id, self.pdga_number).await?
-            {
-                let player: fantasy_pick::ActiveModel = player.into();
-                player
-                    .delete(db)
-                    .await
-                    .map_err(|_| GenericError::UnknownError("Unable to remove pick"))?;
-            }
-            self.insert(db, user_id, tournament_id, actual_player_div).await?;
-            Ok(())
+            return Err(PlayerError::NotFound.into());
         }
+        let actual_player_div = super::super::get_player_division_in_tournament(db, self.pdga_number, tournament_id).await;
+        
+        let actual_player_div: Division = match actual_player_div {
+            Err(_) => Err(GenericError::UnknownError("Unable to get player division")),
+            Ok(None) => { 
+                if let Ok(Some(player)) = player::Entity::find_by_id(self.pdga_number).one(db).await {
+                    if let Ok(Some(div)) = player.find_related(player_division_in_fantasy_tournament::Entity).all(db).await.map(|divs|divs.first().cloned()) {
+                        Ok(div.division.into())
+                    } else {
+                        Err(GenericError::UnknownError("Unable to get player division"))
+                    }
+                } else {
+                    Err(GenericError::UnknownError("Unable to get player division"))
+                }
+            } 
+            Ok(Some(v)) => Ok(v),
+        }?;
+
+        if !actual_player_div.eq(&div) {
+            Err(GenericError::Conflict("Player division does not match division"))?
+        }
+
+        let person_in_slot =
+            Self::player_in_slot(db, user_id, tournament_id, self.slot, (&div).into()).await?;
+
+        if let Some(player) = person_in_slot {
+            let player: fantasy_pick::ActiveModel = player.into();
+            player
+                .delete(db)
+                .await
+                .map_err(|_| GenericError::UnknownError("Unable to remove pick"))?;
+        }
+
+        if let Some(player) =
+            Self::player_already_chosen(db, user_id, tournament_id, self.pdga_number).await?
+        {
+            let player: fantasy_pick::ActiveModel = player.into();
+            player
+                .delete(db)
+                .await
+                .map_err(|_| GenericError::UnknownError("Unable to remove pick"))?;
+        }
+        self.insert(db, user_id, tournament_id, actual_player_div).await?;
+        Ok(())
+        
     }
 
     async fn is_benched(&self, db: &impl ConnectionTrait, tournament_id: i32) -> Result<bool, GenericError> {
