@@ -57,7 +57,7 @@ pub(crate) async fn see_participants(
 }
 
 #[openapi(tag = "Fantasy Tournament")]
-#[get("/fantasy-tournament/<tournament_id>/user/<user_id>/picks/<division>/<pick_slot>")]
+#[get("/fantasy-tournament/<tournament_id>/user/<user_id>/picks/div/<division>/pick/<pick_slot>")]
 pub(crate) async fn get_user_pick(
     db: &State<DatabaseConnection>,
     requester: authenticate::UserAuthentication,

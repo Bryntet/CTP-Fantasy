@@ -110,6 +110,8 @@ impl Authentication {
 }
 
 impl TournamentAuthentication {
+    
+    
     async fn new(user_auth: UserAuthentication,db: &DatabaseConnection, tournament_id:i32) -> Result<Self, GenericError> {
         Ok(Self {
             is_owner: Self::get_internal_authentication(&user_auth, db, tournament_id).await?,
@@ -155,7 +157,7 @@ impl<'r> FromRequest<'r> for TournamentAuthentication {
             .rocket()
             .state::<DatabaseConnection>()
             .expect("Database not found");
-        let cookie: request::Outcome<UserAuthentication, Json<Self::Error>> =
+        let cookie: request::Outcome<UserAuthentication, _> =
             request.guard::<UserAuthentication>().await;
 
         if let Some(cookie) = cookie.succeeded() {
@@ -174,6 +176,11 @@ impl<'r> FromRequest<'r> for TournamentAuthentication {
 }
 
 impl UserAuthentication {
+    async fn empty() -> Self {
+        Self(Authentication::NotAuthenticated)
+    }
+    
+    
     pub async fn new(db:&impl ConnectionTrait,cookie: &str) -> Result<Self, GenericError> {
         Ok(Self(Self::get_authentication(db, cookie).await?))
     }
@@ -199,7 +206,6 @@ impl UserAuthentication {
         } else {
             Ok(Authentication::NotAuthenticated)
         }
-
     }
 
     pub fn assure_authorized(&self) -> Result<(), GenericError> {
@@ -284,7 +290,7 @@ impl UserAuthentication {
 // Implement the actual checks for the authentication
 #[rocket::async_trait]
 impl<'a> FromRequest<'a> for UserAuthentication {
-    type Error = Json<GenericError>;
+    type Error = GenericError;
     async fn from_request(request: &'a Request<'_>) -> request::Outcome<Self, Self::Error> {
         let db = request
             .rocket()
@@ -294,13 +300,14 @@ impl<'a> FromRequest<'a> for UserAuthentication {
         let cookie: Cookie = if let Some(cookie) = request.cookies().get_private("auth") {
             cookie
         } else {
-            return None.or_error((Status::Unauthorized, Json(AuthError::Missing("No cookie found").into())));
+            
+            return None.or_error((Status::Unauthorized, AuthError::Missing("No cookie found").into()));
         };
 
         match UserAuthentication::new(db,cookie.value(), )
             .await {
             Ok(auth) => Outcome::Success(auth),
-            Err(e) => Outcome::Error((Status::Unauthorized, Json(e))),
+            Err(e) => Outcome::Error((Status::Unauthorized, e)),
         }
     }
 }
@@ -334,8 +341,8 @@ impl<'a> FromRequest<'a> for UserAuthentication {
 
 #[openapi(tag = "User")]
 #[get("/check-cookie")]
-pub async fn check_cookie(_user_cookie: UserAuthentication) -> &'static str {
-    "Authenticated"
+pub async fn check_cookie(_user_cookie: UserAuthentication) -> Json<&'static str> {
+    Json("Authenticated")
 }
 
 #[openapi(tag = "User")]
