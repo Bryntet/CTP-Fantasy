@@ -222,7 +222,7 @@ impl CompetitionInfo {
         Ok(user_scores)
     }
 
-    fn status(&self) -> CompetitionStatus {
+    pub fn status(&self) -> CompetitionStatus {
         if self.rounds.len() < self.amount_of_rounds {
             CompetitionStatus::Active(self.rounds.len())
         } else if self.rounds.iter().all(|r| r.status() == RoundStatus::Finished) {
@@ -243,7 +243,7 @@ impl CompetitionInfo {
     }
 }
 
-enum CompetitionStatus {
+pub enum CompetitionStatus {
     Pending,
     Active(usize),
     Finished,

@@ -9,7 +9,9 @@ use log::{error, warn};
 
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
+use sea_orm::ActiveValue::Set;
 use sea_orm::entity::prelude::*;
+use sea_orm::IntoActiveModel;
 
 
 use crate::dto;
@@ -61,7 +63,7 @@ pub async fn get_player_image_path(
         .one(db)
         .await
         .map_err(|_| GenericError::UnknownError("Unknown DB ERROR"))?;
-    if let Some(player) = player { 
+    if let Some(player) = player {
         Ok(player.avatar)
     } else {
         Err(GenericError::NotFound("Player not found"))
@@ -245,7 +247,7 @@ pub async fn get_user_pick_in_tournament(
     slot: i32,
     division: sea_orm_active_enums::Division,
 ) -> Result<dto::FantasyPick, GenericError> {
-    
+
     let pick = FantasyPick::find()
         .filter(
             fantasy_pick::Column::User
@@ -412,15 +414,28 @@ pub async fn active_competitions(
         .all(db)
         .await
         .map_err(|_| GenericError::UnknownError("Unknown error while trying to find active competitions"))?;
+    
+    
     let mut competitions = Vec::new();
-    for comp in competition_models {
-        CompetitionInfo::from_web(comp.id as u32)
-            .await
-            .map(|c| competitions.push(c))
-            .map_err(|e| {
+    
+    
+    for comp_model in competition_models {
+        match CompetitionInfo::from_web(comp_model.id as u32).await {
+            Ok(comp) => { 
+                if comp_model.status != comp.status().into() {
+                    let mut model = comp_model.into_active_model();
+                    model.status = Set(comp.status().into());
+                    if let Err(e) = model.save(db).await {
+                        error!("Encountered db err: {:?}",e.sql_err());
+                    }
+                }
+                competitions.push(comp); 
+            }
+            Err(e) => {
                 warn!("Unable to fetch competition from PDGA: {:?}", e);
-                GenericError::PdgaGaveUp("Internal error while fetching competition from PDGA")
-            })?;
+                Err(GenericError::PdgaGaveUp("Internal error while fetching competition from PDGA"))?
+            }
+        }
     }
     Ok(competitions)
 }

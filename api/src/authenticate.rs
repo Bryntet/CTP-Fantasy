@@ -42,9 +42,9 @@ impl AllowedToExchangeGuard {
         if self.0 {
             true
         } else {
-            service::query::has_exchange_begun(db, tournament_id)
+            !service::query::has_exchange_begun(db, tournament_id) 
                 .await
-                .unwrap_or(false)
+                .unwrap_or(true)
         }
     }
 }

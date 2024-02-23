@@ -174,7 +174,7 @@ mod tests {
             .await;
 
 
-        assert!(any_pick(&db).await);
+        assert!(!any_pick(&db).await);
         //assert!(!any_user_scores(&db).await);
 
         //add_competition(&client, 75961, CompetitionLevel::Playoff).await;
