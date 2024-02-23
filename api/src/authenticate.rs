@@ -1,7 +1,7 @@
 use entity::prelude::User;
 use entity::{user, user_cookies};
 
-use rocket::http::{Cookie, CookieJar, Status};
+use rocket::http::{CookieJar, Status};
 use rocket::outcome::{IntoOutcome, Outcome};
 use rocket::serde::json::Json;
 use rocket::{
