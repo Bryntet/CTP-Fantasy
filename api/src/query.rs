@@ -99,29 +99,6 @@ pub(crate) async fn get_user_picks(
     }
 }
 
-#[openapi(tag = "Fantasy Tournament")]
-#[get("/fantasy-tournament/<tournament_id>/user/<user_id>/picks/div/<division>", rank = 2)]
-pub(crate) async fn get_user_picks_no_cookie(
-    db: &State<DatabaseConnection>,
-    user_id: i32,
-    tournament_id: i32,
-    division: dto::Division,
-) -> Result<Json<FantasyPicks>, GenericError> {
-    let res = service::get_user_picks_in_tournament(
-        db.inner(),
-        0,
-        user_id,
-        tournament_id,
-        &division,
-    )
-        .await;
-    //dbg!(&res);
-    match res {
-        Ok(picks) => Ok(Json(picks)),
-        Err(_) => Err(UserError::InvalidUserId("Unknown user").into()),
-    }
-}
-
 
 #[openapi(tag = "Fantasy Tournament")]
 #[get("/fantasy-tournament/<tournament_id>/divisions")]

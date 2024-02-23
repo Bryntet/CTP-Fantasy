@@ -90,7 +90,8 @@ impl<'r> FromRequest<'r> for AllowedToExchangeGuard {
 #[derive(Debug)]
 enum Authentication {
     Authenticated { cookie: CookieModel, user: UserModel },
-    NotAuthenticated,
+    InvalidCookie,
+    NoCookie,
 }
 
 impl Authentication {
@@ -130,7 +131,7 @@ impl TournamentAuthentication {
     pub async fn is_authenticated(&self) -> bool {
         self.user.0.is_admin() || match self.user.0 {
             Authentication::Authenticated{..} => true,
-            Authentication::NotAuthenticated => false,
+            Authentication::InvalidCookie | Authentication::NoCookie => false,
         }
     }
 
@@ -176,8 +177,17 @@ impl<'r> FromRequest<'r> for TournamentAuthentication {
 }
 
 impl UserAuthentication {
-    async fn empty() -> Self {
-        Self(Authentication::NotAuthenticated)
+    
+    pub fn check_authentication(&self) -> Result<(),GenericError> {
+        match self.0 {
+            Authentication::Authenticated {..} => Ok(()),
+            Authentication::NoCookie => Err(AuthError::Missing("No cookie found").into()),
+            Authentication::InvalidCookie => Err(AuthError::Invalid("Invalid cookie").into()),
+        }
+    }
+    
+    fn empty() -> Self {
+        Self(Authentication::NoCookie)
     }
     
     
@@ -204,7 +214,7 @@ impl UserAuthentication {
         if let Some(user) = Self::get_user_from_db(db, &cookie).await? {
             Ok(Authentication::Authenticated { cookie, user })
         } else {
-            Ok(Authentication::NotAuthenticated)
+            Ok(Authentication::InvalidCookie)
         }
     }
 
@@ -297,17 +307,14 @@ impl<'a> FromRequest<'a> for UserAuthentication {
             .state::<DatabaseConnection>()
             .expect("Database not found");
 
-        let cookie: Cookie = if let Some(cookie) = request.cookies().get_private("auth") {
-            cookie
+        if let Some(cookie) = request.cookies().get_private("auth") {
+            match UserAuthentication::new(db,cookie.value(), )
+                .await {
+                Ok(auth) => Outcome::Success(auth),
+                Err(e) => Outcome::Error((Status::Unauthorized, e)),
+            }
         } else {
-            
-            return None.or_error((Status::Unauthorized, AuthError::Missing("No cookie found").into()));
-        };
-
-        match UserAuthentication::new(db,cookie.value(), )
-            .await {
-            Ok(auth) => Outcome::Success(auth),
-            Err(e) => Outcome::Error((Status::Unauthorized, e)),
+            Outcome::Success(UserAuthentication::empty())
         }
     }
 }
