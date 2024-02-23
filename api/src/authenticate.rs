@@ -176,7 +176,7 @@ impl<'r> FromRequest<'r> for TournamentAuthentication {
 }
 
 impl UserAuthentication {
-    async fn empty() -> Self {
+    fn empty() -> Self {
         Self(Authentication::NotAuthenticated)
     }
     
@@ -304,7 +304,7 @@ impl<'a> FromRequest<'a> for UserAuthentication {
                 Err(e) => Outcome::Error((Status::Unauthorized, e)),
             }
         } else {
-            Outcome::Success(UserAuthentication(Authentication::NotAuthenticated))
+            Outcome::Success(UserAuthentication::empty())
         }
     }
 }
