@@ -68,7 +68,6 @@ pub fn routes() -> Vec<Route> {
         answer_invite,
         get_user_picks,
         check_cookie,
-        check_cookie_failed,
         logout,
         get_my_id,
         get_tournament,

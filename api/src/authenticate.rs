@@ -1,7 +1,7 @@
 use entity::prelude::User;
 use entity::{user, user_cookies};
 
-use rocket::http::{Cookie, CookieJar, Status};
+use rocket::http::{CookieJar, Status};
 use rocket::outcome::{IntoOutcome, Outcome};
 use rocket::serde::json::Json;
 use rocket::{
@@ -90,7 +90,8 @@ impl<'r> FromRequest<'r> for AllowedToExchangeGuard {
 #[derive(Debug)]
 enum Authentication {
     Authenticated { cookie: CookieModel, user: UserModel },
-    NotAuthenticated,
+    NoCookie,
+    InvalidCookie,
 }
 
 impl Authentication {
@@ -128,10 +129,7 @@ impl TournamentAuthentication {
     }
 
     pub async fn is_authenticated(&self) -> bool {
-        self.user.0.is_admin() || match self.user.0 {
-            Authentication::Authenticated{..} => true,
-            Authentication::NotAuthenticated => false,
-        }
+        self.user.0.is_admin() || matches!(self.user.0, Authentication::Authenticated{..})
     }
 
     async fn get_internal_authentication(user: &UserAuthentication, db: &DatabaseConnection, tournament_id:i32) -> Result<bool, GenericError> {
@@ -176,8 +174,13 @@ impl<'r> FromRequest<'r> for TournamentAuthentication {
 }
 
 impl UserAuthentication {
-    fn empty() -> Self {
-        Self(Authentication::NotAuthenticated)
+
+    fn new_invalid_cookie() -> Self {
+        Self(Authentication::InvalidCookie)
+    }
+
+    fn new_no_cookie() -> Self {
+        Self(Authentication::NoCookie)
     }
     
     
@@ -204,7 +207,7 @@ impl UserAuthentication {
         if let Some(user) = Self::get_user_from_db(db, &cookie).await? {
             Ok(Authentication::Authenticated { cookie, user })
         } else {
-            Ok(Authentication::NotAuthenticated)
+            Ok(Authentication::InvalidCookie)
         }
     }
 
@@ -298,13 +301,13 @@ impl<'a> FromRequest<'a> for UserAuthentication {
             .expect("Database not found");
 
          if let Some(cookie) = request.cookies().get_private("auth") {
-            match UserAuthentication::new(db,cookie.value(), )
+            match UserAuthentication::new(db,cookie.value())
                 .await {
                 Ok(auth) => Outcome::Success(auth),
-                Err(e) => Outcome::Error((Status::Unauthorized, e)),
+                _ => Outcome::Success(UserAuthentication::new_invalid_cookie()),
             }
         } else {
-            Outcome::Success(UserAuthentication::empty())
+            Outcome::Success(UserAuthentication::new_no_cookie())
         }
     }
 }
@@ -338,14 +341,9 @@ impl<'a> FromRequest<'a> for UserAuthentication {
 
 #[openapi(tag = "User")]
 #[get("/check-cookie")]
-pub async fn check_cookie(_user_cookie: UserAuthentication) -> Json<&'static str> {
-    Json("Authenticated")
-}
-
-#[openapi(tag = "User")]
-#[get("/check-cookie", rank = 2)]
-pub fn check_cookie_failed() -> GenericError {
-    AuthError::Invalid("Cookie is invalid").into()
+pub async fn check_cookie(auth: UserAuthentication) -> Result<&'static str, GenericError> {
+    auth.assure_authorized()?;
+    Ok("ELLO")
 }
 
 /// # Login
