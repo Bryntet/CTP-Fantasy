@@ -151,7 +151,7 @@ mod tests {
         create_tournament(&client).await;
         assert!(any_tournament(&db).await);
 
-        add_competition(&client, 75961, CompetitionLevel::Major).await;
+        add_competition(&client, 77775, CompetitionLevel::Major).await;
         assert!(any_competition(&db).await);
 
         assert!(!any_user_scores(&db).await);
@@ -191,3 +191,5 @@ mod tests {
         panic!();
     }
 }
+
+

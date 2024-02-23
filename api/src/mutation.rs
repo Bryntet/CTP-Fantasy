@@ -6,7 +6,7 @@ use sea_orm::TransactionTrait;
 use sea_orm::{DatabaseConnection};
 
 use error::GenericError;
-use service::dto::{forms, traits::InsertCompetition, FantasyPick, FantasyPicks, UserLogin};
+use service::dto::{forms, FantasyPick, FantasyPicks, UserLogin};
 
 use crate::authenticate;
 use crate::authenticate::AllowedToExchangeGuard;
@@ -225,24 +225,14 @@ pub(crate) async fn add_competition(
     let txn = db.begin().await.map_err(|_| {
         GenericError::UnknownError("internal error, please try again or contact support if problem persists")
     })?;
-    let competition_input = competition.into_inner();
-    let competition = service::dto::CompetitionInfo::from_web(competition_input.competition_id).await?;
-    if !competition.is_in_db(&txn).await? {
-        competition
-            .insert_in_db(&txn, competition_input.level.into())
-            .await?
-    }
-    competition.insert_in_fantasy(&txn, fantasy_tournament_id).await?;
-    competition
-        .insert_players(&txn, Some(fantasy_tournament_id as i32))
-        .await?;
-
+    service::mutation::insert_competition_in_fantasy(
+        &txn,
+        fantasy_tournament_id,
+        competition.competition_id,
+        competition.level.clone(),
+    ).await?;
     txn.commit()
         .await
         .map_err(|_| GenericError::UnknownError("Unknown error while trying to commit transaction"))?;
-
-    competition.save_round_scores(db).await?;
-
-    competition.save_user_scores(db, fantasy_tournament_id).await?;
     Ok("Successfully added competition".to_string())
 }

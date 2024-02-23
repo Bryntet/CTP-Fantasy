@@ -7,14 +7,12 @@ use rand::distributions::Alphanumeric;
 use rand::Rng;
 use rocket::http::{Cookie, CookieJar};
 use sea_orm::ActiveValue::*;
-use sea_orm::{
-    sea_query, ActiveModelTrait, ConnectionTrait, DatabaseConnection, EntityTrait, IntoActiveModel,
-    TransactionTrait,
-};
+use sea_orm::{sea_query, ActiveModelTrait, ConnectionTrait, DatabaseConnection, EntityTrait, IntoActiveModel, TransactionTrait, ModelTrait};
 use sea_orm::{ColumnTrait, QueryFilter};
 
 use crate::error::{GenericError, InviteError};
 use crate::{dto, query};
+use crate::dto::traits::InsertCompetition;
 
 pub async fn generate_cookie(
     db: &DatabaseConnection,
@@ -204,4 +202,60 @@ pub async fn update_or_insert_many_player_round_scores(
             GenericError::UnknownError("Unable to insert player scores into database")
         })?;
     Ok(())
+}
+
+
+pub async fn insert_competition_in_fantasy(
+    db: &impl ConnectionTrait,
+    fantasy_tournament_id: u32,
+    competition_id: u32,
+    level: dto::CompetitionLevel,
+) -> Result<(), GenericError> {
+    use entity::prelude::{Competition, CompetitionInFantasyTournament};
+    match Competition::find_by_id(competition_id as i32)
+        .one(db)
+        .await
+        .map_err(|_| GenericError::UnknownError("Internal error while trying to get competition"))?
+    {
+        Some(c) => {
+            match c
+                .find_related(CompetitionInFantasyTournament)
+                .one(db)
+                .await
+                .map_err(|_| {
+                    GenericError::UnknownError(
+                        "Internal db error while trying to find competition in fantasy tournament",
+                    )
+                })? {
+                Some(_) => Err(GenericError::Conflict("Competition already added")),
+                None => {
+                    CompetitionInFantasyTournament::insert(competition_in_fantasy_tournament::ActiveModel{
+                        id: NotSet,
+                        competition_id: Set(competition_id as i32),
+                        fantasy_tournament_id: Set(fantasy_tournament_id as i32),
+                    })
+                        .exec(db)
+                        .await
+                        .map_err(|_| {
+                            GenericError::UnknownError(
+                                "Unable to insert competition into fanatasy tournament due to unknown db error",
+                            )
+                        })?;
+                    Ok(())
+                }
+            }
+        }
+        None => {
+            let competition = dto::CompetitionInfo::from_web(competition_id).await?;
+            competition
+                .insert_in_db(db, level.into())
+                .await?;
+
+            competition.insert_in_fantasy(db, fantasy_tournament_id).await?;
+            competition
+                .insert_players(db, Some(fantasy_tournament_id as i32))
+                .await?;
+            Ok(())
+        }
+    }
 }
