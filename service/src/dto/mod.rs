@@ -56,7 +56,6 @@ pub struct FantasyPick {
     pub slot: i32,
     pub pdga_number: i32,
     pub name: Option<String>,
-    pub avatar: Option<String>,
     #[serde(default)]
     pub benched: bool,
 }

@@ -112,7 +112,6 @@ pub(crate) async fn add_pick(
             slot,
             pdga_number,
             name: None,
-            avatar: None,
             benched: false,
         };
 

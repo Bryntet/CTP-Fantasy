@@ -1,3 +1,4 @@
+use rocket::fs::NamedFile;
 use crate::error::UserError;
 use crate::error::{GenericError, TournamentError};
 use dto::{FantasyPick, FantasyPicks};
@@ -5,6 +6,8 @@ use rocket::serde::json::Json;
 use rocket::State;
 use rocket_okapi::openapi;
 use sea_orm::DatabaseConnection;
+use tokio::fs::File;
+use tokio::io::AsyncWriteExt;
 
 use crate::authenticate;
 use service::{dto, SimpleFantasyTournament};
@@ -139,4 +142,35 @@ pub(crate) async fn get_competitions(
     tournament_id: i32,
 ) -> Result<Json<Vec<dto::Competition>>, GenericError> {
     Ok(Json(dto::Competition::all_in_fantasy_tournament(db.inner(), tournament_id).await?))
+}
+#[openapi(tag = "Player")]
+#[get("/player/<pdga_number>/image")]
+pub(crate) async fn proxy_image(db: &State<DatabaseConnection>, pdga_number: i32) -> Result<NamedFile, GenericError> {
+    // Create a client
+    // Send a GET request
+    let url = service::get_player_image_path(db, pdga_number).await?.ok_or(GenericError::NotFound("Player does not have an image"))?;
+    let client = reqwest::Client::new();
+    if let Ok(response) = client.get(url).send().await {
+        if let Ok(bytes) = response.bytes().await {
+            // Write the bytes to a temporary file
+            let mut temp_file = File::create("/tmp/tmp_chains.jpg").await.expect("create file failed");
+            temp_file.write_all(&bytes).await.expect("write to file failed");
+            // Return the image file
+            match NamedFile::open("/tmp/tmp_chains.jpg").await {
+                Ok(file) => { 
+                    tokio::fs::remove_file("/tmp/tmp_chains.jpg").await.expect("remove file failed");
+                    Ok(file) },
+                Err(e) => {
+                    error!("Error opening file: {}", e);
+                    Err(GenericError::UnknownError("Internal server error"))
+                }
+            }
+        } else {
+            Err(GenericError::UnknownError("Internal server error"))
+        }
+    } else {
+        Err(GenericError::UnknownError("Internal server error"))
+    }
+
+
 }

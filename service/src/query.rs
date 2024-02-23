@@ -53,6 +53,21 @@ pub async fn authenticate(db: &DatabaseConnection, username: String, auth: Auth)
     }
 }
 
+pub async fn get_player_image_path(
+    db: &DatabaseConnection,
+    pdga_number: i32,
+) -> Result<Option<String>, GenericError> {
+    let player = Player::find_by_id(pdga_number)
+        .one(db)
+        .await
+        .map_err(|_| GenericError::UnknownError("Unknown DB ERROR"))?;
+    if let Some(player) = player { 
+        Ok(player.avatar)
+    } else {
+        Err(GenericError::NotFound("Player not found"))
+    }
+}
+
 pub async fn player_exists(db: &impl ConnectionTrait, player_id: i32) -> bool {
     Player::find_by_id(player_id).one(db).await.is_ok()
 }
@@ -247,7 +262,6 @@ pub async fn get_user_pick_in_tournament(
             slot: pick.pick_number,
             pdga_number: pick.player,
             name: get_player_name(db, pick.player).await.ok(),
-            avatar: get_player_face(db, pick.player).await?,
             benched: pick.benched,
         })
     } else {
@@ -282,17 +296,6 @@ async fn get_player_name(db: &DatabaseConnection, player_id: i32) -> Result<Stri
     }
 }
 
-async fn get_player_face(db: &DatabaseConnection, player_id: i32) -> Result<Option<String>, GenericError> {
-    let player = Player::find_by_id(player_id)
-        .one(db)
-        .await
-        .map_err(|_| GenericError::UnknownError("database error while getting player"))?;
-    if let Some(player) = player {
-        Ok(player.avatar)
-    } else {
-        Err(GenericError::NotFound("Player not found"))
-    }
-}
 
 pub async fn get_user_picks_in_tournament(
     db: &impl ConnectionTrait,
@@ -335,7 +338,6 @@ pub async fn get_user_picks_in_tournament(
                     slot: p.pick_number,
                     pdga_number: p.player,
                     name: a.0,
-                    avatar: a.1,
                     benched: p.benched,
                 })
             }

@@ -76,7 +76,8 @@ pub fn routes() -> Vec<Route> {
         get_user_pick,
         get_divisions,
         add_competition,
-        get_competitions
+        get_competitions,
+        proxy_image
     ]
 }
 
