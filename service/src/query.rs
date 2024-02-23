@@ -158,7 +158,7 @@ pub async fn get_fantasy_tournament(
 pub(crate) async fn get_fantasy_tournament_model(
     db: &impl ConnectionTrait,
     tournament_id: i32,
-) -> Result<Option<entity::fantasy_tournament::Model>, GenericError> {
+) -> Result<Option<fantasy_tournament::Model>, GenericError> {
     FantasyTournament::find_by_id(tournament_id)
         .one(db)
         .await
@@ -228,13 +228,15 @@ pub async fn get_user_pick_in_tournament(
     user_id: i32,
     tournament_id: i32,
     slot: i32,
+    division: sea_orm_active_enums::Division,
 ) -> Result<dto::FantasyPick, GenericError> {
+    
     let pick = FantasyPick::find()
         .filter(
             fantasy_pick::Column::User
                 .eq(user_id)
                 .and(fantasy_pick::Column::FantasyTournamentId.eq(tournament_id))
-                .and(fantasy_pick::Column::PickNumber.eq(slot)),
+                .and(fantasy_pick::Column::PickNumber.eq(slot)).and(fantasy_pick::Column::Division.eq(division))
         )
         .one(db)
         .await
@@ -299,7 +301,7 @@ pub async fn get_user_picks_in_tournament(
     tournament_id: i32,
     div: &dto::Division,
 ) -> Result<FantasyPicks, GenericError> {
-    let div: sea_orm_active_enums::Division = div.into();
+    let div: Division = div.into();
     let picks = FantasyPick::find()
         .filter(
             fantasy_pick::Column::User
@@ -396,7 +398,7 @@ pub async fn active_rounds(db: &impl ConnectionTrait) -> Result<Vec<round::Model
 
 pub async fn active_competitions(
     db: &impl ConnectionTrait,
-) -> Result<Vec<dto::CompetitionInfo>, GenericError> {
+) -> Result<Vec<CompetitionInfo>, GenericError> {
     let competition_models = Competition::find()
         .filter(
             competition::Column::Status

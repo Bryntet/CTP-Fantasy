@@ -97,7 +97,7 @@ mod tests {
         let tournaments = entity::fantasy_tournament::Entity::find().all(db).await.unwrap();
         !tournaments.is_empty()
     }
-    async fn add_competition(client: &Client, competition_id: u32, level: service::dto::CompetitionLevel) {
+    async fn add_competition(client: &Client, competition_id: u32, level: CompetitionLevel) {
         let new_competition = service::dto::forms::AddCompetition {
             competition_id,
             level,
@@ -120,7 +120,7 @@ mod tests {
     pub async fn add_pick(
         client: &Client,
         player: i32,
-        div: service::dto::Division,
+        div: Division,
         slot: u8,
     ) -> LocalResponse {
         let div = div.to_string().to_uppercase();

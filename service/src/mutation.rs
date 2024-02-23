@@ -211,7 +211,6 @@ pub async fn insert_competition_in_fantasy(
     competition_id: u32,
     level: dto::CompetitionLevel,
 ) -> Result<(), GenericError> {
-    use entity::prelude::{Competition, CompetitionInFantasyTournament};
     match Competition::find_by_id(competition_id as i32)
         .one(db)
         .await

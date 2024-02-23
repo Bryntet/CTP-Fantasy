@@ -8,6 +8,7 @@ use sea_orm::DatabaseConnection;
 
 use crate::authenticate;
 use service::{dto, SimpleFantasyTournament};
+use service::dto::Division;
 
 #[openapi(tag = "Fantasy Tournament")]
 #[get("/my-tournaments")]
@@ -56,18 +57,19 @@ pub(crate) async fn see_participants(
 }
 
 #[openapi(tag = "Fantasy Tournament")]
-#[get("/fantasy-tournament/<tournament_id>/user/<user_id>/picks/<pick_slot>")]
+#[get("/fantasy-tournament/<tournament_id>/user/<user_id>/picks/<division>/<pick_slot>")]
 pub(crate) async fn get_user_pick(
     db: &State<DatabaseConnection>,
     requester: authenticate::UserAuthentication,
     tournament_id: i32,
     user_id: i32,
     pick_slot: i32,
+    division: Division
 ) -> Result<Json<FantasyPick>, GenericError> {
     if requester.to_user_model()?.id != user_id {
         Err(UserError::NotPermitted("You are not permitted to view this pick").into())
     } else {
-        match service::get_user_pick_in_tournament(db.inner(), user_id, tournament_id, pick_slot).await {
+        match service::get_user_pick_in_tournament(db.inner(), user_id, tournament_id, pick_slot, division.into()).await {
             Ok(pick) => Ok(Json(pick)),
             Err(_) => Err(GenericError::NotFound("Pick not found")),
         }

@@ -232,6 +232,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_competition_info() {
-        let info = CompetitionInfo::from_web(77583).await.unwrap();
+        let info = CompetitionInfo::from_web(77583).await;
+        assert!(info.is_ok())
     }
 }

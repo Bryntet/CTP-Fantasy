@@ -8,7 +8,7 @@ use rocket::http::CookieJar;
 use rocket::warn;
 use sea_orm::sea_query::OnConflict;
 use sea_orm::ActiveValue::Set;
-use sea_orm::{sea_query, ActiveModelTrait, DatabaseConnection, DbErr, EntityTrait, ModelTrait, NotSet, TransactionTrait, SqlErr};
+use sea_orm::{ActiveModelTrait, DatabaseConnection, DbErr, EntityTrait, ModelTrait, NotSet, TransactionTrait, SqlErr};
 
 use entity::prelude::{
     FantasyTournament, PhantomCompetitionInFantasyTournament, User, UserAuthentication,
@@ -107,12 +107,12 @@ impl FantasyPick {
     }
 }
 
-impl From<&Division> for &sea_orm_active_enums::Division {
-    fn from(division: &Division) -> Self {
+impl From<Division> for sea_orm_active_enums::Division {
+    fn from(division: Division) -> Self {
         match division {
-            Division::MPO => &sea_orm_active_enums::Division::Mpo,
-            Division::FPO => &sea_orm_active_enums::Division::Fpo,
-            Division::Unknown => &sea_orm_active_enums::Division::Mpo,
+            Division::MPO => sea_orm_active_enums::Division::Mpo,
+            Division::FPO => sea_orm_active_enums::Division::Fpo,
+            Division::Unknown => sea_orm_active_enums::Division::Mpo,
         }
     }
 }
@@ -490,7 +490,7 @@ impl CompetitionInfo {
                     .map(|p| p.into_active_model(self.competition_id as i32)),
             )
             .on_conflict(
-                sea_query::OnConflict::columns(vec![
+                OnConflict::columns(vec![
                     user_competition_score_in_fantasy_tournament::Column::FantasyTournamentId,
                     user_competition_score_in_fantasy_tournament::Column::User,
                     user_competition_score_in_fantasy_tournament::Column::CompetitionId,

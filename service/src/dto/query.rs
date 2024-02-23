@@ -120,7 +120,7 @@ impl FantasyPick {
 impl CompetitionInfo {
     pub(crate) fn active_model(
         &self,
-        level: entity::sea_orm_active_enums::CompetitionLevel,
+        level: sea_orm_active_enums::CompetitionLevel,
     ) -> competition::ActiveModel {
         competition::ActiveModel {
             id: Set(self.competition_id as i32),

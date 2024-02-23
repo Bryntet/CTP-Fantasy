@@ -107,18 +107,6 @@ impl Authentication {
             _ => false,
         }
     }
-
-    /*pub async fn in_tournament(&self, db: &DatabaseConnection, tournament_id: i32) -> Result<bool,GenericError> {
-        match self {
-            Self::Authenticated { user, .. } => {
-                user.find_related(entity::fantasy_tournament::Entity).filter(entity::fantasy_tournament::Column::Id.eq(tournament_id)).one(db).await.map(|c| c.is_some()).map_err(|e| {
-                    error!("Error while trying to find tournament by id: {}", e);
-                    GenericError::UnknownError("Error while trying to find tournament by id")
-                })
-            }
-            _ => Ok(false),
-        }
-    }*/
 }
 
 impl TournamentAuthentication {

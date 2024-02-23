@@ -1,6 +1,16 @@
 <component name="InspectionProjectProfileManager">
   <profile version="1.0">
     <option name="myName" value="Project Default" />
+    <option name="scopesOrder">
+      <list>
+        <option value="All Changed Files" />
+        <option value="Open Files" />
+        <option value="Project Files" />
+        <option value="Project excluding entity" />
+        <option value="Scratches and Consoles" />
+        <option value="The project" />
+      </list>
+    </option>
     <inspection_tool class="CargoTomlCyclicFeature" enabled="true" level="ERROR" enabled_by_default="true">
       <scope name="All Changed Files" level="ERROR" enabled="true" />
       <scope name="Open Files" level="ERROR" enabled="true" />
@@ -19,6 +29,10 @@
       <scope name="Project Files" level="WARNING" enabled="true" />
       <scope name="Scratches and Consoles" level="WARNING" enabled="true" />
     </inspection_tool>
+    <inspection_tool class="DuplicatedCode" enabled="true" level="WEAK WARNING" enabled_by_default="true">
+      <scope name="Project excluding entity" level="WEAK WARNING" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="InconsistentLineSeparators" enabled="true" level="GRAMMAR_ERROR" enabled_by_default="true" editorAttributes="GRAMMAR_ERROR" />
     <inspection_tool class="IncorrectHttpHeaderInspection" enabled="true" level="WARNING" enabled_by_default="true">
       <option name="customHeaders">
         <set>
@@ -580,6 +594,11 @@
       <scope name="Open Files" level="ERROR" enabled="true" />
       <scope name="Project Files" level="ERROR" enabled="true" />
       <scope name="Scratches and Consoles" level="ERROR" enabled="true" />
+    </inspection_tool>
+    <inspection_tool class="SpellCheckingInspection" enabled="true" level="INFORMATION" enabled_by_default="true">
+      <option name="processCode" value="true" />
+      <option name="processLiterals" value="true" />
+      <option name="processComments" value="true" />
     </inspection_tool>
     <inspection_tool class="TomlDuplicatedKey" enabled="true" level="ERROR" enabled_by_default="true">
       <scope name="All Changed Files" level="ERROR" enabled="true" />

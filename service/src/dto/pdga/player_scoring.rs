@@ -407,7 +407,7 @@ impl RoundInformation {
         &self,
         round: i32,
         competition_id: i32,
-    ) -> Vec<entity::player_round_score::ActiveModel> {
+    ) -> Vec<ActiveModel> {
         self.players
             .iter()
             .filter_map(|p| p.round_score_active_model(round, competition_id, &p.division))
@@ -472,8 +472,10 @@ mod tests {
         let content = fs::read_to_string(path).expect("Could not read file");
 
         // Deserialize the content into ApiCompetitionInfo
-        let info: ApiRes = from_str(&content).expect("Could not deserialize file content");
-
+        let info: Result<ApiRes,_> = from_str(&content);
+        
+        assert!(info.is_ok());
+        
         // Now you can use `info` for your assertions
     }
 
@@ -2061,7 +2063,7 @@ mod tests {
   },
   "hash": "c52793bfda48fdd0fe3bff587b689e0d"
 }"#;
-        let resp: super::ApiRes = serde_json::from_str(test_string).unwrap();
+        let resp: ApiRes = serde_json::from_str(test_string).unwrap();
         dbg!(resp);
     }
 }
