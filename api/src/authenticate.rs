@@ -176,7 +176,7 @@ impl<'r> FromRequest<'r> for TournamentAuthentication {
 }
 
 impl UserAuthentication {
-    async fn empty() -> Self {
+    fn empty() -> Self {
         Self(Authentication::NotAuthenticated)
     }
     
@@ -297,17 +297,14 @@ impl<'a> FromRequest<'a> for UserAuthentication {
             .state::<DatabaseConnection>()
             .expect("Database not found");
 
-        let cookie: Cookie = if let Some(cookie) = request.cookies().get_private("auth") {
-            cookie
+        if let Some(cookie) = request.cookies().get_private("auth") {
+            match UserAuthentication::new(db,cookie.value(), )
+                .await {
+                Ok(auth) => Outcome::Success(auth),
+                Err(e) => Outcome::Error((Status::Unauthorized, e)),
+            }
         } else {
-            
-            return None.or_error((Status::Unauthorized, AuthError::Missing("No cookie found").into()));
-        };
-
-        match UserAuthentication::new(db,cookie.value(), )
-            .await {
-            Ok(auth) => Outcome::Success(auth),
-            Err(e) => Outcome::Error((Status::Unauthorized, e)),
+            Outcome::Success(UserAuthentication::empty())
         }
     }
 }
