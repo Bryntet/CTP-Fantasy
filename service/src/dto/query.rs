@@ -171,8 +171,12 @@ impl CompetitionInfo {
             .map_err(|_| GenericError::UnknownError("Internal db error"))
     }
 
-    pub(super) fn get_all_player_scores(&self) -> Vec<&PlayerScore> {
-        self.rounds.iter().flat_map(|r| r.players.iter()).collect_vec()
+    pub(super) fn get_all_player_active_models(&self) -> Vec<player::ActiveModel> {
+        self.rounds.iter().flat_map(|round| round.players.iter().map(|player|player.to_active_model())).collect_vec()
+    }
+    
+    pub(crate) fn get_all_player_divisions(&self, fantasy_tournament_id: i32) -> Vec<player_division_in_fantasy_tournament::ActiveModel> {
+        self.rounds.iter().flat_map(|round| round.players.iter().map(|player|player.to_division_active_model(fantasy_tournament_id))).collect_vec()
     }
 
     /*fn get_all_round_score_models(&self) -> Vec<entity::player_round_score::ActiveModel> {
@@ -194,13 +198,13 @@ impl CompetitionInfo {
         }
     }
 
-    pub(super) fn get_current_player_scores(&self) -> &Vec<PlayerScore> {
+    pub(super) fn get_current_player_scores(&self) -> Vec<&PlayerScore> {
         let current_round = self.current_round();
         //dbg!(current_round);
         if current_round >= self.rounds.len() {
             error!("Current round is higher than rounds length");
         }
-        &self.rounds[current_round].players
+        self.rounds[current_round].players.iter().collect_vec()
     }
 
     pub(super) async fn get_user_scores(

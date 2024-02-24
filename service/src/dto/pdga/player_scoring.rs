@@ -135,34 +135,6 @@ impl PlayerScore {
         }
     }
 
-    /*async fn make_sure_player_in_competition(
-        &self,
-        db: &impl ConnectionTrait,
-        competition_id: i32,
-        div: &entity::sea_orm_active_enums::Division,
-    ) -> Result<(), GenericError> {
-        entity::player_in_competition::Entity::insert(entity::player_in_competition::ActiveModel {
-            id: NotSet,
-            pdga_number: Set(self.pdga_number as i32),
-            competition_id: Set(competition_id),
-            division: Set(div.clone()),
-        })
-        .on_conflict(
-            sea_query::OnConflict::columns(vec![
-                entity::player_in_competition::Column::PdgaNumber,
-                entity::player_in_competition::Column::CompetitionId,
-            ])
-            .do_nothing()
-            .to_owned(),
-        )
-        .do_nothing()
-        .exec(db)
-        .await
-        .map_err(|_| GenericError::UnknownError("Unable to add player in competition"))?;
-
-        Ok(())
-    }*/
-
     fn get_user_score(&self, level: CompetitionLevel) -> u8 {
         ((match self.placement {
             1 => 100,
@@ -403,7 +375,7 @@ impl RoundInformation {
         self.players.clone()
     }
 
-    pub fn all_player_active_models(
+    pub fn all_player_round_score_active_models(
         &self,
         round: i32,
         competition_id: i32,
@@ -412,6 +384,10 @@ impl RoundInformation {
             .iter()
             .filter_map(|p| p.round_score_active_model(round, competition_id, &p.division))
             .collect()
+    }
+    
+    pub fn all_player_active_models(&self) -> Vec<entity::player::ActiveModel> {
+        self.players.iter().map(|p| p.to_active_model()).collect()
     }
 
     pub async fn all_player_scores_exist_in_db(&self, db: &impl ConnectionTrait) -> Result<bool, DbErr> {

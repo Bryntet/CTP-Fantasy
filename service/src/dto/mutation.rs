@@ -432,21 +432,60 @@ impl CompetitionInfo {
         }
         Ok(())
     }
+    
+    
+    async fn make_sure_all_players_exist_in_db(&self, db: &impl ConnectionTrait) -> Result<(), GenericError> {
+        let players = self.get_all_player_active_models();
+        player::Entity::insert_many(players)
+            .on_conflict(
+                OnConflict::column(player::Column::PdgaNumber)
+                    .do_nothing()
+                    .to_owned(),
+            )
+            .do_nothing()
+            .exec(db)
+            .await
+            .map_err(|_| {
+                error!("Unable to insert players into database");
+                GenericError::UnknownError("Unable to insert players into database") 
+            })?;
+        let player_divs = self.get_all_player_divisions(1);
+        player_division_in_fantasy_tournament::Entity::insert_many(player_divs)
+            .on_conflict(
+                OnConflict::column(player_division_in_fantasy_tournament::Column::PlayerPdgaNumber)
+                    .do_nothing()
+                    .to_owned(),
+            )
+            .do_nothing()
+            .exec(db)
+            .await
+            .map_err(|_| {
+                error!("Unable to insert player divisions into fantasy tournament");
+                GenericError::UnknownError("Unable to insert player divisions into fantasy tournament")
+            })?;
+        Ok(())
+    }
+    
+    
 
     pub async fn save_round_scores(&self, db: &impl ConnectionTrait) -> Result<(), GenericError> {
         // TODO: ADD STATUS TO ROUND
-
-        let rounds = self
+        
+        
+        self.make_sure_all_players_exist_in_db(db).await?;
+        
+        
+        let player_round_scores = self
             .rounds
             .iter()
             .filter(|r| r.status() != RoundStatus::Pending)
             .flat_map(|r| {
-                r.all_player_active_models(r.round_number as i32, self.competition_id as i32)
+                r.all_player_round_score_active_models(r.round_number as i32, self.competition_id as i32)
                     .into_iter()
             })
             .collect_vec();
-        if !rounds.is_empty() {
-            super::super::update_or_insert_many_player_round_scores(db, rounds).await
+        if !player_round_scores.is_empty() {
+            super::super::update_or_insert_many_player_round_scores(db, player_round_scores).await
         } else {
             Ok(())
         }
@@ -471,7 +510,7 @@ impl CompetitionInfo {
         db: &impl ConnectionTrait,
         fantasy_tournament_id: Option<i32>,
     ) -> Result<(), GenericError> {
-        let players = self.get_all_player_scores();
+        let players = self.get_current_player_scores();
         add_players(db, players, fantasy_tournament_id).await?;
         Ok(())
     }
