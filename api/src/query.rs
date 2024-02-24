@@ -12,6 +12,7 @@ use tokio::io::AsyncWriteExt;
 use crate::authenticate;
 use service::{dto, SimpleFantasyTournament};
 use service::dto::Division;
+use uuid::Uuid;
 
 #[openapi(tag = "Fantasy Tournament")]
 #[get("/my-tournaments")]
@@ -152,14 +153,17 @@ pub(crate) async fn proxy_image(db: &State<DatabaseConnection>, pdga_number: i32
     let client = reqwest::Client::new();
     if let Ok(response) = client.get(url).send().await {
         if let Ok(bytes) = response.bytes().await {
-            // Write the bytes to a temporary file
-            let mut temp_file = File::create("/tmp/tmp_chains.jpg").await.expect("create file failed");
+            let unique_id = Uuid::new_v4();
+            let file_path = format!("/tmp/{}_tmp_chains.jpg", unique_id);
+            let mut temp_file = File::create(&file_path).await.expect("create file failed");
+            // Write the bytes to a temporary file§
             temp_file.write_all(&bytes).await.expect("write to file failed");
             // Return the image file
-            match NamedFile::open("/tmp/tmp_chains.jpg").await {
-                Ok(file) => { 
-                    tokio::fs::remove_file("/tmp/tmp_chains.jpg").await.expect("remove file failed");
-                    Ok(file) },
+            match NamedFile::open(&file_path).await {
+                Ok(file) => {
+                    tokio::fs::remove_file(&file_path).await.expect("remove file failed");
+                    Ok(file)
+                },
                 Err(e) => {
                     error!("Error opening file: {}", e);
                     Err(GenericError::UnknownError("Internal server error"))
