@@ -1,5 +1,5 @@
 use entity::prelude::*;
-use entity::sea_orm_active_enums::FantasyTournamentInvitationStatus;
+use entity::sea_orm_active_enums::{CompetitionStatus, FantasyTournamentInvitationStatus};
 use entity::*;
 use fantasy_tournament::Entity as FantasyTournament;
 use log::{error, warn};
@@ -133,6 +133,7 @@ pub async fn refresh_user_scores_in_fantasy(
     let comp_ids: Vec<u32> = crate::get_competitions_in_fantasy_tournament(db, fantasy_tournament_id as i32)
         .await?
         .iter()
+        .filter(|comp|comp.status!=CompetitionStatus::Finished)
         .map(|c| c.id as u32)
         .collect();
     for comp_id in comp_ids {
