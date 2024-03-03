@@ -2,6 +2,7 @@ pub mod forms;
 mod mutation;
 mod pdga;
 mod query;
+mod scoring_visualisation;
 
 use rocket::request::FromParam;
 use rocket::{FromFormField};
@@ -15,6 +16,8 @@ use rocket_okapi::okapi::schemars::{self, JsonSchema};
 use sea_orm::ConnectionTrait;
 use strum_macros::EnumIter;
 
+
+pub use scoring_visualisation::{user_competition_scores, UserWithCompetitionScore};
 pub mod traits {
     pub use super::mutation::InsertCompetition;
 }
@@ -91,7 +94,13 @@ pub enum InvitationStatus {
 #[derive(Serialize, Deserialize, JsonSchema, Debug)]
 pub struct User {
     pub id: i32,
-    pub name: String,
+    pub username: String,
+}
+
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug)]
+pub struct UserWithScore {
+    pub user: User,
     pub score: i32,
 }
 

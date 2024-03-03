@@ -188,7 +188,7 @@ pub use crate::exchange_windows::{
 pub async fn get_user_participants_in_tournament(
     db: &impl ConnectionTrait,
     tournament_id: i32,
-) -> Result<Vec<dto::User>, GenericError> {
+) -> Result<Vec<dto::UserWithScore>, GenericError> {
     let participants = UserInFantasyTournament::find()
         .filter(user_in_fantasy_tournament::Column::FantasyTournamentId.eq(tournament_id))
         .filter(
@@ -198,7 +198,6 @@ pub async fn get_user_participants_in_tournament(
         .all(db)
         .await
         .map_err(|_| GenericError::UnknownError("Unable to recieve users from database"))?;
-
     let mut out_things = Vec::new();
     for participant in participants {
         if let Some(participant) = participant
@@ -221,9 +220,11 @@ pub async fn get_user_participants_in_tournament(
                     score.score
                 })
                 .sum::<i32>();
-            let user = dto::User {
-                id: participant.id,
-                name: participant.name,
+            let user = dto::UserWithScore {
+                user: dto::User {
+                    id: participant.id,
+                    username: participant.name,
+                },
                 score,
             };
             out_things.push(user);

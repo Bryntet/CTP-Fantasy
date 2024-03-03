@@ -11,7 +11,7 @@ use tokio::io::AsyncWriteExt;
 
 use crate::authenticate;
 use service::{dto, SimpleFantasyTournament};
-use service::dto::Division;
+use service::dto::{Division, UserWithCompetitionScore};
 use uuid::Uuid;
 
 #[openapi(tag = "Fantasy Tournament")]
@@ -53,7 +53,7 @@ pub(crate) async fn get_tournament(
 pub(crate) async fn see_participants(
     db: &State<DatabaseConnection>,
     id: i32,
-) -> Result<Json<Vec<dto::User>>, GenericError> {
+) -> Result<Json<Vec<dto::UserWithScore>>, GenericError> {
     match service::get_user_participants_in_tournament(db.inner(), id).await {
         Ok(participants) => Ok(Json(participants)),
         Err(_) => Err(UserError::InvalidUserId("Unknown user").into()),
@@ -175,6 +175,14 @@ pub(crate) async fn proxy_image(db: &State<DatabaseConnection>, pdga_number: i32
     } else {
         Err(GenericError::UnknownError("Internal server error"))
     }
+}
 
-
+#[openapi(tag = "Fantasy Tournament")]
+#[get("/fantasy-tournament/<tournament_id>/competition/<competition_id>/scores")]
+pub(crate) async fn get_competition_scores(
+    db: &State<DatabaseConnection>,
+    tournament_id: i32,
+    competition_id: i32,
+) -> Json<Result<Vec<UserWithCompetitionScore>, GenericError>> {
+    Json(dto::user_competition_scores(db.inner(), tournament_id, competition_id).await)
 }
