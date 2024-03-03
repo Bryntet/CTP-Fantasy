@@ -76,6 +76,11 @@ impl PlayerStatus {
         matches!(self, PlayerStatus::DidNotFinish | PlayerStatus::DidNotStart)
     }
 }
+#[derive(Debug, PartialEq, Clone)]
+enum Tied {
+    Tied(u16),
+    NotTied,
+}
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct PlayerScore {
@@ -90,9 +95,49 @@ pub struct PlayerScore {
     pub(crate) first_name: String,
     pub(crate) last_name: String,
     pub(crate) avatar: Option<String>,
+    tied: Tied
+}
+
+
+fn placement_to_score(placement: u16) -> u8 {
+    match placement {
+        1 => 100,
+        2 => 85,
+        3 => 75,
+        4 => 69,
+        5 => 64,
+        6 => 60,
+        7 => 57,
+        8..=20 => 54 - (placement - 8) as u8 * 2,
+        21..=48 => 50 - placement as u8,
+        49..=50 => 2,
+        _ => 0,
+    }
 }
 
 impl PlayerScore {
+    pub fn from_api(api: &ApiPlayer, tied: Tied) -> Self {
+        let status: PlayerStatus = PlayerStatus::from(api);
+        Self {
+            pdga_number: api.pdga_number,
+            throws: api.throws,
+            round_to_par: api.round_to_par,
+            hole_scores: api
+                .hole_scores
+                .iter()
+                .filter_map(|s| s.parse::<u8>().ok())
+                .collect(),
+            placement: api.running_place.unwrap_or(0),
+            started: status,
+            division: api.division.clone(),
+            name: api.name.clone(),
+            first_name: api.first_name.clone(),
+            last_name: api.last_name.clone(),
+            avatar: api.avatar.clone().map(|s| "https://www.pdga.com".to_string() + &s),
+            tied
+        }
+    }
+    
     pub(crate) fn to_active_model(&self) -> entity::player::ActiveModel {
         entity::player::Model {
             pdga_number: self.pdga_number as i32,
@@ -136,21 +181,18 @@ impl PlayerScore {
     }
 
     fn get_user_score(&self, level: CompetitionLevel) -> u8 {
-        ((match self.placement {
-            1 => 100,
-            2 => 85,
-            3 => 75,
-            4 => 69,
-            5 => 64,
-            6 => 60,
-            7 => 57,
-            8..=20 => 54 - (self.placement - 8) * 2,
-            21..=48 => 50 - self.placement,
-            49..=50 => 2,
-            _ => 0,
-        } as f32)
-            * level.multiplier())
-        .round() as u8
+        let score = match self.tied {
+            Tied::Tied(tied) => {
+                let mut tied_score:u32 = 0;
+                for i in 0..=tied {
+                    tied_score += placement_to_score(self.placement + i) as u32;
+                }
+                tied_score /= tied as u32;
+                tied_score
+            },
+            Tied::NotTied => placement_to_score(self.placement) as u32,
+        };
+        (score as f32 *level.multiplier()).round() as u8
     }
 
     pub(crate) async fn get_user_fantasy_score(
@@ -244,6 +286,20 @@ pub struct RoundInformation {
     pub divs: Vec<Division>,
     phantom: bool,
 }
+fn count_ties(player_score: &ApiPlayer, scores: &[ApiPlayer]) -> Tied {
+    let mut tied_counter = 0;
+    for score in scores {
+        if score.running_place == player_score.running_place {
+            tied_counter += 1;
+        }
+    }
+    if tied_counter == 0 {
+        Tied::NotTied
+    } else {
+        Tied::Tied(tied_counter)
+    }
+}
+
 
 impl RoundInformation {
     pub async fn new(
@@ -265,14 +321,18 @@ impl RoundInformation {
                 .unwrap()
                 .to_owned();
             let divisions = divs.iter().map(|d| d.div.to_owned()).collect();
+            
+            
+            
             let player_scores: Vec<PlayerScore> = divs
                 .into_iter()
                 .flat_map(|d| {
+                    
                     d.scores
-                        .into_iter()
-                        .map(|p| {
-                            let p: PlayerScore = p.into();
-                            p
+                        .iter()
+                        .map(|player_score| {
+                            let tied = count_ties(player_score, &d.scores);
+                            PlayerScore::from_api(player_score, tied)
                         })
                         .collect_vec()
                 })

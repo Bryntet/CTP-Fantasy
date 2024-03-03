@@ -134,29 +134,7 @@ impl From<&ApiPlayer> for PlayerStatus {
     }
 }
 
-impl From<ApiPlayer> for PlayerScore {
-    fn from(p: ApiPlayer) -> Self {
-        let status: PlayerStatus = PlayerStatus::from(&p);
 
-        Self {
-            pdga_number: p.pdga_number,
-            throws: p.throws,
-            round_to_par: p.round_to_par,
-            hole_scores: p
-                .hole_scores
-                .iter()
-                .filter_map(|s| s.parse::<u8>().ok())
-                .collect(),
-            placement: p.running_place.unwrap_or(0),
-            started: status,
-            division: p.division,
-            name: p.name,
-            first_name: p.first_name,
-            last_name: p.last_name,
-            avatar: p.avatar.map(|s| "https://www.pdga.com".to_string() + &s),
-        }
-    }
-}
 
 impl PartialEq for ApiPlayer {
     fn eq(&self, other: &Self) -> bool {
