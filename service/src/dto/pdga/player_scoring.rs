@@ -78,7 +78,7 @@ impl PlayerStatus {
 }
 #[derive(Debug, PartialEq, Clone)]
 enum Tied {
-    Tied(u16),
+    Tied(usize),
     NotTied,
 }
 
@@ -116,7 +116,7 @@ fn placement_to_score(placement: u16) -> u8 {
 }
 
 impl PlayerScore {
-    pub fn from_api(api: &ApiPlayer, tied: Tied) -> Self {
+    fn from_api(api: &ApiPlayer, tied: Tied) -> Self {
         let status: PlayerStatus = PlayerStatus::from(api);
         Self {
             pdga_number: api.pdga_number,
@@ -137,7 +137,7 @@ impl PlayerScore {
             tied
         }
     }
-    
+
     pub(crate) fn to_active_model(&self) -> entity::player::ActiveModel {
         entity::player::Model {
             pdga_number: self.pdga_number as i32,
@@ -185,7 +185,7 @@ impl PlayerScore {
             Tied::Tied(tied) => {
                 let mut tied_score:u32 = 0;
                 for i in 0..=tied {
-                    tied_score += placement_to_score(self.placement + i) as u32;
+                    tied_score += placement_to_score(self.placement + i as u16) as u32;
                 }
                 tied_score /= tied as u32;
                 tied_score
@@ -287,12 +287,7 @@ pub struct RoundInformation {
     phantom: bool,
 }
 fn count_ties(player_score: &ApiPlayer, scores: &[ApiPlayer]) -> Tied {
-    let mut tied_counter = 0;
-    for score in scores {
-        if score.running_place == player_score.running_place {
-            tied_counter += 1;
-        }
-    }
+    let tied_counter = scores.iter().filter(|s| s.running_place == player_score.running_place && s.pdga_number != player_score.pdga_number).count();
     if tied_counter == 0 {
         Tied::NotTied
     } else {
@@ -321,13 +316,13 @@ impl RoundInformation {
                 .unwrap()
                 .to_owned();
             let divisions = divs.iter().map(|d| d.div.to_owned()).collect();
-            
-            
-            
+
+
+
             let player_scores: Vec<PlayerScore> = divs
                 .into_iter()
                 .flat_map(|d| {
-                    
+
                     d.scores
                         .iter()
                         .map(|player_score| {
