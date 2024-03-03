@@ -127,7 +127,6 @@ pub async fn update_active_competitions(db: &DatabaseConnection) -> Result<(), G
 }
 
 // TODO: Refactor out the saving to DB
-// TODO: Filter on only active competitions!
 pub async fn refresh_user_scores_in_fantasy(
     db: &impl ConnectionTrait,
     fantasy_tournament_id: u32,
@@ -145,11 +144,11 @@ pub async fn refresh_user_scores_in_fantasy(
             Err(GenericError::PdgaGaveUp(_)) => {
                 tokio::time::sleep(tokio::time::Duration::from_millis(250)).await;
                 let comp = dto::CompetitionInfo::from_web(model.id as u32).await?;
-                comp.save_user_scores(db, fantasy_tournament_id, just_update)
+                comp.save_user_scores(db, fantasy_tournament_id)
                     .await?;
             }
             Ok(comp) => {
-                comp.save_user_scores(db, fantasy_tournament_id, just_update)
+                comp.save_user_scores(db, fantasy_tournament_id)
                     .await?
             }
             Err(e) => Err(e)?,

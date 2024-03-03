@@ -216,7 +216,7 @@ impl PlayerScore {
         let score = self.get_user_score(competition_level) as i32;
         if score > 0 {
             if let Ok(Some(user)) = self
-                .get_user(db, fantasy_tournament_id, competition_id, self.pdga_number)
+                .get_user(db, fantasy_tournament_id, competition_id as i32, self.pdga_number as i32)
                 .await
             {
                 Ok(Some(UserScore {
