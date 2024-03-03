@@ -119,13 +119,23 @@ impl UserWithCompetitionScore {
 
 pub async fn user_competition_scores(db: &impl ConnectionTrait, tournament_id: i32, competition_id: i32) -> Result<Vec<UserWithCompetitionScore>, GenericError> {
     use entity::user::Entity as UserEnt;
-    let user_models = UserEnt::find().all(db).await.map_err(|e| {
-        error!("Unable to get users from db {:#?}", e);
-        GenericError::UnknownError("Unable to get users from db")
+    let user_fantasy_models = entity::user_in_fantasy_tournament::Entity::find().filter(entity::user_in_fantasy_tournament::Column::FantasyTournamentId.eq(tournament_id)).all(db).await.map_err(|e| {
+        error!("Unable to get users in tournament from db {:#?}", e);
+        GenericError::UnknownError("Unable to get users in tournament from db")
     })?;
+    let mut user_models = Vec::new();
+    for model in user_fantasy_models {
+        user_models.push(model.find_related(UserEnt).one(db).await.map_err(|e| {
+            error!("Unable to get user from db {:#?}", e);
+            GenericError::UnknownError("Unable to get user from db")
+        })?);
+    }
+    
     let mut users = Vec::new();
     for user in user_models {
-        users.push(UserWithCompetitionScore::new(db, user, tournament_id, competition_id).await?);
+        if let Some(user) = user {
+            users.push(UserWithCompetitionScore::new(db, user, tournament_id, competition_id).await?);
+        }
     }
     Ok(users)
 }
