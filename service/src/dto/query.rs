@@ -225,14 +225,13 @@ impl CompetitionInfo {
         &self,
         db: &impl ConnectionTrait,
         fantasy_tournament_id: u32,
-        dont_use_picks:bool
     ) -> Result<Vec<UserScore>, GenericError> {
         let mut user_scores: Vec<UserScore> = Vec::new();
         let players = self.get_current_player_scores();
 
         for player in players {
             let score = player
-                .get_user_fantasy_score(db, fantasy_tournament_id, self.competition_id, dont_use_picks)
+                .get_user_fantasy_score(db, fantasy_tournament_id, self.competition_id)
                 .await?;
             if let Some(score) = score {
                 user_scores.push(score);

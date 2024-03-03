@@ -215,7 +215,6 @@ impl PlayerScore {
         db: &impl ConnectionTrait,
         fantasy_tournament_id: u32,
         competition_id: u32,
-        dont_use_picks:bool
     ) -> Result<Option<UserScore>, GenericError> {
         let competition_level = if let Some(competition) = entity::competition::Entity::find()
             .filter(entity::competition::Column::Id.eq(competition_id as i32))
@@ -230,7 +229,7 @@ impl PlayerScore {
         let score = self.get_user_score(competition_level) as i32;
         if score > 0 {
             if let Ok(Some(user)) = self
-                .get_user(db, fantasy_tournament_id, competition_id as i32, self.pdga_number as i32, dont_use_picks)
+                .get_user(db, fantasy_tournament_id, competition_id as i32, self.pdga_number as i32)
                 .await
             {
                 Ok(Some(UserScore {
@@ -254,7 +253,6 @@ impl PlayerScore {
         fantasy_id: u32,
         competition_id: i32,
         pdga_number: i32,
-        dont_use_picks:bool
     ) -> Result<Option<user::Model>, GenericError> {
         if let Some(score) = user_competition_score_in_fantasy_tournament::Entity::find()
             .filter(
@@ -277,8 +275,7 @@ impl PlayerScore {
                 error!("Unable to get user from db {:#?}", e);
                 GenericError::UnknownError("Unable to get user from db")
             })
-        } else if !dont_use_picks {
-            if let Some(pick) = FantasyPick::find()
+        } else if let Some(pick) = FantasyPick::find()
                 .filter(
                     fantasy_pick::Column::Player.eq(self.pdga_number).and(
                         fantasy_pick::Column::FantasyTournamentId
@@ -297,9 +294,7 @@ impl PlayerScore {
             } else {
                 Ok(None)
             }
-        } else {
-            Ok(None)
-        }
+        
     }
 }
 

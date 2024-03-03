@@ -131,24 +131,23 @@ pub async fn refresh_user_scores_in_fantasy(
     db: &impl ConnectionTrait,
     fantasy_tournament_id: u32,
 ) -> Result<(), GenericError> {
-    let comp_model= crate::get_competitions_in_fantasy_tournament(db, fantasy_tournament_id as i32)
+    let competition_ids = crate::get_competitions_in_fantasy_tournament(db, fantasy_tournament_id as i32)
         .await?
-        /*.iter()
+        .into_iter()
         .filter(|comp|comp.status!=CompetitionStatus::Finished)
         .map(|c| c.id as u32)
-        .collect()*/;
+        .collect();
 
-    for model in comp_model {
-        let dont_use_picks = matches!(model.status, CompetitionStatus::Finished);
-        match dto::CompetitionInfo::from_web(model.id as u32).await {
+    for id in competition_ids {
+        match dto::CompetitionInfo::from_web(id as u32).await {
             Err(GenericError::PdgaGaveUp(_)) => {
                 tokio::time::sleep(tokio::time::Duration::from_millis(250)).await;
-                let comp = dto::CompetitionInfo::from_web(model.id as u32).await?;
-                comp.save_user_scores(db, fantasy_tournament_id, dont_use_picks)
+                let comp = dto::CompetitionInfo::from_web(id as u32).await?;
+                comp.save_user_scores(db, fantasy_tournament_id)
                     .await?;
             }
             Ok(comp) => {
-                comp.save_user_scores(db, fantasy_tournament_id, dont_use_picks)
+                comp.save_user_scores(db, fantasy_tournament_id)
                     .await?
             }
             Err(e) => Err(e)?,

@@ -527,9 +527,8 @@ impl CompetitionInfo {
         &self,
         db: &impl ConnectionTrait,
         fantasy_tournament_id: u32,
-        dont_use_picks:bool
     ) -> Result<(), GenericError> {
-        let user_scores = self.get_user_scores(db, fantasy_tournament_id,dont_use_picks).await?;
+        let user_scores = self.get_user_scores(db, fantasy_tournament_id).await?;
         if !user_scores.is_empty() {
             user_competition_score_in_fantasy_tournament::Entity::delete_many()
                 .filter(
