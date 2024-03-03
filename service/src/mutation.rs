@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use entity::prelude::*;
 use entity::sea_orm_active_enums::{CompetitionStatus, FantasyTournamentInvitationStatus};
 use entity::*;
@@ -134,15 +135,17 @@ pub async fn refresh_user_scores_in_fantasy(
     let competition_ids = crate::get_competitions_in_fantasy_tournament(db, fantasy_tournament_id as i32)
         .await?
         .into_iter()
-        .filter(|comp|comp.status!=CompetitionStatus::Finished)
+        .filter(|comp|comp.status==CompetitionStatus::Running)
         .map(|c| c.id as u32)
-        .collect();
+        .collect_vec();
+    
+    
 
     for id in competition_ids {
-        match dto::CompetitionInfo::from_web(id as u32).await {
+        match dto::CompetitionInfo::from_web(id).await {
             Err(GenericError::PdgaGaveUp(_)) => {
                 tokio::time::sleep(tokio::time::Duration::from_millis(250)).await;
-                let comp = dto::CompetitionInfo::from_web(id as u32).await?;
+                let comp = dto::CompetitionInfo::from_web(id).await?;
                 comp.save_user_scores(db, fantasy_tournament_id)
                     .await?;
             }
