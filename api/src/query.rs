@@ -183,6 +183,6 @@ pub(crate) async fn get_competition_scores(
     db: &State<DatabaseConnection>,
     tournament_id: i32,
     competition_id: i32,
-) -> Json<Result<Vec<UserWithCompetitionScore>, GenericError>> {
-    Json(dto::user_competition_scores(db.inner(), tournament_id, competition_id).await)
+) -> Result<Json<Vec<UserWithCompetitionScore>>, GenericError> {
+    dto::user_competition_scores(db.inner(), tournament_id, competition_id).await.map(Json)
 }

@@ -1,4 +1,4 @@
-use rocket::error;
+use rocket::{error, warn};
 use sea_orm::{ColumnTrait, ConnectionTrait, EntityTrait, ModelTrait, QueryFilter};
 use serde_derive::Serialize;
 use super::User;
@@ -17,7 +17,7 @@ struct Player {
 impl From<entity::player::Model> for Player {
     fn from(model: entity::player::Model) -> Self {
         Self {
-            name: model.first_name + &model.last_name,
+            name: format!("{} {}",model.first_name,model.last_name),
             id: model.pdga_number as u32,
         }
     }
@@ -32,26 +32,26 @@ struct PlayerCompetitionScore {
 }
 
 impl PlayerCompetitionScore {
-    async fn from_db(db: &impl ConnectionTrait, score_model: entity::user_competition_score_in_fantasy_tournament::Model) -> Result<Self, GenericError> {
-        let player = Player::from(score_model.find_related(entity::player::Entity).one(db).await.map_err(|e| {
+    async fn from_db(db: &impl ConnectionTrait, score_model: entity::user_competition_score_in_fantasy_tournament::Model) -> Result<Option<Self>, GenericError> {
+        if let Some(player_model) = score_model.find_related(entity::player::Entity).one(db).await.map_err(|e| {
             error!("Unknown fatal error while getting player from db in competition score {:#?}", e);
             GenericError::UnknownError("Unknown internal db error while trying to get player from competition score")
-        })?.ok_or({
-            error!("Unable to find player in db in competition score");
-            GenericError::UnknownError("Unable to find player in db in competition score")
-        })?);
-        Ok(Self {
-            player,
-            score: score_model.score as u8,
-        })
+        })? {
+            Ok(Some(Self {
+                player: Player::from(player_model),
+                score: score_model.score as u8,
+            }))
+        } else {
+            Ok(None)
+        }
     }
 }
 
 
 #[derive(Debug, Serialize, JsonSchema)]
-pub struct CompetitionScore(Vec<PlayerCompetitionScore>);
+pub struct CompetitionScores(Vec<PlayerCompetitionScore>);
 
-impl CompetitionScore {
+impl CompetitionScores {
     pub async fn new(db: &impl ConnectionTrait, competition_id: i32, user_id: i32, tournament_id: i32) -> Result<Self, GenericError> {
         use entity::user_competition_score_in_fantasy_tournament as CompScore;
         use CompScore::Entity as CompScoreEnt;
@@ -70,12 +70,15 @@ impl CompetitionScore {
 
         let mut scores = Vec::new();
         for score in score_models {
-            scores.push(PlayerCompetitionScore::from_db(db, score).await?);
+            match PlayerCompetitionScore::from_db(db, score).await? {
+                None => warn!("Player does not have a score in competition"),
+                Some(score) => scores.push(score),
+            }
         }
 
         Ok(Self(scores))
     }
-    
+
     pub fn total_score(&self) -> u32 {
         self.0.iter().map(|x| x.score as u32).sum()
     }
@@ -83,7 +86,7 @@ impl CompetitionScore {
 #[derive(Debug, Serialize,JsonSchema)]
 pub struct UserWithCompetitionScore {
     pub user: User,
-    pub competition_score: CompetitionScore,
+    pub competition_scores: CompetitionScores,
     pub total_score: u32,
 }
 
@@ -103,12 +106,12 @@ impl From<entity::user::Model> for User {
 impl UserWithCompetitionScore {
     async fn new(db: &impl ConnectionTrait, user: entity::user::Model, tournament_id: i32, competition_id: i32) -> Result<Self, GenericError> {
         let user = User::from(user);
-        let competition_score = CompetitionScore::new(db, competition_id, user.id, tournament_id).await?;
+        let competition_score = CompetitionScores::new(db, competition_id, user.id, tournament_id).await?;
 
         Ok(Self {
             user,
             total_score: competition_score.total_score(),
-            competition_score,
+            competition_scores: competition_score,
         })
     }
 }
