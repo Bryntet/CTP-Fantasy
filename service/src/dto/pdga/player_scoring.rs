@@ -98,7 +98,7 @@ pub struct PlayerScore {
     tied: Tied,
 }
 
-fn placement_to_score(placement: u16) -> u8 {
+fn placement_to_score(placement: u16) -> u16 {
     match placement {
         1 => 100,
         2 => 85,
@@ -107,8 +107,8 @@ fn placement_to_score(placement: u16) -> u8 {
         5 => 64,
         6 => 60,
         7 => 57,
-        8..=20 => 54 - (placement - 8) as u8 * 2,
-        21..=48 => 50 - placement as u8,
+        8..=20 => 54 - (placement - 8) * 2,
+        21..=48 => 50 - placement,
         49..=50 => 2,
         _ => 0,
     }
@@ -182,19 +182,32 @@ impl PlayerScore {
         }
     }
 
-    fn get_user_score(&self, level: CompetitionLevel) -> u8 {
+    fn get_user_score(&self, level: CompetitionLevel) -> u16 {
         let score = match self.tied {
             Tied::Tied(tied) => {
                 let mut tied_score: u32 = 0;
+                if self.pdga_number == 85942 {
+                    dbg!(tied);
+                }
                 for i in 0..=tied {
+                    if self.pdga_number == 85942 {
+                        dbg!(tied_score);
+                    }
                     tied_score += placement_to_score(self.placement + i as u16) as u32;
                 }
-                tied_score /= tied as u32;
+                if self.pdga_number == 85942 {
+
+                    dbg!(tied_score);
+                }
+                tied_score /= (tied+1) as u32;
+                if self.pdga_number == 85942 {
+                    dbg!(tied_score);
+                }
                 tied_score
             }
             Tied::NotTied => placement_to_score(self.placement) as u32,
         };
-        (score as f32 * level.multiplier()).round() as u8
+        (score as f32 * level.multiplier()).round() as u16
     }
 
     pub(crate) async fn get_user_fantasy_score(
@@ -202,6 +215,7 @@ impl PlayerScore {
         db: &impl ConnectionTrait,
         fantasy_tournament_id: u32,
         competition_id: u32,
+        dont_use_picks:bool
     ) -> Result<Option<UserScore>, GenericError> {
         let competition_level = if let Some(competition) = entity::competition::Entity::find()
             .filter(entity::competition::Column::Id.eq(competition_id as i32))
@@ -216,7 +230,7 @@ impl PlayerScore {
         let score = self.get_user_score(competition_level) as i32;
         if score > 0 {
             if let Ok(Some(user)) = self
-                .get_user(db, fantasy_tournament_id, competition_id as i32, self.pdga_number as i32)
+                .get_user(db, fantasy_tournament_id, competition_id as i32, self.pdga_number as i32, dont_use_picks)
                 .await
             {
                 Ok(Some(UserScore {
@@ -240,6 +254,7 @@ impl PlayerScore {
         fantasy_id: u32,
         competition_id: i32,
         pdga_number: i32,
+        dont_use_picks:bool
     ) -> Result<Option<user::Model>, GenericError> {
         if let Some(score) = user_competition_score_in_fantasy_tournament::Entity::find()
             .filter(
@@ -262,22 +277,26 @@ impl PlayerScore {
                 error!("Unable to get user from db {:#?}", e);
                 GenericError::UnknownError("Unable to get user from db")
             })
-        } else if let Some(pick) = FantasyPick::find()
-            .filter(
-                fantasy_pick::Column::Player.eq(self.pdga_number).and(
-                    fantasy_pick::Column::FantasyTournamentId
-                        .eq(fantasy_id)
-                        .and(fantasy_pick::Column::Benched.eq(false)),
-                ),
-            )
-            .one(db)
-            .await
-            .map_err(|_| GenericError::UnknownError("Pick not found due to unknown database error"))?
-        {
-            pick.find_related(User)
+        } else if !dont_use_picks {
+            if let Some(pick) = FantasyPick::find()
+                .filter(
+                    fantasy_pick::Column::Player.eq(self.pdga_number).and(
+                        fantasy_pick::Column::FantasyTournamentId
+                            .eq(fantasy_id)
+                            .and(fantasy_pick::Column::Benched.eq(false)),
+                    ),
+                )
                 .one(db)
                 .await
-                .map_err(|_| GenericError::UnknownError("User not found due to unknown database error"))
+                .map_err(|_| GenericError::UnknownError("Pick not found due to unknown database error"))?
+            {
+                pick.find_related(User)
+                    .one(db)
+                    .await
+                    .map_err(|_| GenericError::UnknownError("User not found due to unknown database error"))
+            } else {
+                Ok(None)
+            }
         } else {
             Ok(None)
         }

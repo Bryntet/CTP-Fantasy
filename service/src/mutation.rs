@@ -139,16 +139,16 @@ pub async fn refresh_user_scores_in_fantasy(
         .collect()*/;
 
     for model in comp_model {
-        let just_update = matches!(model.status, CompetitionStatus::Finished);
+        let dont_use_picks = matches!(model.status, CompetitionStatus::Finished);
         match dto::CompetitionInfo::from_web(model.id as u32).await {
             Err(GenericError::PdgaGaveUp(_)) => {
                 tokio::time::sleep(tokio::time::Duration::from_millis(250)).await;
                 let comp = dto::CompetitionInfo::from_web(model.id as u32).await?;
-                comp.save_user_scores(db, fantasy_tournament_id)
+                comp.save_user_scores(db, fantasy_tournament_id, dont_use_picks)
                     .await?;
             }
             Ok(comp) => {
-                comp.save_user_scores(db, fantasy_tournament_id)
+                comp.save_user_scores(db, fantasy_tournament_id, dont_use_picks)
                     .await?
             }
             Err(e) => Err(e)?,
