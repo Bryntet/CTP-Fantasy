@@ -2,8 +2,8 @@ use rocket::http::CookieJar;
 use rocket::serde::json::Json;
 use rocket::State;
 use rocket_okapi::openapi;
+use sea_orm::DatabaseConnection;
 use sea_orm::TransactionTrait;
-use sea_orm::{DatabaseConnection};
 
 use error::GenericError;
 use service::dto::{forms, FantasyPick, FantasyPicks, UserLogin};
@@ -11,7 +11,7 @@ use service::dto::{forms, FantasyPick, FantasyPicks, UserLogin};
 use crate::authenticate;
 use crate::authenticate::AllowedToExchangeGuard;
 use crate::error;
-use crate::error::{ UserError};
+use crate::error::UserError;
 
 /// # Create a fantasy tournament
 ///
@@ -229,7 +229,8 @@ pub(crate) async fn add_competition(
         fantasy_tournament_id,
         competition.competition_id,
         competition.level.clone(),
-    ).await?;
+    )
+    .await?;
     txn.commit()
         .await
         .map_err(|_| GenericError::UnknownError("Unknown error while trying to commit transaction"))?;

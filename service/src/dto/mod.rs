@@ -5,7 +5,7 @@ mod query;
 mod scoring_visualisation;
 
 use rocket::request::FromParam;
-use rocket::{FromFormField};
+use rocket::FromFormField;
 
 use entity::*;
 
@@ -15,7 +15,6 @@ use rocket::serde::{Deserialize, Serialize};
 use rocket_okapi::okapi::schemars::{self, JsonSchema};
 use sea_orm::ConnectionTrait;
 use strum_macros::EnumIter;
-
 
 pub use scoring_visualisation::{user_competition_scores, UserWithCompetitionScore};
 pub mod traits {
@@ -41,9 +40,12 @@ pub struct Competition {
     pub level: CompetitionLevel,
 }
 impl Competition {
-    
-    pub async fn all_in_fantasy_tournament(db: &impl ConnectionTrait, tournament_id: i32) -> Result<Vec<Self>, GenericError> {
-        Ok(super::get_competitions_in_fantasy_tournament(db, tournament_id).await?
+    pub async fn all_in_fantasy_tournament(
+        db: &impl ConnectionTrait,
+        tournament_id: i32,
+    ) -> Result<Vec<Self>, GenericError> {
+        Ok(super::get_competitions_in_fantasy_tournament(db, tournament_id)
+            .await?
             .into_iter()
             .map(|c| Self {
                 level: c.level.into(),
@@ -51,7 +53,6 @@ impl Competition {
                 competition_id: c.id,
             })
             .collect())
-    
     }
 }
 #[derive(Deserialize, Serialize, JsonSchema, Debug)]
@@ -96,7 +97,6 @@ pub struct User {
     pub id: i32,
     pub username: String,
 }
-
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug)]
 pub struct UserWithScore {

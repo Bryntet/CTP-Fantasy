@@ -10,10 +10,7 @@ mod tests {
     use rocket::figment::Profile;
     use rocket::local::asynchronous::{Client, LocalResponse};
     use rocket::{error, warn, Config};
-    use sea_orm::{
-         ConnectOptions, ConnectionTrait, Database, DatabaseConnection, EntityTrait,
-        
-    };
+    use sea_orm::{ConnectOptions, ConnectionTrait, Database, DatabaseConnection, EntityTrait};
     use service::dto::UserLogin;
 
     async fn make_db() -> DatabaseConnection {
@@ -22,7 +19,7 @@ mod tests {
         opt.sqlx_logging(false);
         Database::connect(opt).await.expect("Database must exist")
     }
-    
+
     use rocket::{Build, Rocket};
 
     async fn rocket() -> Rocket<Build> {
@@ -117,12 +114,7 @@ mod tests {
         !competitions.is_empty()
     }
 
-    pub async fn add_pick(
-        client: &Client,
-        player: i32,
-        div: Division,
-        slot: u8,
-    ) -> LocalResponse {
+    pub async fn add_pick(client: &Client, player: i32, div: Division, slot: u8) -> LocalResponse {
         let div = div.to_string().to_uppercase();
 
         client
@@ -139,7 +131,7 @@ mod tests {
 
     use service::dto::{CompetitionLevel, Division};
     use service::refresh_user_scores_in_all;
-    
+
     #[async_test]
     async fn make_score_test() {
         let db = clear_db().await;
@@ -167,12 +159,11 @@ mod tests {
         active.start_date = Set(new_start);
         active.ended_at = Set(new_end);
         active.save(&db).await.unwrap();*/
-        
+
         add_pick(&client, 69424, Division::MPO, 1)
             .await
             .into_string()
             .await;
-
 
         assert!(!any_pick(&db).await);
         //assert!(!any_user_scores(&db).await);
@@ -190,5 +181,3 @@ mod tests {
         //panic!();
     }
 }
-
-

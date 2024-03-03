@@ -4,9 +4,9 @@ use crate::{
 };
 use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime, Timelike};
 use entity::sea_orm_active_enums::CompetitionStatus;
+use rocket::error;
 use sea_orm::ConnectionTrait;
 use std::ops::Add;
-use rocket::error;
 
 pub async fn is_user_allowed_to_exchange(
     db: &impl ConnectionTrait,
@@ -70,7 +70,7 @@ pub async fn see_which_users_can_exchange(
 pub async fn has_exchange_begun(db: &impl ConnectionTrait, tournament_id: i32) -> Result<bool, GenericError> {
     if let Some(tournament) = get_fantasy_tournament_model(db, tournament_id).await? {
         let first_exchange_window = get_first_exchange_window_time(db, &tournament).await?;
-        error!("{:#?}",&first_exchange_window);
+        error!("{:#?}", &first_exchange_window);
         Ok(first_exchange_window
             .map(|x| x < chrono::Utc::now().naive_local())
             .unwrap_or(false))

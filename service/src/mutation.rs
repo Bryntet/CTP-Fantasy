@@ -7,12 +7,15 @@ use rand::distributions::Alphanumeric;
 use rand::Rng;
 use rocket::http::{Cookie, CookieJar};
 use sea_orm::ActiveValue::*;
-use sea_orm::{sea_query, ActiveModelTrait, ConnectionTrait, DatabaseConnection, EntityTrait, IntoActiveModel, TransactionTrait, ModelTrait};
+use sea_orm::{
+    sea_query, ActiveModelTrait, ConnectionTrait, DatabaseConnection, EntityTrait, IntoActiveModel,
+    ModelTrait, TransactionTrait,
+};
 use sea_orm::{ColumnTrait, QueryFilter};
 
+use crate::dto::traits::InsertCompetition;
 use crate::error::{GenericError, InviteError};
 use crate::{dto, query};
-use crate::dto::traits::InsertCompetition;
 
 pub async fn generate_cookie(
     db: &DatabaseConnection,
@@ -52,7 +55,6 @@ pub async fn create_invite(
     receiver_name: String,
     fantasy_tournament_id: i32,
 ) -> Result<(), InviteError> {
-    
     let invited_user = if let Ok(Some(u)) = crate::get_user_by_name(db, receiver_name).await {
         u
     } else {
@@ -136,21 +138,20 @@ pub async fn refresh_user_scores_in_fantasy(
         .filter(|comp|comp.status!=CompetitionStatus::Finished)
         .map(|c| c.id as u32)
         .collect()*/;
-    
-    
-    
+
     for model in comp_model {
         let just_update = matches!(model.status, CompetitionStatus::Finished);
         match dto::CompetitionInfo::from_web(model.id as u32).await {
             Err(GenericError::PdgaGaveUp(_)) => {
                 tokio::time::sleep(tokio::time::Duration::from_millis(250)).await;
                 let comp = dto::CompetitionInfo::from_web(model.id as u32).await?;
-                comp.save_user_scores(db, fantasy_tournament_id,just_update).await?;
+                comp.save_user_scores(db, fantasy_tournament_id, just_update)
+                    .await?;
             }
             Ok(comp) => {
-                
-                comp.save_user_scores(db, fantasy_tournament_id, just_update).await? 
-            },
+                comp.save_user_scores(db, fantasy_tournament_id, just_update)
+                    .await?
+            }
             Err(e) => Err(e)?,
         }
     }
@@ -212,7 +213,6 @@ pub async fn update_or_insert_many_player_round_scores(
     Ok(())
 }
 
-
 pub async fn insert_competition_in_fantasy(
     db: &impl ConnectionTrait,
     fantasy_tournament_id: u32,
@@ -236,27 +236,25 @@ pub async fn insert_competition_in_fantasy(
                 })? {
                 Some(_) => Err(GenericError::Conflict("Competition already added")),
                 None => {
-                    CompetitionInFantasyTournament::insert(competition_in_fantasy_tournament::ActiveModel{
+                    CompetitionInFantasyTournament::insert(competition_in_fantasy_tournament::ActiveModel {
                         id: NotSet,
                         competition_id: Set(competition_id as i32),
                         fantasy_tournament_id: Set(fantasy_tournament_id as i32),
                     })
-                        .exec(db)
-                        .await
-                        .map_err(|_| {
-                            GenericError::UnknownError(
-                                "Unable to insert competition into fanatasy tournament due to unknown db error",
-                            )
-                        })?;
+                    .exec(db)
+                    .await
+                    .map_err(|_| {
+                        GenericError::UnknownError(
+                            "Unable to insert competition into fanatasy tournament due to unknown db error",
+                        )
+                    })?;
                     Ok(())
                 }
             }
         }
         None => {
             let competition = dto::CompetitionInfo::from_web(competition_id).await?;
-            competition
-                .insert_in_db(db, level.into())
-                .await?;
+            competition.insert_in_db(db, level.into()).await?;
 
             competition.insert_in_fantasy(db, fantasy_tournament_id).await?;
             competition

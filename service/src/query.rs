@@ -9,10 +9,9 @@ use log::{error, warn};
 
 use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
-use sea_orm::ActiveValue::Set;
 use sea_orm::entity::prelude::*;
+use sea_orm::ActiveValue::Set;
 use sea_orm::IntoActiveModel;
-
 
 use crate::dto;
 use crate::dto::{CompetitionInfo, FantasyPicks};
@@ -113,30 +112,43 @@ pub async fn get_users_fantasy_tournaments(
     user: &user::Model,
 ) -> Result<Vec<SimpleFantasyTournament>, GenericError> {
     if user.admin {
-        let a = fantasy_tournament::Entity::find().all(db).await.map_err(|e|{
-            error!("Error while getting tournaments: {:#?}", e);
-            GenericError::UnknownError("Unknown error while getting tournaments")
-        })?.iter().map(|t| {
-            SimpleFantasyTournament {
+        let a = fantasy_tournament::Entity::find()
+            .all(db)
+            .await
+            .map_err(|e| {
+                error!("Error while getting tournaments: {:#?}", e);
+                GenericError::UnknownError("Unknown error while getting tournaments")
+            })?
+            .iter()
+            .map(|t| SimpleFantasyTournament {
                 id: t.id,
                 name: t.name.to_string(),
                 invitation_status: InvitationStatus::Accepted,
                 owner_id: t.owner,
-            }
-        }).collect();
+            })
+            .collect();
         Ok(a)
     } else {
-        let tournaments = user.find_related(user_in_fantasy_tournament::Entity).all(db).await.map_err(|e|{
-            error!("Error while getting tournaments: {:#?}", e);
-            GenericError::UnknownError("Unknown error while getting tournaments")
-        })?;
+        let tournaments = user
+            .find_related(user_in_fantasy_tournament::Entity)
+            .all(db)
+            .await
+            .map_err(|e| {
+                error!("Error while getting tournaments: {:#?}", e);
+                GenericError::UnknownError("Unknown error while getting tournaments")
+            })?;
 
         let mut out_things = Vec::new();
         for user_in_tournament in tournaments {
-            if let Some(tournament) = user_in_tournament.find_related(fantasy_tournament::Entity).one(db).await.map_err(|e|{
-                error!("Error while getting tournament: {:#?}", e);
-                GenericError::UnknownError("Unknown error while getting tournament")
-            })? {
+            if let Some(tournament) = user_in_tournament
+                .find_related(fantasy_tournament::Entity)
+                .one(db)
+                .await
+                .map_err(|e| {
+                    error!("Error while getting tournament: {:#?}", e);
+                    GenericError::UnknownError("Unknown error while getting tournament")
+                })?
+            {
                 out_things.push(SimpleFantasyTournament {
                     id: tournament.id,
                     name: tournament.name.to_string(),
@@ -147,13 +159,12 @@ pub async fn get_users_fantasy_tournaments(
         }
         Ok(out_things)
     }
-    
 }
 
 pub async fn get_fantasy_tournament(
     db: &impl ConnectionTrait,
     tournament_id: i32,
-    user_admin_id: Option<i32>
+    user_admin_id: Option<i32>,
 ) -> Result<Option<SimpleFantasyTournament>, GenericError> {
     let t = FantasyTournament::find_by_id(tournament_id)
         .one(db)
@@ -216,9 +227,7 @@ pub async fn get_user_participants_in_tournament(
                 .await
                 .map_err(|_| GenericError::UnknownError("Unable to recieve user scores from database"))?
                 .iter()
-                .map(|score| {
-                    score.score
-                })
+                .map(|score| score.score)
                 .sum::<i32>();
             let user = dto::UserWithScore {
                 user: dto::User {
@@ -248,13 +257,13 @@ pub async fn get_user_pick_in_tournament(
     slot: i32,
     division: sea_orm_active_enums::Division,
 ) -> Result<dto::FantasyPick, GenericError> {
-
     let pick = FantasyPick::find()
         .filter(
             fantasy_pick::Column::User
                 .eq(user_id)
                 .and(fantasy_pick::Column::FantasyTournamentId.eq(tournament_id))
-                .and(fantasy_pick::Column::PickNumber.eq(slot)).and(fantasy_pick::Column::Division.eq(division))
+                .and(fantasy_pick::Column::PickNumber.eq(slot))
+                .and(fantasy_pick::Column::Division.eq(division)),
         )
         .one(db)
         .await
@@ -298,7 +307,6 @@ async fn get_player_name(db: &DatabaseConnection, player_id: i32) -> Result<Stri
         Err(GenericError::NotFound("Player not found"))
     }
 }
-
 
 pub async fn get_user_picks_in_tournament(
     db: &impl ConnectionTrait,
@@ -401,9 +409,7 @@ pub async fn active_rounds(db: &impl ConnectionTrait) -> Result<Vec<round::Model
         .await
 }
 
-pub async fn active_competitions(
-    db: &impl ConnectionTrait,
-) -> Result<Vec<CompetitionInfo>, GenericError> {
+pub async fn active_competitions(db: &impl ConnectionTrait) -> Result<Vec<CompetitionInfo>, GenericError> {
     let competition_models = Competition::find()
         .filter(
             competition::Column::Status
@@ -415,26 +421,26 @@ pub async fn active_competitions(
         .all(db)
         .await
         .map_err(|_| GenericError::UnknownError("Unknown error while trying to find active competitions"))?;
-    
-    
+
     let mut competitions = Vec::new();
-    
-    
+
     for comp_model in competition_models {
         match CompetitionInfo::from_web(comp_model.id as u32).await {
-            Ok(comp) => { 
+            Ok(comp) => {
                 if comp_model.status != comp.status().into() {
                     let mut model = comp_model.into_active_model();
                     model.status = Set(comp.status().into());
                     if let Err(e) = model.save(db).await {
-                        error!("Encountered db err: {:?}",e.sql_err());
+                        error!("Encountered db err: {:?}", e.sql_err());
                     }
                 }
-                competitions.push(comp); 
+                competitions.push(comp);
             }
             Err(e) => {
                 warn!("Unable to fetch competition from PDGA: {:?}", e);
-                Err(GenericError::PdgaGaveUp("Internal error while fetching competition from PDGA"))?
+                Err(GenericError::PdgaGaveUp(
+                    "Internal error while fetching competition from PDGA",
+                ))?
             }
         }
     }
@@ -567,4 +573,3 @@ pub async fn get_users_in_tournament(
     }
     Ok(out_things)
 }
-

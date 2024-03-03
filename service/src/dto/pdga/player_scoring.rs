@@ -9,9 +9,9 @@ use itertools::Itertools;
 use log::error;
 use sea_orm::prelude::DateTimeWithTimeZone;
 use sea_orm::ActiveValue::Set;
-use sea_orm::{ModelTrait};
-use sea_orm::{ConnectionTrait, DbErr, EntityTrait, IntoActiveModel, NotSet};
+use sea_orm::ModelTrait;
 use sea_orm::{ColumnTrait, QueryFilter};
+use sea_orm::{ConnectionTrait, DbErr, EntityTrait, IntoActiveModel, NotSet};
 
 use serde::Deserialize;
 use serde_with::serde_as;
@@ -95,9 +95,8 @@ pub struct PlayerScore {
     pub(crate) first_name: String,
     pub(crate) last_name: String,
     pub(crate) avatar: Option<String>,
-    tied: Tied
+    tied: Tied,
 }
-
 
 fn placement_to_score(placement: u16) -> u8 {
     match placement {
@@ -133,8 +132,11 @@ impl PlayerScore {
             name: api.name.clone(),
             first_name: api.first_name.clone(),
             last_name: api.last_name.clone(),
-            avatar: api.avatar.clone().map(|s| "https://www.pdga.com".to_string() + &s),
-            tied
+            avatar: api
+                .avatar
+                .clone()
+                .map(|s| "https://www.pdga.com".to_string() + &s),
+            tied,
         }
     }
 
@@ -183,23 +185,24 @@ impl PlayerScore {
     fn get_user_score(&self, level: CompetitionLevel) -> u8 {
         let score = match self.tied {
             Tied::Tied(tied) => {
-                let mut tied_score:u32 = 0;
+                let mut tied_score: u32 = 0;
                 for i in 0..=tied {
                     tied_score += placement_to_score(self.placement + i as u16) as u32;
                 }
                 tied_score /= tied as u32;
                 tied_score
-            },
+            }
             Tied::NotTied => placement_to_score(self.placement) as u32,
         };
-        (score as f32 *level.multiplier()).round() as u8
+        (score as f32 * level.multiplier()).round() as u8
     }
 
     pub(crate) async fn get_user_fantasy_score(
         &self,
         db: &impl ConnectionTrait,
         fantasy_tournament_id: u32,
-        competition_id: u32,) -> Result<Option<UserScore>, GenericError> {
+        competition_id: u32,
+    ) -> Result<Option<UserScore>, GenericError> {
         let competition_level = if let Some(competition) = entity::competition::Entity::find()
             .filter(entity::competition::Column::Id.eq(competition_id as i32))
             .one(db)
@@ -212,8 +215,10 @@ impl PlayerScore {
         };
         let score = self.get_user_score(competition_level) as i32;
         if score > 0 {
-
-            if let Ok(Some(user)) = self.get_user(db, fantasy_tournament_id,  competition_id,self.pdga_number,).await {
+            if let Ok(Some(user)) = self
+                .get_user(db, fantasy_tournament_id, competition_id, self.pdga_number)
+                .await
+            {
                 Ok(Some(UserScore {
                     user: user.id,
                     score,
@@ -236,11 +241,24 @@ impl PlayerScore {
         competition_id: i32,
         pdga_number: i32,
     ) -> Result<Option<user::Model>, GenericError> {
-        if let Some(score) = user_competition_score_in_fantasy_tournament::Entity::find().filter(user_competition_score_in_fantasy_tournament::Column::FantasyTournamentId.eq(fantasy_id).and(user_competition_score_in_fantasy_tournament::Column::PdgaNumber.eq(pdga_number)).and(user_competition_score_in_fantasy_tournament::Column::CompetitionId.eq(competition_id))).one(db).await.map_err(|e|{
-            error!("Unable to get user score from db {:#?}", e);
-            GenericError::UnknownError("Unable to get user score from db")
-        })? {
-            score.find_related(user::Entity).one(db).await.map_err(|e|{
+        if let Some(score) = user_competition_score_in_fantasy_tournament::Entity::find()
+            .filter(
+                user_competition_score_in_fantasy_tournament::Column::FantasyTournamentId
+                    .eq(fantasy_id)
+                    .and(user_competition_score_in_fantasy_tournament::Column::PdgaNumber.eq(pdga_number))
+                    .and(
+                        user_competition_score_in_fantasy_tournament::Column::CompetitionId
+                            .eq(competition_id),
+                    ),
+            )
+            .one(db)
+            .await
+            .map_err(|e| {
+                error!("Unable to get user score from db {:#?}", e);
+                GenericError::UnknownError("Unable to get user score from db")
+            })?
+        {
+            score.find_related(user::Entity).one(db).await.map_err(|e| {
                 error!("Unable to get user from db {:#?}", e);
                 GenericError::UnknownError("Unable to get user from db")
             })
@@ -297,14 +315,18 @@ pub struct RoundInformation {
     phantom: bool,
 }
 fn count_ties(player_score: &ApiPlayer, scores: &[ApiPlayer]) -> Tied {
-    let tied_counter = scores.iter().filter(|s| s.running_place == player_score.running_place && s.pdga_number != player_score.pdga_number).count();
+    let tied_counter = scores
+        .iter()
+        .filter(|s| {
+            s.running_place == player_score.running_place && s.pdga_number != player_score.pdga_number
+        })
+        .count();
     if tied_counter == 0 {
         Tied::NotTied
     } else {
         Tied::Tied(tied_counter)
     }
 }
-
 
 impl RoundInformation {
     pub async fn new(
@@ -327,12 +349,9 @@ impl RoundInformation {
                 .to_owned();
             let divisions = divs.iter().map(|d| d.div.to_owned()).collect();
 
-
-
             let player_scores: Vec<PlayerScore> = divs
                 .into_iter()
                 .flat_map(|d| {
-
                     d.scores
                         .iter()
                         .map(|player_score| {
@@ -440,17 +459,13 @@ impl RoundInformation {
         self.players.clone()
     }
 
-    pub fn all_player_round_score_active_models(
-        &self,
-        round: i32,
-        competition_id: i32,
-    ) -> Vec<ActiveModel> {
+    pub fn all_player_round_score_active_models(&self, round: i32, competition_id: i32) -> Vec<ActiveModel> {
         self.players
             .iter()
             .filter_map(|p| p.round_score_active_model(round, competition_id, &p.division))
             .collect()
     }
-    
+
     pub fn all_player_active_models(&self) -> Vec<entity::player::ActiveModel> {
         self.players.iter().map(|p| p.to_active_model()).collect()
     }
@@ -513,10 +528,10 @@ mod tests {
         let content = fs::read_to_string(path).expect("Could not read file");
 
         // Deserialize the content into ApiCompetitionInfo
-        let info: Result<ApiRes,_> = from_str(&content);
-        
+        let info: Result<ApiRes, _> = from_str(&content);
+
         assert!(info.is_ok());
-        
+
         // Now you can use `info` for your assertions
     }
 

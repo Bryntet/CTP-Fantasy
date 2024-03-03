@@ -42,7 +42,7 @@ impl AllowedToExchangeGuard {
         if self.0 {
             true
         } else {
-            service::query::has_exchange_begun(db, tournament_id) 
+            service::query::has_exchange_begun(db, tournament_id)
                 .await
                 .unwrap_or(false)
         }
@@ -111,9 +111,11 @@ impl Authentication {
 }
 
 impl TournamentAuthentication {
-    
-    
-    async fn new(user_auth: UserAuthentication,db: &DatabaseConnection, tournament_id:i32) -> Result<Self, GenericError> {
+    async fn new(
+        user_auth: UserAuthentication,
+        db: &DatabaseConnection,
+        tournament_id: i32,
+    ) -> Result<Self, GenericError> {
         Ok(Self {
             is_owner: Self::get_internal_authentication(&user_auth, db, tournament_id).await?,
             user: user_auth,
@@ -129,22 +131,28 @@ impl TournamentAuthentication {
     }
 
     pub async fn is_authenticated(&self) -> bool {
-        self.user.0.is_admin() || matches!(self.user.0, Authentication::Authenticated{..})
+        self.user.0.is_admin() || matches!(self.user.0, Authentication::Authenticated { .. })
     }
 
-    async fn get_internal_authentication(user: &UserAuthentication, db: &DatabaseConnection, tournament_id:i32) -> Result<bool, GenericError> {
-        Ok(user.0.is_admin()|user.0.is_authenticated(Self::get_owner_id(db,tournament_id).await?))
+    async fn get_internal_authentication(
+        user: &UserAuthentication,
+        db: &DatabaseConnection,
+        tournament_id: i32,
+    ) -> Result<bool, GenericError> {
+        Ok(user.0.is_admin()
+            | user
+                .0
+                .is_authenticated(Self::get_owner_id(db, tournament_id).await?))
     }
 
     async fn get_owner_id(db: &DatabaseConnection, tournament_id: i32) -> Result<i32, GenericError> {
-        entity::fantasy_tournament::Entity::find_by_id(tournament_id )
+        entity::fantasy_tournament::Entity::find_by_id(tournament_id)
             .one(db)
             .await
             .map_err(|_| GenericError::UnknownError("Unable to find tournament by id"))?
             .map(|c| c.owner)
             .ok_or(UserError::InvalidUserId("User not found").into())
     }
-
 }
 #[rocket::async_trait]
 impl<'r> FromRequest<'r> for TournamentAuthentication {
@@ -155,17 +163,19 @@ impl<'r> FromRequest<'r> for TournamentAuthentication {
             .rocket()
             .state::<DatabaseConnection>()
             .expect("Database not found");
-        let cookie: request::Outcome<UserAuthentication, _> =
-            request.guard::<UserAuthentication>().await;
+        let cookie: request::Outcome<UserAuthentication, _> = request.guard::<UserAuthentication>().await;
 
         if let Some(cookie) = cookie.succeeded() {
             if let Some(Ok(t_id)) = request.param::<i32>(1) {
-                match TournamentAuthentication::new(cookie,db,t_id).await {
-                    Ok(success) =>Outcome::Success(success),
+                match TournamentAuthentication::new(cookie, db, t_id).await {
+                    Ok(success) => Outcome::Success(success),
                     Err(e) => Outcome::Error((Status::BadRequest, e)),
                 }
             } else {
-                None.or_error((Status::BadRequest, AuthError::Invalid("Invalid tournament id").into()))
+                None.or_error((
+                    Status::BadRequest,
+                    AuthError::Invalid("Invalid tournament id").into(),
+                ))
             }
         } else {
             None.or_error((Status::Unauthorized, AuthError::Missing("No cookie found").into()))
@@ -174,7 +184,6 @@ impl<'r> FromRequest<'r> for TournamentAuthentication {
 }
 
 impl UserAuthentication {
-
     fn new_invalid_cookie() -> Self {
         Self(Authentication::InvalidCookie)
     }
@@ -182,9 +191,8 @@ impl UserAuthentication {
     fn new_no_cookie() -> Self {
         Self(Authentication::NoCookie)
     }
-    
-    
-    pub async fn new(db:&impl ConnectionTrait,cookie: &str) -> Result<Self, GenericError> {
+
+    pub async fn new(db: &impl ConnectionTrait, cookie: &str) -> Result<Self, GenericError> {
         Ok(Self(Self::get_authentication(db, cookie).await?))
     }
 
@@ -192,18 +200,25 @@ impl UserAuthentication {
         entity::prelude::UserCookies::find_by_id(cookie)
             .one(db)
             .await
-            .map_err(|_| GenericError::UnknownError("db error while finding cookie"))?.ok_or(AuthError::Invalid("Cookie not found").into())
+            .map_err(|_| GenericError::UnknownError("db error while finding cookie"))?
+            .ok_or(AuthError::Invalid("Cookie not found").into())
     }
 
-    async fn get_user_from_db(db: &impl ConnectionTrait, cookie: &CookieModel) -> Result<Option<UserModel>, GenericError> {
+    async fn get_user_from_db(
+        db: &impl ConnectionTrait,
+        cookie: &CookieModel,
+    ) -> Result<Option<UserModel>, GenericError> {
         cookie.find_related(user::Entity).one(db).await.map_err(|e| {
             error!("Error while trying to find user by cookie: {}", e);
             GenericError::UnknownError("Error while trying to find user by cookie")
         })
     }
 
-    async fn get_authentication(db: &impl ConnectionTrait, cookie: &str) -> Result<Authentication, GenericError> {
-        let cookie = Self::get_db_cookie(db,cookie).await?;
+    async fn get_authentication(
+        db: &impl ConnectionTrait,
+        cookie: &str,
+    ) -> Result<Authentication, GenericError> {
+        let cookie = Self::get_db_cookie(db, cookie).await?;
         if let Some(user) = Self::get_user_from_db(db, &cookie).await? {
             Ok(Authentication::Authenticated { cookie, user })
         } else {
@@ -213,7 +228,7 @@ impl UserAuthentication {
 
     pub fn assure_authorized(&self) -> Result<(), GenericError> {
         match self.0 {
-            Authentication::Authenticated {..} => Ok(()),
+            Authentication::Authenticated { .. } => Ok(()),
             _ => Err(AuthError::Missing("You are not authorized to do that").into()),
         }
     }
@@ -279,8 +294,6 @@ impl UserAuthentication {
         }
     }
 
-
-
     // Function that returns an auth error if the user is not authenticated
     pub async fn require_authentication(&self) -> Result<(), GenericError> {
         match self.0 {
@@ -300,9 +313,8 @@ impl<'a> FromRequest<'a> for UserAuthentication {
             .state::<DatabaseConnection>()
             .expect("Database not found");
 
-         if let Some(cookie) = request.cookies().get_private("auth") {
-            match UserAuthentication::new(db,cookie.value())
-                .await {
+        if let Some(cookie) = request.cookies().get_private("auth") {
+            match UserAuthentication::new(db, cookie.value()).await {
                 Ok(auth) => Outcome::Success(auth),
                 _ => Outcome::Success(UserAuthentication::new_invalid_cookie()),
             }

@@ -5,7 +5,6 @@ use dotenvy::dotenv;
 
 use rocket::fs::FileServer;
 
-
 use rocket::{Build, Rocket, Route};
 use rocket_cors::AllowedOrigins;
 use rocket_okapi::openapi_get_routes;
@@ -53,7 +52,6 @@ pub async fn get_db() -> DatabaseConnection {
 
     Database::connect(opt).await.expect("CAN'T CONNECT TO DB")
 }
-
 
 pub fn routes() -> Vec<Route> {
     openapi_get_routes![

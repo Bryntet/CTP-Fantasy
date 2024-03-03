@@ -134,8 +134,6 @@ impl From<&ApiPlayer> for PlayerStatus {
     }
 }
 
-
-
 impl PartialEq for ApiPlayer {
     fn eq(&self, other: &Self) -> bool {
         self.pdga_number == other.pdga_number

@@ -8,7 +8,10 @@ use rocket::http::CookieJar;
 use rocket::warn;
 use sea_orm::sea_query::OnConflict;
 use sea_orm::ActiveValue::Set;
-use sea_orm::{ActiveModelTrait, DatabaseConnection, DbErr, EntityTrait, ModelTrait, NotSet, TransactionTrait, SqlErr, QueryFilter,ColumnTrait};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, DbErr, EntityTrait, ModelTrait, NotSet, QueryFilter,
+    SqlErr, TransactionTrait,
+};
 
 use entity::prelude::{
     FantasyTournament, PhantomCompetitionInFantasyTournament, User, UserAuthentication,
@@ -33,13 +36,19 @@ impl FantasyPick {
         if !player_exists(db, self.pdga_number).await {
             return Err(PlayerError::NotFound.into());
         }
-        let actual_player_div = super::super::get_player_division_in_tournament(db, self.pdga_number, tournament_id).await;
-        
+        let actual_player_div =
+            super::super::get_player_division_in_tournament(db, self.pdga_number, tournament_id).await;
+
         let actual_player_div: Division = match actual_player_div {
             Err(_) => Err(GenericError::UnknownError("Unable to get player division")),
-            Ok(None) => { 
+            Ok(None) => {
                 if let Ok(Some(player)) = player::Entity::find_by_id(self.pdga_number).one(db).await {
-                    if let Ok(Some(div)) = player.find_related(player_division_in_fantasy_tournament::Entity).all(db).await.map(|divs|divs.first().cloned()) {
+                    if let Ok(Some(div)) = player
+                        .find_related(player_division_in_fantasy_tournament::Entity)
+                        .all(db)
+                        .await
+                        .map(|divs| divs.first().cloned())
+                    {
                         Ok(div.division.into())
                     } else {
                         Err(GenericError::UnknownError("Unable to get player division"))
@@ -47,7 +56,7 @@ impl FantasyPick {
                 } else {
                     Err(GenericError::UnknownError("Unable to get player division"))
                 }
-            } 
+            }
             Ok(Some(v)) => Ok(v),
         }?;
 
@@ -77,7 +86,6 @@ impl FantasyPick {
         }
         self.insert(db, user_id, tournament_id, actual_player_div).await?;
         Ok(())
-        
     }
 
     async fn is_benched(&self, db: &impl ConnectionTrait, tournament_id: i32) -> Result<bool, GenericError> {
@@ -218,14 +226,14 @@ impl CreateTournament {
         let tour = FantasyTournament::insert(self.clone().into_active_model(owner_id))
             .exec(db)
             .await
-            .map_err(|e| {
-                match e.sql_err() {
-                    Some(SqlErr::UniqueConstraintViolation(_)) => GenericError::Conflict("Tournament name already taken"),
-                    Some(SqlErr::ForeignKeyConstraintViolation(_)) => GenericError::NotFound("Owner not found"),
-                    _ => {
-                        error!("Unable to insert fantasy tournament: {:#?}", e.sql_err());
-                        GenericError::UnknownError("Unable to insert fantasy tournament")
-                    }
+            .map_err(|e| match e.sql_err() {
+                Some(SqlErr::UniqueConstraintViolation(_)) => {
+                    GenericError::Conflict("Tournament name already taken")
+                }
+                Some(SqlErr::ForeignKeyConstraintViolation(_)) => GenericError::NotFound("Owner not found"),
+                _ => {
+                    error!("Unable to insert fantasy tournament: {:#?}", e.sql_err());
+                    GenericError::UnknownError("Unable to insert fantasy tournament")
                 }
             })?;
         UserInFantasyTournament::insert(user_in_fantasy_tournament::ActiveModel {
@@ -235,25 +243,31 @@ impl CreateTournament {
             invitation_status: Set(FantasyTournamentInvitationStatus::Accepted),
         })
         .exec(db)
-        .await.map_err(|e|{
-            match e.sql_err() {
-                Some(SqlErr::UniqueConstraintViolation(_)) => GenericError::Conflict("User already in tournament"),
-                Some(SqlErr::ForeignKeyConstraintViolation(_)) => GenericError::NotFound("User not found"),
-                _ => {
-                    error!("Unable to insert user in fantasy tournament: {:#?}", e.sql_err());
-                    GenericError::UnknownError("Unable to insert user in fantasy tournament")
-                }
+        .await
+        .map_err(|e| match e.sql_err() {
+            Some(SqlErr::UniqueConstraintViolation(_)) => {
+                GenericError::Conflict("User already in tournament")
+            }
+            Some(SqlErr::ForeignKeyConstraintViolation(_)) => GenericError::NotFound("User not found"),
+            _ => {
+                error!("Unable to insert user in fantasy tournament: {:#?}", e.sql_err());
+                GenericError::UnknownError("Unable to insert user in fantasy tournament")
             }
         })?;
-        FantasyTournamentDivs::insert(self.divisions.clone(), db, tour.last_insert_id).await.map_err(|e| {
-            match e.sql_err() {
-                Some(SqlErr::ForeignKeyConstraintViolation(_)) => GenericError::NotFound("Division not found"),
+        FantasyTournamentDivs::insert(self.divisions.clone(), db, tour.last_insert_id)
+            .await
+            .map_err(|e| match e.sql_err() {
+                Some(SqlErr::ForeignKeyConstraintViolation(_)) => {
+                    GenericError::NotFound("Division not found")
+                }
                 _ => {
-                    error!("Unable to insert fantasy tournament divisions: {:#?}", e.sql_err());
+                    error!(
+                        "Unable to insert fantasy tournament divisions: {:#?}",
+                        e.sql_err()
+                    );
                     GenericError::UnknownError("Unable to insert fantasy tournament divisions")
                 }
-            }
-        })?;
+            })?;
 
         Ok(())
     }
@@ -405,15 +419,15 @@ impl CompetitionInfo {
         let times = self.date_range.date_times();
 
         if times.len() != self.rounds.len() {
-            return Err(GenericError::UnknownError("Unable to insert rounds into database"));
+            return Err(GenericError::UnknownError(
+                "Unable to insert rounds into database",
+            ));
         }
         let round_models = self
             .rounds
             .iter()
             .enumerate()
-            .map(|(idx, round)| {
-                round.active_model(times[idx].fixed_offset())
-            })
+            .map(|(idx, round)| round.active_model(times[idx].fixed_offset()))
             .collect_vec();
 
         if !round_models.is_empty() {
@@ -432,8 +446,7 @@ impl CompetitionInfo {
         }
         Ok(())
     }
-    
-    
+
     async fn make_sure_all_players_exist_in_db(&self, db: &impl ConnectionTrait) -> Result<(), GenericError> {
         let players = self.get_all_player_active_models();
         player::Entity::insert_many(players)
@@ -447,7 +460,7 @@ impl CompetitionInfo {
             .await
             .map_err(|_| {
                 error!("Unable to insert players into database");
-                GenericError::UnknownError("Unable to insert players into database") 
+                GenericError::UnknownError("Unable to insert players into database")
             })?;
         let player_divs = self.get_all_player_divisions(1);
         player_division_in_fantasy_tournament::Entity::insert_many(player_divs)
@@ -465,16 +478,12 @@ impl CompetitionInfo {
             })?;
         Ok(())
     }
-    
-    
 
     pub async fn save_round_scores(&self, db: &impl ConnectionTrait) -> Result<(), GenericError> {
         // TODO: ADD STATUS TO ROUND
-        
-        
+
         self.make_sure_all_players_exist_in_db(db).await?;
-        
-        
+
         let player_round_scores = self
             .rounds
             .iter()
@@ -504,7 +513,6 @@ impl CompetitionInfo {
         Ok(())
     }
 
-
     pub async fn insert_players(
         &self,
         db: &impl ConnectionTrait,
@@ -521,13 +529,17 @@ impl CompetitionInfo {
         fantasy_tournament_id: u32,
     ) -> Result<(), GenericError> {
         let user_scores = self.get_user_scores(db, fantasy_tournament_id).await?;
-        
+
         if !user_scores.is_empty() {
             user_competition_score_in_fantasy_tournament::Entity::delete_many()
                 .filter(
                     user_competition_score_in_fantasy_tournament::Column::FantasyTournamentId
                         .eq(fantasy_tournament_id as i32)
-                        .and(user_competition_score_in_fantasy_tournament::Column::CompetitionId.eq(self.competition_id as i32)))
+                        .and(
+                            user_competition_score_in_fantasy_tournament::Column::CompetitionId
+                                .eq(self.competition_id as i32),
+                        ),
+                )
                 .exec(db)
                 .await
                 .map_err(|e| {
@@ -549,6 +561,4 @@ impl CompetitionInfo {
         }
         Ok(())
     }
-    
-    
 }
