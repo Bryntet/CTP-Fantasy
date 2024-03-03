@@ -1,6 +1,6 @@
 use crate::dto::{CompetitionLevel, Division, UserScore};
 use entity::player_round_score::ActiveModel;
-use entity::{fantasy_pick, player_round_score, user};
+use entity::{fantasy_pick, player_round_score, user, user_competition_score_in_fantasy_tournament};
 
 use crate::dto::pdga::ApiPlayer;
 use crate::error::GenericError;
@@ -199,8 +199,7 @@ impl PlayerScore {
         &self,
         db: &impl ConnectionTrait,
         fantasy_tournament_id: u32,
-        competition_id: u32,
-    ) -> Result<Option<UserScore>, GenericError> {
+        competition_id: u32,) -> Result<Option<UserScore>, GenericError> {
         let competition_level = if let Some(competition) = entity::competition::Entity::find()
             .filter(entity::competition::Column::Id.eq(competition_id as i32))
             .one(db)
@@ -213,7 +212,8 @@ impl PlayerScore {
         };
         let score = self.get_user_score(competition_level) as i32;
         if score > 0 {
-            if let Ok(Some(user)) = self.get_user(db, fantasy_tournament_id).await {
+
+            if let Ok(Some(user)) = self.get_user(db, fantasy_tournament_id,  competition_id,self.pdga_number,).await {
                 Ok(Some(UserScore {
                     user: user.id,
                     score,
@@ -233,8 +233,18 @@ impl PlayerScore {
         &self,
         db: &impl ConnectionTrait,
         fantasy_id: u32,
+        competition_id: i32,
+        pdga_number: i32,
     ) -> Result<Option<user::Model>, GenericError> {
-        if let Some(pick) = FantasyPick::find()
+        if let Some(score) = user_competition_score_in_fantasy_tournament::Entity::find().filter(user_competition_score_in_fantasy_tournament::Column::FantasyTournamentId.eq(fantasy_id).and(user_competition_score_in_fantasy_tournament::Column::PdgaNumber.eq(pdga_number)).and(user_competition_score_in_fantasy_tournament::Column::CompetitionId.eq(competition_id))).one(db).await.map_err(|e|{
+            error!("Unable to get user score from db {:#?}", e);
+            GenericError::UnknownError("Unable to get user score from db")
+        })? {
+            score.find_related(user::Entity).one(db).await.map_err(|e|{
+                error!("Unable to get user from db {:#?}", e);
+                GenericError::UnknownError("Unable to get user from db")
+            })
+        } else if let Some(pick) = FantasyPick::find()
             .filter(
                 fantasy_pick::Column::Player.eq(self.pdga_number).and(
                     fantasy_pick::Column::FantasyTournamentId

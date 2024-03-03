@@ -8,7 +8,7 @@ use rocket::http::CookieJar;
 use rocket::warn;
 use sea_orm::sea_query::OnConflict;
 use sea_orm::ActiveValue::Set;
-use sea_orm::{ActiveModelTrait, DatabaseConnection, DbErr, EntityTrait, ModelTrait, NotSet, TransactionTrait, SqlErr};
+use sea_orm::{ActiveModelTrait, DatabaseConnection, DbErr, EntityTrait, ModelTrait, NotSet, TransactionTrait, SqlErr, QueryFilter,ColumnTrait};
 
 use entity::prelude::{
     FantasyTournament, PhantomCompetitionInFantasyTournament, User, UserAuthentication,
@@ -521,22 +521,24 @@ impl CompetitionInfo {
         fantasy_tournament_id: u32,
     ) -> Result<(), GenericError> {
         let user_scores = self.get_user_scores(db, fantasy_tournament_id).await?;
+        
         if !user_scores.is_empty() {
+            user_competition_score_in_fantasy_tournament::Entity::delete_many()
+                .filter(
+                    user_competition_score_in_fantasy_tournament::Column::FantasyTournamentId
+                        .eq(fantasy_tournament_id as i32)
+                        .and(user_competition_score_in_fantasy_tournament::Column::CompetitionId.eq(self.competition_id as i32)))
+                .exec(db)
+                .await
+                .map_err(|e| {
+                    error!("Unable to delete user scores from competition {:#?}", e);
+                    GenericError::UnknownError("Unable to delete user scores from competition")
+                })?;
             user_competition_score_in_fantasy_tournament::Entity::insert_many(
                 user_scores
                     .into_iter()
                     .dedup_by(|a, b| a.competition_id == b.competition_id && a.pdga_num == b.pdga_num)
                     .map(|p| p.into_active_model(self.competition_id as i32)),
-            )
-            .on_conflict(
-                OnConflict::columns(vec![
-                    user_competition_score_in_fantasy_tournament::Column::FantasyTournamentId,
-                    user_competition_score_in_fantasy_tournament::Column::User,
-                    user_competition_score_in_fantasy_tournament::Column::CompetitionId,
-                    user_competition_score_in_fantasy_tournament::Column::PdgaNumber,
-                ])
-                .update_column(user_competition_score_in_fantasy_tournament::Column::Score)
-                .to_owned(),
             )
             .exec(db)
             .await
@@ -547,4 +549,6 @@ impl CompetitionInfo {
         }
         Ok(())
     }
+    
+    
 }
