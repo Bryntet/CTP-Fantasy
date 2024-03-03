@@ -526,8 +526,6 @@ pub async fn get_active_competitions(
     for competition in competitions {
         out_things.push(competition);
     }
-    //#[cfg(debug_assertions)]
-    //dbg!(&out_things);
     Ok(out_things)
 }
 
@@ -543,8 +541,6 @@ pub async fn get_pending_competitions(
     for competition in competitions {
         out_things.push(competition);
     }
-    //#[cfg(debug_assertions)]
-    //dbg!(&out_things);
     Ok(out_things)
 }
 
@@ -571,5 +567,4 @@ pub async fn get_users_in_tournament(
     }
     Ok(out_things)
 }
-
 
