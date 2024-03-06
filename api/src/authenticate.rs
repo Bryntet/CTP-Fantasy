@@ -123,10 +123,10 @@ impl TournamentAuthentication {
     }
 
     pub fn assure_ownership(&self) -> Result<(), GenericError> {
-        if !self.is_owner || self.user.0.is_admin() {
-            Err(AuthError::Invalid("You are not the owner of this tournament").into())
-        } else {
+        if self.is_owner || self.user.0.is_admin() {
             Ok(())
+        } else {
+            Err(AuthError::Invalid("You are not the owner of this tournament").into())
         }
     }
 
