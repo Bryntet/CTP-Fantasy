@@ -4,6 +4,7 @@ mod pdga;
 mod query;
 mod scoring_visualisation;
 
+use itertools::Itertools;
 use rocket::request::FromParam;
 use rocket::FromFormField;
 
@@ -52,6 +53,7 @@ impl Competition {
                 name: c.name,
                 competition_id: c.id,
             })
+            .sorted_by(|a, b| a.competition_id.cmp(&b.competition_id))
             .collect())
     }
 }
