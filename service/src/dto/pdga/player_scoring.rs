@@ -301,7 +301,7 @@ impl PlayerScore {
     }
 }
 
-use crate::dto::pdga::get_competition::{RoundLabel, RoundLabelInfo};
+use crate::dto::pdga::get_competition::{RoundLabelInfo};
 use serde_with::VecSkipError;
 
 #[serde_as]
