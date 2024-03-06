@@ -1,8 +1,10 @@
+use std::collections::HashMap;
 use cached::proc_macro::cached;
 use chrono::{DateTime, NaiveDate, NaiveTime, TimeZone};
 use itertools::Itertools;
-use rocket::error;
-use serde_derive::Deserialize;
+use rocket::{error, warn};
+use rocket::form::validate::Contains;
+use serde::{Deserialize, Deserializer};
 
 use crate::dto::{Division, RoundInformation};
 use crate::error::GenericError;
@@ -14,16 +16,92 @@ pub(super) struct CompetitionInfoResponse {
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "PascalCase")]
+struct ApiRoundLabelInfo {
+    #[serde(rename = "Number")]
+    round_number: usize,
+    label: String,
+}
+
+impl From<&ApiRoundLabelInfo> for RoundLabel {
+    fn from(info: &ApiRoundLabelInfo) -> Self {
+        let label= info.label.to_lowercase();
+        if label.contains("round") {
+            RoundLabel::Round(info.round_number)
+        } else {
+            match label.as_str() {
+                "finals" | "final" => RoundLabel::Final,
+                "playoff" | "playoffs" => RoundLabel::Playoff,
+                _ => { 
+                    warn!("Unknown round label: {}", label);
+                    RoundLabel::Other
+                },
+            }
+        }
+    }
+}
+
+#[derive(Debug,PartialEq,Clone)]
+pub enum RoundLabel {
+    Final,
+    Playoff,
+    Round(usize),
+    Other,
+}
+/// This struct is used to store the round number and the label of the round
+/// round_number is a 1-indexed number of the round, the number that label contains is arbitrary based on PDGA's API
+#[derive(Debug,PartialEq,Clone)]
+pub struct RoundLabelInfo {
+    pub round_number: usize,
+    pub label: RoundLabel,
+}
+
+impl From<&ApiRoundLabelInfo> for RoundLabelInfo {
+    fn from(info: &ApiRoundLabelInfo) -> Self {
+        Self {
+            round_number: info.round_number,
+            label: info.into(),
+        }
+    }
+}
+
+
+impl RoundLabelInfo {
+    pub fn get_round_number_from_label(&self, total_rounds: usize) -> usize {
+        match self.label {
+            RoundLabel::Final => total_rounds,
+            RoundLabel::Playoff => total_rounds-1,
+            RoundLabel::Round(round) => round,
+            RoundLabel::Other => {
+                warn!("Unknown round label: {:?}", self);
+                self.round_number
+            }
+        }
+    }
+    
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "PascalCase")]
 struct ApiCompetitionInfo {
     #[serde(rename = "SimpleName")]
     name: String,
     divisions: Vec<DivisionWrapper>,
     rounds: u8,
+    #[serde(rename = "RoundsList", deserialize_with = "flatten_round_labels")]
+    round_labels: Vec<ApiRoundLabelInfo>,
     highest_completed_round: Option<u8>,
     start_date: String,
     end_date: String,
     location: String,
     country: String,
+}
+
+fn flatten_round_labels<'de, D>(deserializer: D) -> Result<Vec<ApiRoundLabelInfo>, D::Error>
+    where
+        D: Deserializer<'de>,
+{
+    let map: HashMap<String, ApiRoundLabelInfo> = Deserialize::deserialize(deserializer)?;
+    Ok(map.into_values().collect())
 }
 
 #[derive(Deserialize, Debug)]
@@ -103,6 +181,7 @@ pub struct CompetitionInfo {
     pub(crate) amount_of_rounds: usize,
 }
 
+
 impl CompetitionInfo {
     pub async fn from_web(competition_id: u32) -> Result<Self, GenericError> {
         let info = Self::get_pdga_competition_info(competition_id).await?;
@@ -124,13 +203,14 @@ impl CompetitionInfo {
             .dedup()
             .collect_vec();
         let mut rounds = Vec::new();
-        for round_index in 1..=info.rounds {
-            if let Ok(round) =
-                RoundInformation::new(competition_id as usize, round_index as usize, divs.clone()).await
-            {
+        dbg!(info.rounds);
+        let amount_of_rounds = info.round_labels.len();
+        for round_label in &info.round_labels {
+            let label = RoundLabelInfo::from(round_label);
+            if let Ok(round) = RoundInformation::new(competition_id as usize, divs.clone(), &label, amount_of_rounds).await {
                 rounds.push(round);
             } else {
-                rounds.push(RoundInformation::phantom(round_index, competition_id as usize));
+                rounds.push(RoundInformation::phantom(label, competition_id as usize,amount_of_rounds));
             }
         }
 

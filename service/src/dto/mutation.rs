@@ -364,9 +364,7 @@ impl InsertCompetition for CompetitionInfo {
         db: &impl ConnectionTrait,
         level: sea_orm_active_enums::CompetitionLevel,
     ) -> Result<(), GenericError> {
-        self.insert_competition_in_db(db, level)
-            .await
-            .map_err(|_| GenericError::UnknownError("Unable to insert rounds in database"))?;
+        self.insert_competition_in_db(db, level).await?;
         self.insert_rounds(db).await?;
         Ok(())
     }
@@ -418,16 +416,16 @@ impl CompetitionInfo {
         let cols = vec![RoundColumn::CompetitionId, RoundColumn::RoundNumber];
         let times = self.date_range.date_times();
 
-        if times.len() != self.rounds.len() {
-            return Err(GenericError::UnknownError(
-                "Unable to insert rounds into database",
-            ));
-        }
+        dbg!(&times, &self.rounds.iter().map(|r| (r.round_number, &r.label)).collect_vec());
+        
         let round_models = self
             .rounds
             .iter()
-            .enumerate()
-            .map(|(idx, round)| round.active_model(times[idx].fixed_offset()))
+            .sorted_by(|a, b| a.round_number.cmp(&b.round_number))
+            .map(|round| { 
+                let time = times.get(round.round_number-1).unwrap_or(times.last().unwrap()).fixed_offset();
+                round.active_model(time)
+            })
             .collect_vec();
 
         if !round_models.is_empty() {

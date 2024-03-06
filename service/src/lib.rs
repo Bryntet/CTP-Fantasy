@@ -1,3 +1,5 @@
+#![feature(let_chains)]
+
 pub mod dto;
 pub mod error;
 mod exchange_windows;

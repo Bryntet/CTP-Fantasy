@@ -6,7 +6,7 @@ use crate::dto::pdga::ApiPlayer;
 use crate::error::GenericError;
 use entity::prelude::{FantasyPick, User};
 use itertools::Itertools;
-use log::error;
+use log::{error, warn};
 use sea_orm::prelude::DateTimeWithTimeZone;
 use sea_orm::ActiveValue::Set;
 use sea_orm::ModelTrait;
@@ -299,6 +299,7 @@ impl PlayerScore {
 }
 
 use serde_with::VecSkipError;
+use crate::dto::pdga::get_competition::{RoundLabel, RoundLabelInfo};
 
 #[serde_as]
 #[derive(Deserialize, Debug)]
@@ -326,6 +327,7 @@ pub struct RoundInformation {
     pub round_number: usize,
     pub competition_id: usize,
     pub divs: Vec<Division>,
+    pub label: RoundLabelInfo,
     phantom: bool,
 }
 fn count_ties(player_score: &ApiPlayer, scores: &[ApiPlayer]) -> Tied {
@@ -345,13 +347,23 @@ fn count_ties(player_score: &ApiPlayer, scores: &[ApiPlayer]) -> Tied {
 impl RoundInformation {
     pub async fn new(
         competition_id: usize,
-        round: usize,
         given_divs: Vec<Division>,
+        round_label: &RoundLabelInfo,
+        total_rounds: usize
     ) -> Result<Self, GenericError> {
         let mut divs: Vec<RoundFromApi> = vec![];
+        let mut maybe_error: Result<(),GenericError> = Ok(());
         for div in given_divs {
-            let new_div = Self::get_one_div(competition_id, round, div).await?;
-            divs.push(new_div);
+            let new_div = Self::get_one_div(competition_id, round_label.round_number, div).await;
+            if let Ok(new_div) = new_div {
+                divs.push(new_div);
+            } else if let Err(e) = new_div {
+                warn!("Unable to get round and div from PDGA: {:#?}", e);
+                maybe_error = Err(e);
+            } 
+        }
+        if divs.is_empty() {
+            maybe_error?;
         }
 
         if !divs.is_empty() {
@@ -379,8 +391,9 @@ impl RoundInformation {
                 player_scores,
                 layout,
                 competition_id,
-                round,
+                round_label.get_round_number_from_label(total_rounds),
                 divisions,
+                round_label.to_owned()
             ))
         } else {
             Err(GenericError::NotFound(
@@ -389,12 +402,13 @@ impl RoundInformation {
         }
     }
 
-    pub fn phantom(round_number: u8, competition_id: usize) -> Self {
+    pub fn phantom(round_label_info: RoundLabelInfo, competition_id: usize,total_rounds:usize) -> Self {
         RoundInformation {
             holes: vec![],
             players: vec![],
             course_length: 0,
-            round_number: round_number as usize,
+            round_number: round_label_info.get_round_number_from_label(total_rounds),
+            label: round_label_info,
             competition_id,
             divs: vec![],
             phantom: true,
@@ -407,6 +421,7 @@ impl RoundInformation {
         competition_id: usize,
         round_number: usize,
         divs: Vec<Division>,
+        label: RoundLabelInfo,
     ) -> Self {
         let holes = layout
             .holes
@@ -442,6 +457,7 @@ impl RoundInformation {
             competition_id,
             divs,
             phantom: false,
+            label
         }
     }
 
@@ -451,6 +467,7 @@ impl RoundInformation {
         div: Division,
     ) -> Result<RoundFromApi, GenericError> {
         let div_str = div.to_string().to_uppercase();
+        dbg!(round);
         let url = format!("https://www.pdga.com/apps/tournament/live-api/live_results_fetch_round.php?TournID={competition_id}&Round={round}&Division={div_str}");
         //dbg!(&url);
         //tokio::time::sleep(std::time::Duration::from_millis(250)).await;
@@ -461,7 +478,7 @@ impl RoundInformation {
             .json()
             .await
             .map_err(|e| {
-                error!("Unable to parse PDGA round response: {}", e);
+                warn!("Unable to parse PDGA round response: {}", e);
                 GenericError::UnknownError("Internal error while converting PDGA round to internal format")
             })?;
 
@@ -515,7 +532,7 @@ impl RoundInformation {
         }
     }
 
-    pub fn active_model(&self, date: DateTimeWithTimeZone) -> entity::round::ActiveModel {
+    pub fn active_model(&self, date: DateTimeWithTimeZone, ) -> entity::round::ActiveModel {
         entity::round::ActiveModel {
             id: NotSet,
             round_number: Set(self.round_number as i32),
