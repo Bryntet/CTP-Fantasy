@@ -1,10 +1,10 @@
-use std::collections::HashMap;
 use cached::proc_macro::cached;
 use chrono::{DateTime, NaiveDate, NaiveTime, TimeZone};
 use itertools::Itertools;
-use rocket::{error, warn};
 use rocket::form::validate::Contains;
+use rocket::{error, warn};
 use serde::{Deserialize, Deserializer};
+use std::collections::HashMap;
 
 use crate::dto::{Division, RoundInformation};
 use crate::error::GenericError;
@@ -24,23 +24,23 @@ struct ApiRoundLabelInfo {
 
 impl From<&ApiRoundLabelInfo> for RoundLabel {
     fn from(info: &ApiRoundLabelInfo) -> Self {
-        let label= info.label.to_lowercase();
+        let label = info.label.to_lowercase();
         if label.contains("round") {
             RoundLabel::Round(info.round_number)
         } else {
             match label.as_str() {
                 "finals" | "final" => RoundLabel::Final,
                 "playoff" | "playoffs" => RoundLabel::Playoff,
-                _ => { 
+                _ => {
                     warn!("Unknown round label: {}", label);
                     RoundLabel::Other
-                },
+                }
             }
         }
     }
 }
 
-#[derive(Debug,PartialEq,Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum RoundLabel {
     Final,
     Playoff,
@@ -49,7 +49,7 @@ pub enum RoundLabel {
 }
 /// This struct is used to store the round number and the label of the round
 /// round_number is a 1-indexed number of the round, the number that label contains is arbitrary based on PDGA's API
-#[derive(Debug,PartialEq,Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct RoundLabelInfo {
     pub round_number: usize,
     pub label: RoundLabel,
@@ -64,12 +64,11 @@ impl From<&ApiRoundLabelInfo> for RoundLabelInfo {
     }
 }
 
-
 impl RoundLabelInfo {
     pub fn get_round_number_from_label(&self, total_rounds: usize) -> usize {
         match self.label {
             RoundLabel::Final => total_rounds,
-            RoundLabel::Playoff => total_rounds-1,
+            RoundLabel::Playoff => total_rounds - 1,
             RoundLabel::Round(round) => round,
             RoundLabel::Other => {
                 warn!("Unknown round label: {:?}", self);
@@ -77,7 +76,6 @@ impl RoundLabelInfo {
             }
         }
     }
-    
 }
 
 #[derive(Deserialize, Debug)]
@@ -97,8 +95,8 @@ struct ApiCompetitionInfo {
 }
 
 fn flatten_round_labels<'de, D>(deserializer: D) -> Result<Vec<ApiRoundLabelInfo>, D::Error>
-    where
-        D: Deserializer<'de>,
+where
+    D: Deserializer<'de>,
 {
     let map: HashMap<String, ApiRoundLabelInfo> = Deserialize::deserialize(deserializer)?;
     Ok(map.into_values().collect())
@@ -181,7 +179,6 @@ pub struct CompetitionInfo {
     pub(crate) amount_of_rounds: usize,
 }
 
-
 impl CompetitionInfo {
     pub async fn from_web(competition_id: u32) -> Result<Self, GenericError> {
         let info = Self::get_pdga_competition_info(competition_id).await?;
@@ -207,10 +204,16 @@ impl CompetitionInfo {
         let amount_of_rounds = info.round_labels.len();
         for round_label in &info.round_labels {
             let label = RoundLabelInfo::from(round_label);
-            if let Ok(round) = RoundInformation::new(competition_id as usize, divs.clone(), &label, amount_of_rounds).await {
+            if let Ok(round) =
+                RoundInformation::new(competition_id as usize, divs.clone(), &label, amount_of_rounds).await
+            {
                 rounds.push(round);
             } else {
-                rounds.push(RoundInformation::phantom(label, competition_id as usize,amount_of_rounds));
+                rounds.push(RoundInformation::phantom(
+                    label,
+                    competition_id as usize,
+                    amount_of_rounds,
+                ));
             }
         }
 

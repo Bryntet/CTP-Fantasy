@@ -196,10 +196,9 @@ impl PlayerScore {
                     tied_score += placement_to_score(self.placement + i as u16) as u32;
                 }
                 if self.pdga_number == 85942 {
-
                     dbg!(tied_score);
                 }
-                tied_score /= (tied+1) as u32;
+                tied_score /= (tied + 1) as u32;
                 if self.pdga_number == 85942 {
                     dbg!(tied_score);
                 }
@@ -229,7 +228,12 @@ impl PlayerScore {
         let score = self.get_user_score(competition_level) as i32;
         if score > 0 {
             if let Ok(Some(user)) = self
-                .get_user(db, fantasy_tournament_id, competition_id as i32, self.pdga_number as i32)
+                .get_user(
+                    db,
+                    fantasy_tournament_id,
+                    competition_id as i32,
+                    self.pdga_number as i32,
+                )
                 .await
             {
                 Ok(Some(UserScore {
@@ -276,30 +280,29 @@ impl PlayerScore {
                 GenericError::UnknownError("Unable to get user from db")
             })
         } else if let Some(pick) = FantasyPick::find()
-                .filter(
-                    fantasy_pick::Column::Player.eq(self.pdga_number).and(
-                        fantasy_pick::Column::FantasyTournamentId
-                            .eq(fantasy_id)
-                            .and(fantasy_pick::Column::Benched.eq(false)),
-                    ),
-                )
+            .filter(
+                fantasy_pick::Column::Player.eq(self.pdga_number).and(
+                    fantasy_pick::Column::FantasyTournamentId
+                        .eq(fantasy_id)
+                        .and(fantasy_pick::Column::Benched.eq(false)),
+                ),
+            )
+            .one(db)
+            .await
+            .map_err(|_| GenericError::UnknownError("Pick not found due to unknown database error"))?
+        {
+            pick.find_related(User)
                 .one(db)
                 .await
-                .map_err(|_| GenericError::UnknownError("Pick not found due to unknown database error"))?
-            {
-                pick.find_related(User)
-                    .one(db)
-                    .await
-                    .map_err(|_| GenericError::UnknownError("User not found due to unknown database error"))
-            } else {
-                Ok(None)
-            }
-        
+                .map_err(|_| GenericError::UnknownError("User not found due to unknown database error"))
+        } else {
+            Ok(None)
+        }
     }
 }
 
-use serde_with::VecSkipError;
 use crate::dto::pdga::get_competition::{RoundLabel, RoundLabelInfo};
+use serde_with::VecSkipError;
 
 #[serde_as]
 #[derive(Deserialize, Debug)]
@@ -349,10 +352,10 @@ impl RoundInformation {
         competition_id: usize,
         given_divs: Vec<Division>,
         round_label: &RoundLabelInfo,
-        total_rounds: usize
+        total_rounds: usize,
     ) -> Result<Self, GenericError> {
         let mut divs: Vec<RoundFromApi> = vec![];
-        let mut maybe_error: Result<(),GenericError> = Ok(());
+        let mut maybe_error: Result<(), GenericError> = Ok(());
         for div in given_divs {
             let new_div = Self::get_one_div(competition_id, round_label.round_number, div).await;
             if let Ok(new_div) = new_div {
@@ -360,7 +363,7 @@ impl RoundInformation {
             } else if let Err(e) = new_div {
                 warn!("Unable to get round and div from PDGA: {:#?}", e);
                 maybe_error = Err(e);
-            } 
+            }
         }
         if divs.is_empty() {
             maybe_error?;
@@ -393,7 +396,7 @@ impl RoundInformation {
                 competition_id,
                 round_label.get_round_number_from_label(total_rounds),
                 divisions,
-                round_label.to_owned()
+                round_label.to_owned(),
             ))
         } else {
             Err(GenericError::NotFound(
@@ -402,7 +405,7 @@ impl RoundInformation {
         }
     }
 
-    pub fn phantom(round_label_info: RoundLabelInfo, competition_id: usize,total_rounds:usize) -> Self {
+    pub fn phantom(round_label_info: RoundLabelInfo, competition_id: usize, total_rounds: usize) -> Self {
         RoundInformation {
             holes: vec![],
             players: vec![],
@@ -457,7 +460,7 @@ impl RoundInformation {
             competition_id,
             divs,
             phantom: false,
-            label
+            label,
         }
     }
 
@@ -532,7 +535,7 @@ impl RoundInformation {
         }
     }
 
-    pub fn active_model(&self, date: DateTimeWithTimeZone, ) -> entity::round::ActiveModel {
+    pub fn active_model(&self, date: DateTimeWithTimeZone) -> entity::round::ActiveModel {
         entity::round::ActiveModel {
             id: NotSet,
             round_number: Set(self.round_number as i32),

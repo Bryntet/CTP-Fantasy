@@ -416,14 +416,24 @@ impl CompetitionInfo {
         let cols = vec![RoundColumn::CompetitionId, RoundColumn::RoundNumber];
         let times = self.date_range.date_times();
 
-        dbg!(&times, &self.rounds.iter().map(|r| (r.round_number, &r.label)).collect_vec());
-        
+        dbg!(
+            &times,
+            &self
+                .rounds
+                .iter()
+                .map(|r| (r.round_number, &r.label))
+                .collect_vec()
+        );
+
         let round_models = self
             .rounds
             .iter()
             .sorted_by(|a, b| a.round_number.cmp(&b.round_number))
-            .map(|round| { 
-                let time = times.get(round.round_number-1).unwrap_or(times.last().unwrap()).fixed_offset();
+            .map(|round| {
+                let time = times
+                    .get(round.round_number - 1)
+                    .unwrap_or(times.last().unwrap())
+                    .fixed_offset();
                 round.active_model(time)
             })
             .collect_vec();
