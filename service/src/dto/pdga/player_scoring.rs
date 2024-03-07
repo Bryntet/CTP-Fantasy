@@ -300,7 +300,7 @@ impl PlayerScore {
                     let bench_index_start = entity::fantasy_tournament::Entity::find_by_id(fantasy_id as i32)
                         .one(db)
                         .await
-                        .map(|f| f.map(|f| f.max_picks_per_user - f.bench_size))
+                        .map(|f| f.map(|f| f.max_picks_per_user - f.bench_size + 1))
                         .unwrap()
                         .unwrap();
 
@@ -339,7 +339,7 @@ impl PlayerScore {
                             }
                         }
                     }
-                    if bench_index_start + non_playing <= pick.pick_number {
+                    if (bench_index_start + non_playing) <= pick.pick_number {
                         Ok(None)
                     } else {
                         Ok(Some(user))
