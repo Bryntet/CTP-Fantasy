@@ -339,10 +339,10 @@ impl PlayerScore {
                             }
                         }
                     }
-                    if bench_index_start + non_playing > pick.pick_number {
-                        Ok(Some(user))
-                    } else {
+                    if bench_index_start + non_playing <= pick.pick_number {
                         Ok(None)
+                    } else {
+                        Ok(Some(user))
                     }
                 } else {
                     Ok(Some(user))
