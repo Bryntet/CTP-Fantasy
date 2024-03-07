@@ -7,6 +7,7 @@ use crate::error::GenericError;
 use entity::prelude::{FantasyPick, User};
 use itertools::Itertools;
 use log::{error, warn};
+use rocket::http::hyper::body::HttpBody;
 use sea_orm::prelude::DateTimeWithTimeZone;
 use sea_orm::ActiveValue::Set;
 use sea_orm::ModelTrait;
@@ -281,27 +282,81 @@ impl PlayerScore {
             })
         } else if let Some(pick) = FantasyPick::find()
             .filter(
-                fantasy_pick::Column::Player.eq(self.pdga_number).and(
-                    fantasy_pick::Column::FantasyTournamentId
-                        .eq(fantasy_id)
-                        .and(fantasy_pick::Column::Benched.eq(false)),
-                ),
+                fantasy_pick::Column::Player
+                    .eq(self.pdga_number)
+                    .and(fantasy_pick::Column::FantasyTournamentId.eq(fantasy_id)),
             )
             .one(db)
             .await
             .map_err(|_| GenericError::UnknownError("Pick not found due to unknown database error"))?
         {
-            pick.find_related(User)
+            if let Some(user) = pick
+                .find_related(User)
                 .one(db)
                 .await
-                .map_err(|_| GenericError::UnknownError("User not found due to unknown database error"))
+                .map_err(|_| GenericError::UnknownError("User not found due to unknown database error"))?
+            {
+                if pick.benched {
+                    let bench_index_start = entity::fantasy_tournament::Entity::find_by_id(fantasy_id as i32)
+                        .one(db)
+                        .await
+                        .map(|f| f.map(|f| f.max_picks_per_user - f.bench_size + 1))
+                        .unwrap()
+                        .unwrap();
+
+                    let users_picks = user
+                        .find_related(fantasy_pick::Entity)
+                        .filter(fantasy_pick::Column::FantasyTournamentId.eq(fantasy_id))
+                        .all(db)
+                        .await
+                        .map_err(|e| {
+                            warn!("Unable to get all picks from user: {}", e);
+                            GenericError::UnknownError("Unable to get all picks from user")
+                        })?
+                        .into_iter();
+                    let mut non_playing = 0;
+                    for pick in users_picks {
+                        if let Ok(Some(player)) = pick
+                            .find_related(entity::player::Entity)
+                            .one(db)
+                            .await
+                            .map_err(|e| {
+                                warn!("Unable to get player in competition from pick: {}", e);
+                            })
+                        {
+                            if matches!(
+                                player
+                                    .find_related(entity::player_in_competition::Entity)
+                                    .filter(
+                                        entity::player_in_competition::Column::CompetitionId
+                                            .eq(competition_id)
+                                    )
+                                    .one(db)
+                                    .await,
+                                Ok(None)
+                            ) {
+                                non_playing += 1;
+                            }
+                        }
+                    }
+                    if bench_index_start + non_playing > pick.pick_number {
+                        Ok(Some(user))
+                    } else {
+                        Ok(None)
+                    }
+                } else {
+                    Ok(Some(user))
+                }
+            } else {
+                Ok(None)
+            }
         } else {
             Ok(None)
         }
     }
 }
 
-use crate::dto::pdga::get_competition::{RoundLabelInfo};
+use crate::dto::pdga::get_competition::RoundLabelInfo;
 use serde_with::VecSkipError;
 
 #[serde_as]

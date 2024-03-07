@@ -1,7 +1,6 @@
 use std::fmt::Display;
 
 use bcrypt::{hash, DEFAULT_COST};
-use itertools::Itertools;
 use log::error;
 
 use rocket::http::CookieJar;
