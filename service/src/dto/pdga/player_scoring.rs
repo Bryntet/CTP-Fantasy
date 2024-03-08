@@ -307,7 +307,11 @@ impl PlayerScore {
 
                     let users_picks = user
                         .find_related(fantasy_pick::Entity)
-                        .filter(fantasy_pick::Column::FantasyTournamentId.eq(fantasy_id))
+                        .filter(
+                            fantasy_pick::Column::FantasyTournamentId
+                                .eq(fantasy_id)
+                                .and(fantasy_pick::Column::Division.eq(&self.division)),
+                        )
                         .all(db)
                         .await
                         .map_err(|e| {
