@@ -310,7 +310,7 @@ impl PlayerScore {
                         .filter(
                             fantasy_pick::Column::FantasyTournamentId
                                 .eq(fantasy_id)
-                                .and(fantasy_pick::Column::Division.eq(&self.division)),
+                                .and(fantasy_pick::Column::Division.eq(self.division.to_string())),
                         )
                         .all(db)
                         .await
