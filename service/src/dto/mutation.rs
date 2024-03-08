@@ -456,6 +456,7 @@ impl CompetitionInfo {
 
     async fn make_sure_all_players_exist_in_db(&self, db: &impl ConnectionTrait) -> Result<(), GenericError> {
         let players = self.get_all_player_active_models();
+
         player::Entity::insert_many(players)
             .on_conflict(
                 OnConflict::column(player::Column::PdgaNumber)
@@ -469,7 +470,35 @@ impl CompetitionInfo {
                 error!("Unable to insert players into database");
                 GenericError::UnknownError("Unable to insert players into database")
             })?;
+
         let player_divs = self.get_all_player_divisions(1);
+        let mut players_in_comp = Vec::new();
+        for player in &player_divs {
+            let player_in_comp = player_in_competition::ActiveModel {
+                id: NotSet,
+                pdga_number: player.player_pdga_number.to_owned(),
+                competition_id: Set(self.competition_id as i32),
+                division: player.division.to_owned(),
+            };
+            players_in_comp.push(player_in_comp);
+        }
+        player_in_competition::Entity::insert_many(players_in_comp)
+            .on_conflict(
+                OnConflict::columns(vec![
+                    player_in_competition::Column::PdgaNumber,
+                    player_in_competition::Column::CompetitionId,
+                ])
+                .do_nothing()
+                .to_owned(),
+            )
+            .do_nothing()
+            .exec(db)
+            .await
+            .map_err(|_| {
+                error!("Unable to insert players into competition");
+                GenericError::UnknownError("Unable to insert players into competition")
+            })?;
+
         player_division_in_fantasy_tournament::Entity::insert_many(player_divs)
             .on_conflict(
                 OnConflict::column(player_division_in_fantasy_tournament::Column::PlayerPdgaNumber)
@@ -535,6 +564,7 @@ impl CompetitionInfo {
         db: &impl ConnectionTrait,
         fantasy_tournament_id: u32,
     ) -> Result<(), GenericError> {
+        self.make_sure_all_players_exist_in_db(db).await?;
         let user_scores = self.get_user_scores(db, fantasy_tournament_id).await?;
         if !user_scores.is_empty() {
             user_competition_score_in_fantasy_tournament::Entity::delete_many()

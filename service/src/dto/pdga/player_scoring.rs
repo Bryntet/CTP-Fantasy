@@ -259,7 +259,7 @@ impl PlayerScore {
         competition_id: i32,
         pdga_number: i32,
     ) -> Result<Option<user::Model>, GenericError> {
-        if let Some(score) = user_competition_score_in_fantasy_tournament::Entity::find()
+        /*if let Some(score) = user_competition_score_in_fantasy_tournament::Entity::find()
             .filter(
                 user_competition_score_in_fantasy_tournament::Column::FantasyTournamentId
                     .eq(fantasy_id)
@@ -280,7 +280,8 @@ impl PlayerScore {
                 error!("Unable to get user from db {:#?}", e);
                 GenericError::UnknownError("Unable to get user from db")
             })
-        } else if let Some(pick) = FantasyPick::find()
+        } else*/
+        if let Some(pick) = FantasyPick::find()
             .filter(
                 fantasy_pick::Column::Player
                     .eq(self.pdga_number)
@@ -335,10 +336,12 @@ impl PlayerScore {
                                     .await,
                                 Ok(None)
                             ) {
+                                warn!("this guy is not in comp: {:?}", player);
                                 non_playing += 1;
                             }
                         }
                     }
+                    dbg!(bench_index_start + non_playing, pick.pick_number);
                     if (bench_index_start + non_playing) <= pick.pick_number {
                         Ok(None)
                     } else {

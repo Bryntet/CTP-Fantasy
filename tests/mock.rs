@@ -10,7 +10,9 @@ mod tests {
     use rocket::figment::Profile;
     use rocket::local::asynchronous::{Client, LocalResponse};
     use rocket::{error, warn, Config};
-    use sea_orm::{ConnectOptions, ConnectionTrait, Database, DatabaseConnection, EntityTrait};
+    use sea_orm::{
+        ActiveModelTrait, ConnectOptions, ConnectionTrait, Database, DatabaseConnection, EntityTrait, NotSet,
+    };
     use service::dto::UserLogin;
 
     async fn make_db() -> DatabaseConnection {
@@ -21,6 +23,7 @@ mod tests {
     }
 
     use rocket::{Build, Rocket};
+    use sea_orm::ActiveValue::Set;
 
     async fn rocket() -> Rocket<Build> {
         let config = Config {
@@ -147,6 +150,16 @@ mod tests {
         assert!(any_competition(&db).await);
 
         assert!(!any_user_scores(&db).await);
+        entity::player::ActiveModel {
+            pdga_number: Set(123456111),
+            avatar: Set(None),
+            first_name: Set("TestPlayer".to_string()),
+            last_name: Set("Testerson".to_string()),
+        }
+        .insert(&db)
+        .await
+        .unwrap();
+
         /*
         let comp = entity::competition::Entity::find_by_id(77775)
             .one(&db)
@@ -160,12 +173,52 @@ mod tests {
         active.ended_at = Set(new_end);
         active.save(&db).await.unwrap();*/
 
-        add_pick(&client, 69424, Division::MPO, 1)
+        entity::fantasy_pick::ActiveModel {
+            fantasy_tournament_id: Set(1),
+            user: Set(1),
+            division: Set(entity::sea_orm_active_enums::Division::Mpo),
+            pick_number: Set(1),
+            player: Set(91249),
+            id: NotSet,
+            benched: Set(false),
+        }
+        .insert(&db)
+        .await
+        .unwrap();
+
+        entity::fantasy_pick::ActiveModel {
+            fantasy_tournament_id: Set(1),
+            user: Set(1),
+            division: Set(entity::sea_orm_active_enums::Division::Mpo),
+            pick_number: Set(2),
+            player: Set(17295),
+            id: NotSet,
+            benched: Set(false),
+        }
+        .insert(&db)
+        .await
+        .unwrap();
+
+        entity::fantasy_pick::ActiveModel {
+            fantasy_tournament_id: Set(1),
+            user: Set(1),
+            division: Set(entity::sea_orm_active_enums::Division::Mpo),
+            pick_number: Set(3),
+            player: Set(15857),
+            id: NotSet,
+            benched: Set(true),
+        }
+        .insert(&db)
+        .await
+        .unwrap();
+
+        add_pick(&client, 123456111, Division::MPO, 1)
             .await
             .into_string()
             .await;
 
         assert!(any_pick(&db).await);
+
         //assert!(!any_user_scores(&db).await);
 
         //add_competition(&client, 75961, CompetitionLevel::Playoff).await;
