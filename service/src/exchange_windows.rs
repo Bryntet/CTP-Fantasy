@@ -15,7 +15,7 @@ pub async fn is_user_allowed_to_exchange(
 ) -> Result<bool, GenericError> {
     if let Some(tournament) = get_fantasy_tournament_model(db, tournament_id).await? {
         let users = see_which_users_can_exchange(db, &tournament).await?;
-        Ok(!any_competitions_running(db, &tournament).await? || users.iter().any(|u| u.user.id == user_id))
+        Ok(!any_competitions_running(db, &tournament).await? && users.iter().any(|u| u.user.id == user_id))
     } else {
         Err(GenericError::NotFound("Tournament not found"))
     }
