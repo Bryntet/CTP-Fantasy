@@ -1,5 +1,4 @@
 use chrono::{TimeZone, Utc};
-use itertools::Itertools;
 use log::error;
 use sea_orm::prelude::DateTimeWithTimeZone;
 use sea_orm::ActiveValue::Set;
@@ -201,15 +200,17 @@ impl CompetitionInfo {
     }*/
 
     fn current_round(&self) -> usize {
-        if let Some(highest) = self.highest_completed_round {
-            match self.status() {
-                CompetitionStatus::Finished => highest as usize - 1,
-                CompetitionStatus::Active(round) => round,
-                CompetitionStatus::Pending => 0,
-            }
-        } else {
-            0
-        }
+        let highest = self
+            .rounds
+            .iter()
+            .filter(|round| round.status() == RoundStatus::Finished)
+            .count();
+        let to_check = match self.status() {
+            CompetitionStatus::Finished => highest as usize - 1,
+            CompetitionStatus::Active(round) => round,
+            CompetitionStatus::Pending => 0,
+        };
+        to_check
     }
 
     pub(super) fn get_current_player_scores(&self) -> Vec<&PlayerScore> {

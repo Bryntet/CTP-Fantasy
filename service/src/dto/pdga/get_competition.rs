@@ -181,10 +181,10 @@ pub struct CompetitionInfo {
 
 impl CompetitionInfo {
     pub async fn from_web(competition_id: u32) -> Result<Self, GenericError> {
-        let info = Self::get_pdga_competition_info(competition_id).await?;
-        //let time = std::time::Instant::now();
+        let mut info = Self::get_pdga_competition_info(competition_id).await?;
+        info.round_labels
+            .sort_by(|a, b| a.round_number.cmp(&b.round_number));
         let date_range = DateRange::from_api_comp_info(&info).await.unwrap();
-        //println!("Time to get date range: {:?}", time.elapsed());
 
         let divs = info
             .divisions
@@ -216,15 +216,20 @@ impl CompetitionInfo {
                 ));
             }
         }
+        rounds.sort_by(|a, b| {
+            a.label
+                .get_round_number_from_label(amount_of_rounds)
+                .cmp(&b.label.get_round_number_from_label(amount_of_rounds))
+        });
 
         let out = Self {
             name: info.name,
             competition_id,
+            amount_of_rounds: rounds.len(),
             rounds,
             highest_completed_round: info.highest_completed_round,
             divisions: divs,
             date_range,
-            amount_of_rounds: info.rounds as usize,
         };
         Ok(out)
     }

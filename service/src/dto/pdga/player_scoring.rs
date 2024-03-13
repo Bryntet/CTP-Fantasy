@@ -1,13 +1,12 @@
 use crate::dto::{CompetitionLevel, Division, UserScore};
 use entity::player_round_score::ActiveModel;
-use entity::{fantasy_pick, player_round_score, user, user_competition_score_in_fantasy_tournament};
+use entity::{fantasy_pick, player_round_score, user};
 
 use crate::dto::pdga::ApiPlayer;
 use crate::error::GenericError;
 use entity::prelude::{FantasyPick, User};
 use itertools::Itertools;
-use log::{error, warn};
-use rocket::http::hyper::body::HttpBody;
+use log::warn;
 use sea_orm::prelude::DateTimeWithTimeZone;
 use sea_orm::ActiveValue::Set;
 use sea_orm::ModelTrait;
@@ -74,7 +73,10 @@ pub enum PlayerStatus {
 
 impl PlayerStatus {
     pub fn is_troubled(&self) -> bool {
-        matches!(self, PlayerStatus::DidNotFinish | PlayerStatus::DidNotStart)
+        matches!(
+            self,
+            PlayerStatus::DidNotFinish | PlayerStatus::DidNotStart | PlayerStatus::Pending
+        )
     }
 }
 #[derive(Debug, PartialEq, Clone)]
@@ -187,22 +189,10 @@ impl PlayerScore {
         let score = match self.tied {
             Tied::Tied(tied) => {
                 let mut tied_score: u32 = 0;
-                if self.pdga_number == 85942 {
-                    dbg!(tied);
-                }
                 for i in 0..=tied {
-                    if self.pdga_number == 85942 {
-                        dbg!(tied_score);
-                    }
                     tied_score += placement_to_score(self.placement + i as u16) as u32;
                 }
-                if self.pdga_number == 85942 {
-                    dbg!(tied_score);
-                }
                 tied_score /= (tied + 1) as u32;
-                if self.pdga_number == 85942 {
-                    dbg!(tied_score);
-                }
                 tied_score
             }
             Tied::NotTied => placement_to_score(self.placement) as u32,
@@ -229,12 +219,7 @@ impl PlayerScore {
         let score = self.get_user_score(competition_level) as i32;
         if score > 0 {
             if let Ok(Some(user)) = self
-                .get_user(
-                    db,
-                    fantasy_tournament_id,
-                    competition_id as i32,
-                    self.pdga_number as i32,
-                )
+                .get_user(db, fantasy_tournament_id, competition_id as i32)
                 .await
             {
                 Ok(Some(UserScore {
@@ -257,7 +242,6 @@ impl PlayerScore {
         db: &impl ConnectionTrait,
         fantasy_id: u32,
         competition_id: i32,
-        pdga_number: i32,
     ) -> Result<Option<user::Model>, GenericError> {
         /*if let Some(score) = user_competition_score_in_fantasy_tournament::Entity::find()
             .filter(
@@ -363,7 +347,7 @@ impl PlayerScore {
     }
 }
 
-use crate::dto::pdga::get_competition::RoundLabelInfo;
+use crate::dto::pdga::get_competition::{RoundLabel, RoundLabelInfo};
 use serde_with::VecSkipError;
 
 #[serde_as]
@@ -416,10 +400,12 @@ impl RoundInformation {
         round_label: &RoundLabelInfo,
         total_rounds: usize,
     ) -> Result<Self, GenericError> {
+        dbg!(round_label);
         let mut divs: Vec<RoundFromApi> = vec![];
         let mut maybe_error: Result<(), GenericError> = Ok(());
         for div in given_divs {
             let new_div = Self::get_one_div(competition_id, round_label.round_number, div).await;
+
             if let Ok(new_div) = new_div {
                 divs.push(new_div);
             } else if let Err(e) = new_div {
@@ -546,7 +532,6 @@ impl RoundInformation {
                 warn!("Unable to parse PDGA round response: {}", e);
                 GenericError::UnknownError("Internal error while converting PDGA round to internal format")
             })?;
-
         resp.data.div = div;
         Ok(resp.data)
     }
@@ -586,11 +571,15 @@ impl RoundInformation {
             .filter(|p| p.started == PlayerStatus::Finished)
             .count()
             >= (players.len() / 2);
+
         if self.phantom {
             RoundStatus::Pending
         } else if players.iter().all(|p| p.started == PlayerStatus::Finished) || is_majority_finished {
             RoundStatus::Finished
-        } else if players.iter().any(|p| p.started == PlayerStatus::Started) {
+        } else if players
+            .iter()
+            .any(|p| p.started == PlayerStatus::Started || p.started == PlayerStatus::Finished)
+        {
             RoundStatus::Started
         } else {
             RoundStatus::Pending
@@ -598,13 +587,15 @@ impl RoundInformation {
     }
 
     pub fn active_model(&self, date: DateTimeWithTimeZone) -> entity::round::ActiveModel {
-        entity::round::ActiveModel {
+        let out = entity::round::ActiveModel {
             id: NotSet,
             round_number: Set(self.round_number as i32),
             competition_id: Set(self.competition_id as i32),
             status: Set(self.status().into()),
             date: Set(date),
-        }
+        };
+        dbg!(&out);
+        out
     }
 }
 
