@@ -2,7 +2,7 @@ use bcrypt::verify;
 
 use dto::InvitationStatus;
 use entity::prelude::*;
-use entity::sea_orm_active_enums::Division;
+use entity::sea_orm_active_enums::{CompetitionStatus, Division};
 use entity::*;
 
 use log::{error, warn};
@@ -400,8 +400,8 @@ pub async fn is_competition_added(db: &impl ConnectionTrait, competition_id: u32
 }
 
 pub async fn active_rounds(db: &impl ConnectionTrait) -> Result<Vec<round::Model>, DbErr> {
-    let start = chrono::Utc::now().date_naive() - chrono::Duration::days(1);
-    let end = chrono::Utc::now().date_naive() + chrono::Duration::days(1);
+    let start = chrono::Utc::now().date_naive() - chrono::Duration::try_days(1).unwrap();
+    let end = chrono::Utc::now().date_naive() + chrono::Duration::try_days(1).unwrap();
     //  dbg!(&start, &end);
     Round::find()
         .filter(round::Column::Date.between(start, end))
@@ -429,7 +429,12 @@ pub async fn active_competitions(db: &impl ConnectionTrait) -> Result<Vec<Compet
             Ok(comp) => {
                 if comp_model.status != comp.status().into() {
                     let mut model = comp_model.into_active_model();
+                    let status: CompetitionStatus = comp.status().into();
+                    if status == CompetitionStatus::Finished {
+                        model.ended_at = Set(Some(chrono::Utc::now().fixed_offset()));
+                    }
                     model.status = Set(comp.status().into());
+
                     if let Err(e) = model.save(db).await {
                         error!("Encountered db err: {:?}", e.sql_err());
                     }

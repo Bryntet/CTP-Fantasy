@@ -57,11 +57,11 @@ pub async fn see_which_users_can_exchange(
         }
         if exchange_time.hour() == 20 {
             possible_exchange_window_time = exchange_time
-                .add(Duration::days(1))
+                .add(Duration::try_days(1).unwrap())
                 .with_hour(8)
                 .and_then(|x| x.with_minute(0).and_then(|x| x.with_second(0)))
         } else {
-            possible_exchange_window_time = Some(exchange_time.add(Duration::hours(4)));
+            possible_exchange_window_time = Some(exchange_time.add(Duration::try_hours(4).unwrap()));
         }
     }
     Ok(allowed_users)
@@ -89,7 +89,7 @@ async fn get_first_exchange_window_time(
         Ok(None)
     } else if let Some(end_time) = comps.iter().filter_map(|c| c.ended_at).max() {
         let first_exchange_time: Option<NaiveDateTime> = end_time
-            .add(Duration::days(1))
+            .add(Duration::try_days(1).unwrap())
             .naive_local()
             .with_hour(8)
             .and_then(|x| x.with_minute(0).and_then(|x| x.with_second(0)));
@@ -104,7 +104,7 @@ async fn last_possible_exchange_window_time(
     tournament: &entity::fantasy_tournament::Model,
 ) -> Result<Option<NaiveDateTime>, GenericError> {
     Ok(next_competition_beginning(db, tournament).await?.map(|x| {
-        x.add(Duration::days(-1))
+        x.add(Duration::try_days(-1).unwrap())
             .and_time(NaiveTime::from_hms_opt(20, 0, 0).unwrap())
     }))
 }

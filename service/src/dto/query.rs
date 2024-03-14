@@ -205,12 +205,11 @@ impl CompetitionInfo {
             .iter()
             .filter(|round| round.status() == RoundStatus::Finished)
             .count();
-        let to_check = match self.status() {
-            CompetitionStatus::Finished => highest as usize - 1,
+        match self.status() {
+            CompetitionStatus::Finished => highest - 1,
             CompetitionStatus::Active(round) => round,
             CompetitionStatus::Pending => 0,
-        };
-        to_check
+        }
     }
 
     pub(super) fn get_current_player_scores(&self) -> Vec<&PlayerScore> {

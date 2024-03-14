@@ -585,14 +585,13 @@ impl RoundInformation {
     }
 
     pub fn active_model(&self, date: DateTimeWithTimeZone) -> entity::round::ActiveModel {
-        let out = entity::round::ActiveModel {
+        entity::round::ActiveModel {
             id: NotSet,
             round_number: Set(self.round_number as i32),
             competition_id: Set(self.competition_id as i32),
             status: Set(self.status().into()),
             date: Set(date),
-        };
-        out
+        }
     }
 }
 
