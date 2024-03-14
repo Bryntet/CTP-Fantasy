@@ -347,7 +347,7 @@ impl PlayerScore {
     }
 }
 
-use crate::dto::pdga::get_competition::{RoundLabel, RoundLabelInfo};
+use crate::dto::pdga::get_competition::RoundLabelInfo;
 use serde_with::VecSkipError;
 
 #[serde_as]
@@ -400,7 +400,6 @@ impl RoundInformation {
         round_label: &RoundLabelInfo,
         total_rounds: usize,
     ) -> Result<Self, GenericError> {
-        dbg!(round_label);
         let mut divs: Vec<RoundFromApi> = vec![];
         let mut maybe_error: Result<(), GenericError> = Ok(());
         for div in given_divs {
@@ -518,7 +517,6 @@ impl RoundInformation {
         div: Division,
     ) -> Result<RoundFromApi, GenericError> {
         let div_str = div.to_string().to_uppercase();
-        dbg!(round);
         let url = format!("https://www.pdga.com/apps/tournament/live-api/live_results_fetch_round.php?TournID={competition_id}&Round={round}&Division={div_str}");
         //dbg!(&url);
         //tokio::time::sleep(std::time::Duration::from_millis(250)).await;
@@ -594,7 +592,6 @@ impl RoundInformation {
             status: Set(self.status().into()),
             date: Set(date),
         };
-        dbg!(&out);
         out
     }
 }

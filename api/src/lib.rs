@@ -76,7 +76,8 @@ pub fn routes() -> Vec<Route> {
         add_competition,
         get_competitions,
         proxy_image,
-        get_competition_scores
+        get_competition_scores,
+        change_passsword
     ]
 }
 

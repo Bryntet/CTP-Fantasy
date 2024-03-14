@@ -2,7 +2,6 @@ use std::fmt::Display;
 
 use bcrypt::{hash, DEFAULT_COST};
 use log::error;
-
 use rocket::http::CookieJar;
 use rocket::warn;
 use sea_orm::sea_query::OnConflict;
@@ -414,15 +413,6 @@ impl CompetitionInfo {
 
         let cols = vec![RoundColumn::CompetitionId, RoundColumn::RoundNumber];
         let times = self.date_range.date_times();
-
-        dbg!(
-            &times,
-            &self
-                .rounds
-                .iter()
-                .map(|r| (r.round_number, &r.label))
-                .collect_vec()
-        );
 
         let round_models = self
             .rounds

@@ -1,3 +1,4 @@
+use bcrypt::{hash, DEFAULT_COST};
 use entity::prelude::*;
 use entity::sea_orm_active_enums::{CompetitionStatus, FantasyTournamentInvitationStatus};
 use entity::*;
@@ -258,4 +259,23 @@ pub async fn insert_competition_in_fantasy(
             Ok(())
         }
     }
+}
+
+pub async fn update_password(
+    db: &DatabaseConnection,
+    user_id: i32,
+    new_password: String,
+) -> Result<(), GenericError> {
+    let hashed_password = hash(new_password, DEFAULT_COST).expect("hashing should work");
+    let mut user = UserAuthentication::find_by_id(user_id)
+        .one(db)
+        .await
+        .map_err(|_| GenericError::UnknownError("Unable to find user"))?
+        .ok_or(GenericError::NotFound("User not found"))?
+        .into_active_model();
+    user.hashed_password = Set(hashed_password);
+    user.save(db)
+        .await
+        .map_err(|_| GenericError::UnknownError("Unable to update password"))?;
+    Ok(())
 }

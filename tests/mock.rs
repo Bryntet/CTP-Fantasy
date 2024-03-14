@@ -11,7 +11,8 @@ mod tests {
     use rocket::local::asynchronous::{Client, LocalResponse};
     use rocket::{error, warn, Config};
     use sea_orm::{
-        ActiveModelTrait, ConnectOptions, ConnectionTrait, Database, DatabaseConnection, EntityTrait, NotSet,
+        ActiveModelTrait, ConnectOptions, ConnectionTrait, Database, DatabaseConnection, EntityTrait,
+        IntoActiveModel, NotSet,
     };
     use service::dto::UserLogin;
 
@@ -146,7 +147,7 @@ mod tests {
         create_tournament(&client).await;
         assert!(any_tournament(&db).await);
 
-        add_competition(&client, 77758, CompetitionLevel::Major).await;
+        add_competition(&client, 77758, CompetitionLevel::ElitePlus).await;
         assert!(any_competition(&db).await);
 
         assert!(!any_user_scores(&db).await);
@@ -178,7 +179,7 @@ mod tests {
             user: Set(1),
             division: Set(entity::sea_orm_active_enums::Division::Mpo),
             pick_number: Set(1),
-            player: Set(91249),
+            player: Set(75412),
             id: NotSet,
             benched: Set(false),
         }
@@ -218,6 +219,12 @@ mod tests {
             .await;
 
         assert!(any_pick(&db).await);
+
+        for x in entity::competition::Entity::find().all(&db).await.unwrap() {
+            let mut x = x.into_active_model();
+            x.status = Set(entity::sea_orm_active_enums::CompetitionStatus::Running);
+            x.save(&db).await.unwrap();
+        }
 
         //assert!(!any_user_scores(&db).await);
 

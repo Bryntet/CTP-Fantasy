@@ -7,6 +7,7 @@ use sea_orm::TransactionTrait;
 
 use error::GenericError;
 use service::dto::{forms, FantasyPick, FantasyPicks, UserLogin};
+use service::update_password;
 
 use crate::authenticate;
 use crate::authenticate::AllowedToExchangeGuard;
@@ -235,4 +236,17 @@ pub(crate) async fn add_competition(
         .await
         .map_err(|_| GenericError::UnknownError("Unknown error while trying to commit transaction"))?;
     Ok("Successfully added competition".to_string())
+}
+
+#[openapi(tag = "Admin")]
+#[post("/user/<user_id>/change_password", data = "<password>")]
+pub(crate) async fn change_passsword(
+    user_id: i32,
+    password: String,
+    auth: authenticate::UserAuthentication,
+    db: &State<DatabaseConnection>,
+) -> Result<&'static str, GenericError> {
+    auth.assure_admin()?;
+    update_password(db, user_id, password).await?;
+    Ok("Success!")
 }

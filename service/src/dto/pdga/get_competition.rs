@@ -84,7 +84,6 @@ struct ApiCompetitionInfo {
     #[serde(rename = "SimpleName")]
     name: String,
     divisions: Vec<DivisionWrapper>,
-    rounds: u8,
     #[serde(rename = "RoundsList", deserialize_with = "flatten_round_labels")]
     round_labels: Vec<ApiRoundLabelInfo>,
     highest_completed_round: Option<u8>,
@@ -200,7 +199,6 @@ impl CompetitionInfo {
             .dedup()
             .collect_vec();
         let mut rounds = Vec::new();
-        dbg!(info.rounds);
         let amount_of_rounds = info.round_labels.len();
         for round_label in &info.round_labels {
             let label = RoundLabelInfo::from(round_label);

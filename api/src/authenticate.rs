@@ -233,6 +233,14 @@ impl UserAuthentication {
         }
     }
 
+    pub fn assure_admin(&self) -> Result<(), GenericError> {
+        if !self.0.is_admin() {
+            Err(GenericError::NotPermitted("You are not authorized to do this"))
+        } else {
+            Ok(())
+        }
+    }
+
     pub fn to_user_model(&self) -> Result<&UserModel, GenericError> {
         match self.0 {
             Authentication::Authenticated { ref user, .. } => Ok(user),
