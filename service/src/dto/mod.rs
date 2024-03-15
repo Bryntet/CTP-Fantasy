@@ -48,12 +48,12 @@ impl Competition {
         Ok(super::get_competitions_in_fantasy_tournament(db, tournament_id)
             .await?
             .into_iter()
+            .sorted_by(|a, b| a.start_date.cmp(&b.start_date))
             .map(|c| Self {
                 level: c.level.into(),
                 name: c.name,
                 competition_id: c.id,
             })
-            .sorted_by(|a, b| a.competition_id.cmp(&b.competition_id))
             .collect())
     }
 }
