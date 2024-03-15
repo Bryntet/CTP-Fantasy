@@ -24,7 +24,7 @@ async fn main() -> Result<(), rocket::Error> {
 
     Ok(())
 }
-
+// TODO: Refactor so that this function only switches a finished competition from running to finished.
 async fn check_active_rounds(db: &DatabaseConnection) {
     let _ = service::mutation::update_active_competitions(db)
         .await
