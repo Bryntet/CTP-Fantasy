@@ -245,7 +245,7 @@ pub(crate) async fn change_passsword(
     password: String,
     auth: authenticate::UserAuthentication,
     db: &State<DatabaseConnection>,
-) -> Result<&'static str, GenericError> {
+) -> Result<&'static str, Json<GenericError>> {
     auth.assure_admin()?;
     update_password(db, user_id, password).await?;
     Ok("Success!")
