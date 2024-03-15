@@ -572,6 +572,8 @@ impl RoundInformation {
 
         if self.phantom {
             RoundStatus::Pending
+        } else if players.is_empty() {
+            RoundStatus::Pending
         } else if players.iter().all(|p| p.started == PlayerStatus::Finished) || is_majority_finished {
             RoundStatus::Finished
         } else if players

@@ -241,9 +241,7 @@ impl CompetitionInfo {
     }
 
     pub fn status(&self) -> CompetitionStatus {
-        if self.rounds.len() < self.amount_of_rounds {
-            CompetitionStatus::Active(self.rounds.len())
-        } else if self.rounds.iter().all(|r| r.status() == RoundStatus::Finished) {
+        if self.rounds.iter().all(|r| r.status() == RoundStatus::Finished) {
             CompetitionStatus::Finished
         } else if let Some(round) = self.rounds.iter().find(|r| r.status() == RoundStatus::Started) {
             CompetitionStatus::Active(round.round_number - 1)
