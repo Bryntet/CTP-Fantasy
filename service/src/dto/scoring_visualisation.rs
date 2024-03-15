@@ -154,7 +154,7 @@ pub async fn user_competition_scores(
 
     let mut users = Vec::new();
     for user in user_models.into_iter().flatten() {
-            users.push(UserWithCompetitionScore::new(db, user, tournament_id, competition_id).await?);
+        users.push(UserWithCompetitionScore::new(db, user, tournament_id, competition_id).await?);
     }
     Ok(users)
 }
