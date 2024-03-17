@@ -65,11 +65,18 @@ impl From<&ApiRoundLabelInfo> for RoundLabelInfo {
 }
 
 impl RoundLabelInfo {
-    pub fn get_round_number_from_label(&self, total_rounds: usize) -> usize {
+    pub fn get_round_number_from_label(&self, all_round_labels: &[RoundLabelInfo]) -> usize {
+        let total_rounds = all_round_labels.len();
         match self.label {
-            RoundLabel::Final => total_rounds,
-            RoundLabel::Playoff => total_rounds - 1,
             RoundLabel::Round(round) => round,
+            RoundLabel::Final => total_rounds,
+            RoundLabel::Playoff => {
+                if all_round_labels.iter().any(|r| r.label == RoundLabel::Final) {
+                    total_rounds - 1
+                } else {
+                    total_rounds
+                }
+            }
             RoundLabel::Other => {
                 warn!("Unknown round label: {:?}", self);
                 self.round_number
@@ -199,25 +206,24 @@ impl CompetitionInfo {
             .dedup()
             .collect_vec();
         let mut rounds = Vec::new();
-        let amount_of_rounds = info.round_labels.len();
-        for round_label in &info.round_labels {
-            let label = RoundLabelInfo::from(round_label);
+        let round_labels = info.round_labels.iter().map(RoundLabelInfo::from).collect_vec();
+        for round_label in &round_labels {
             if let Ok(round) =
-                RoundInformation::new(competition_id as usize, divs.clone(), &label, amount_of_rounds).await
+                RoundInformation::new(competition_id as usize, divs.clone(), round_label, &round_labels).await
             {
                 rounds.push(round);
             } else {
                 rounds.push(RoundInformation::phantom(
-                    label,
+                    round_label,
                     competition_id as usize,
-                    amount_of_rounds,
+                    &round_labels,
                 ));
             }
         }
         rounds.sort_by(|a, b| {
             a.label
-                .get_round_number_from_label(amount_of_rounds)
-                .cmp(&b.label.get_round_number_from_label(amount_of_rounds))
+                .get_round_number_from_label(&round_labels)
+                .cmp(&b.label.get_round_number_from_label(&round_labels))
         });
 
         let out = Self {

@@ -296,6 +296,21 @@ pub async fn get_tournament_bench_limit(
     }
 }
 
+pub async fn get_tournament_bench_size(
+    db: &impl ConnectionTrait,
+    tournament_id: i32,
+) -> Result<i32, GenericError> {
+    let tournament = FantasyTournament::find_by_id(tournament_id)
+        .one(db)
+        .await
+        .map_err(|_| GenericError::UnknownError("database error while getting tournament"))?;
+    if let Some(tournament) = tournament {
+        Ok(tournament.bench_size)
+    } else {
+        Err(GenericError::NotFound("Tournament not found"))
+    }
+}
+
 async fn get_player_name(db: &DatabaseConnection, player_id: i32) -> Result<String, GenericError> {
     let player = Player::find_by_id(player_id)
         .one(db)
@@ -359,8 +374,14 @@ pub async fn get_user_picks_in_tournament(
     })
 }
 
-pub async fn max_picks(db: &DatabaseConnection, tournament_id: i32) -> Result<i32, DbErr> {
-    let tournament = FantasyTournament::find_by_id(tournament_id).one(db).await?;
+pub async fn max_picks(db: &impl ConnectionTrait, tournament_id: i32) -> Result<i32, GenericError> {
+    let tournament = FantasyTournament::find_by_id(tournament_id)
+        .one(db)
+        .await
+        .map_err(|e| {
+            error!("Error while getting tournament: {:#?}", e);
+            GenericError::UnknownError("Unknown error while getting tournament")
+        })?;
     if let Some(tournament) = tournament {
         Ok(tournament.max_picks_per_user)
     } else {

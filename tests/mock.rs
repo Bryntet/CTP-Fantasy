@@ -12,7 +12,7 @@ mod tests {
     use rocket::{error, warn, Config};
     use sea_orm::{
         ActiveModelTrait, ConnectOptions, ConnectionTrait, Database, DatabaseConnection, EntityTrait,
-        IntoActiveModel, NotSet,
+        IntoActiveModel,
     };
     use service::dto::UserLogin;
 
@@ -24,7 +24,7 @@ mod tests {
     }
 
     use rocket::{Build, Rocket};
-    use sea_orm::ActiveValue::Set;
+    use sea_orm::ActiveValue::{NotSet, Set};
 
     async fn rocket() -> Rocket<Build> {
         let config = Config {
@@ -133,6 +133,14 @@ mod tests {
         !picks.is_empty()
     }
 
+    async fn amount_of_results(db: &DatabaseConnection) -> usize {
+        entity::user_competition_score_in_fantasy_tournament::Entity::find()
+            .all(db)
+            .await
+            .unwrap()
+            .len()
+    }
+
     use service::dto::{CompetitionLevel, Division};
     use service::refresh_user_scores_in_all;
 
@@ -147,7 +155,7 @@ mod tests {
         create_tournament(&client).await;
         assert!(any_tournament(&db).await);
 
-        add_competition(&client, 77758, CompetitionLevel::ElitePlus).await;
+        add_competition(&client, 77759, CompetitionLevel::ElitePlus).await;
         assert!(any_competition(&db).await);
 
         assert!(!any_user_scores(&db).await);
@@ -161,18 +169,17 @@ mod tests {
         .await
         .unwrap();
 
-        /*
-        let comp = entity::competition::Entity::find_by_id(77775)
+        let comp = entity::competition::Entity::find_by_id(77759)
             .one(&db)
             .await
             .unwrap()
             .unwrap();
-        let new_start = comp.start_date.sub(chrono::Duration::days(2));
-        let new_end = comp.ended_at.map(|d| d.sub(chrono::Duration::days(2)));
+        let new_start = comp.start_date - chrono::Duration::try_days(2).unwrap();
+        let new_end = comp.ended_at.map(|d| d - chrono::Duration::try_days(2).unwrap());
         let mut active = comp.into_active_model();
         active.start_date = Set(new_start);
         active.ended_at = Set(new_end);
-        active.save(&db).await.unwrap();*/
+        active.save(&db).await.unwrap();
 
         entity::fantasy_pick::ActiveModel {
             fantasy_tournament_id: Set(1),
@@ -187,12 +194,12 @@ mod tests {
         .await
         .unwrap();
 
-        entity::fantasy_pick::ActiveModel {
+        let pick = entity::fantasy_pick::ActiveModel {
             fantasy_tournament_id: Set(1),
             user: Set(1),
             division: Set(entity::sea_orm_active_enums::Division::Mpo),
             pick_number: Set(2),
-            player: Set(17295),
+            player: Set(123456111),
             id: NotSet,
             benched: Set(false),
         }
@@ -213,18 +220,13 @@ mod tests {
         .await
         .unwrap();
 
-        add_pick(&client, 123456111, Division::MPO, 1)
-            .await
-            .into_string()
-            .await;
-
         assert!(any_pick(&db).await);
 
-        for x in entity::competition::Entity::find().all(&db).await.unwrap() {
+        /*for x in entity::competition::Entity::find().all(&db).await.unwrap() {
             let mut x = x.into_active_model();
             x.status = Set(entity::sea_orm_active_enums::CompetitionStatus::Running);
             x.save(&db).await.unwrap();
-        }
+        }*/
 
         //assert!(!any_user_scores(&db).await);
 
@@ -236,6 +238,16 @@ mod tests {
         let _ = refresh_user_scores_in_all(&db).await;
 
         let _ = service::mutation::update_active_competitions(&db).await;
+
+        assert!(amount_of_results(&db).await == 2);
+
+        let mut pick = pick.into_active_model();
+        pick.player = Set(122356);
+        pick.save(&db).await.unwrap();
+        let _ = refresh_user_scores_in_all(&db).await;
+
+        let _ = service::mutation::update_active_competitions(&db).await;
+        assert_eq!(amount_of_results(&db).await, 2);
         //assert!(any_user_scores(&db).await);
 
         //panic!();

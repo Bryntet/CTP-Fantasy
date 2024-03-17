@@ -78,13 +78,16 @@ pub struct UserLogin {
     pub password: String,
 }
 
-#[derive(Deserialize, JsonSchema, Debug)]
+#[derive(Deserialize, JsonSchema, Debug, Clone)]
 pub struct UserScore {
     pub user: i32,
     pub score: i32,
     pub competition_id: u32,
     pub pdga_num: u32,
     pub fantasy_tournament_id: u32,
+    // Required for later filtering of scores
+    pub benched: bool,
+    pub slot: u8,
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug)]

@@ -217,50 +217,27 @@ impl PlayerScore {
             return Err(GenericError::NotFound("Competition not found"));
         };
         let score = self.get_user_score(competition_level) as i32;
-        if let Ok(Some(user)) = self
-            .get_user(db, fantasy_tournament_id, competition_id as i32)
-            .await
-        {
+        if let Ok(Some((user, benched, slot))) = self.get_user(db, fantasy_tournament_id).await {
             Ok(Some(UserScore {
                 user: user.id,
                 score,
                 competition_id,
                 pdga_num: self.pdga_number,
                 fantasy_tournament_id,
+                benched,
+                slot,
             }))
         } else {
             Ok(None)
         }
     }
 
+    /// Returns user and if the player is benched and slot number
     async fn get_user(
         &self,
         db: &impl ConnectionTrait,
         fantasy_id: u32,
-        competition_id: i32,
-    ) -> Result<Option<user::Model>, GenericError> {
-        /*if let Some(score) = user_competition_score_in_fantasy_tournament::Entity::find()
-            .filter(
-                user_competition_score_in_fantasy_tournament::Column::FantasyTournamentId
-                    .eq(fantasy_id)
-                    .and(user_competition_score_in_fantasy_tournament::Column::PdgaNumber.eq(pdga_number))
-                    .and(
-                        user_competition_score_in_fantasy_tournament::Column::CompetitionId
-                            .eq(competition_id),
-                    ),
-            )
-            .one(db)
-            .await
-            .map_err(|e| {
-                error!("Unable to get user score from db {:#?}", e);
-                GenericError::UnknownError("Unable to get user score from db")
-            })?
-        {
-            score.find_related(user::Entity).one(db).await.map_err(|e| {
-                error!("Unable to get user from db {:#?}", e);
-                GenericError::UnknownError("Unable to get user from db")
-            })
-        } else*/
+    ) -> Result<Option<(user::Model, bool, u8)>, GenericError> {
         if let Some(pick) = FantasyPick::find()
             .filter(
                 fantasy_pick::Column::Player
@@ -271,72 +248,11 @@ impl PlayerScore {
             .await
             .map_err(|_| GenericError::UnknownError("Pick not found due to unknown database error"))?
         {
-            if let Some(user) = pick
-                .find_related(User)
+            pick.find_related(User)
                 .one(db)
                 .await
-                .map_err(|_| GenericError::UnknownError("User not found due to unknown database error"))?
-            {
-                if pick.benched {
-                    let bench_index_start = entity::fantasy_tournament::Entity::find_by_id(fantasy_id as i32)
-                        .one(db)
-                        .await
-                        .map(|f| f.map(|f| f.max_picks_per_user - f.bench_size + 1))
-                        .unwrap()
-                        .unwrap();
-
-                    let users_picks = user
-                        .find_related(fantasy_pick::Entity)
-                        .filter(
-                            fantasy_pick::Column::FantasyTournamentId
-                                .eq(fantasy_id)
-                                .and(fantasy_pick::Column::Division.eq(self.division.to_string())),
-                        )
-                        .all(db)
-                        .await
-                        .map_err(|e| {
-                            warn!("Unable to get all picks from user: {}", e);
-                            GenericError::UnknownError("Unable to get all picks from user")
-                        })?
-                        .into_iter();
-                    let mut non_playing = 0;
-                    for pick in users_picks {
-                        if let Ok(Some(player)) = pick
-                            .find_related(entity::player::Entity)
-                            .one(db)
-                            .await
-                            .map_err(|e| {
-                                warn!("Unable to get player in competition from pick: {}", e);
-                            })
-                        {
-                            if matches!(
-                                player
-                                    .find_related(entity::player_in_competition::Entity)
-                                    .filter(
-                                        entity::player_in_competition::Column::CompetitionId
-                                            .eq(competition_id)
-                                    )
-                                    .one(db)
-                                    .await,
-                                Ok(None)
-                            ) {
-                                warn!("this guy is not in comp: {:?}", player);
-                                non_playing += 1;
-                            }
-                        }
-                    }
-                    dbg!(bench_index_start + non_playing, pick.pick_number);
-                    if (bench_index_start + non_playing) <= pick.pick_number {
-                        Ok(None)
-                    } else {
-                        Ok(Some(user))
-                    }
-                } else {
-                    Ok(Some(user))
-                }
-            } else {
-                Ok(None)
-            }
+                .map_err(|_| GenericError::UnknownError("User not found due to unknown database error"))
+                .map(|u| u.map(|u| (u, pick.benched, pick.pick_number as u8)))
         } else {
             Ok(None)
         }
@@ -394,7 +310,7 @@ impl RoundInformation {
         competition_id: usize,
         given_divs: Vec<Division>,
         round_label: &RoundLabelInfo,
-        total_rounds: usize,
+        all_round_labels: &[RoundLabelInfo],
     ) -> Result<Self, GenericError> {
         let mut divs: Vec<RoundFromApi> = vec![];
         let mut maybe_error: Result<(), GenericError> = Ok(());
@@ -437,7 +353,7 @@ impl RoundInformation {
                 player_scores,
                 layout,
                 competition_id,
-                round_label.get_round_number_from_label(total_rounds),
+                round_label.get_round_number_from_label(all_round_labels),
                 divisions,
                 round_label.to_owned(),
             ))
@@ -448,13 +364,17 @@ impl RoundInformation {
         }
     }
 
-    pub fn phantom(round_label_info: RoundLabelInfo, competition_id: usize, total_rounds: usize) -> Self {
+    pub fn phantom(
+        round_label_info: &RoundLabelInfo,
+        competition_id: usize,
+        round_labels: &[RoundLabelInfo],
+    ) -> Self {
         RoundInformation {
             holes: vec![],
             players: vec![],
             course_length: 0,
-            round_number: round_label_info.get_round_number_from_label(total_rounds),
-            label: round_label_info,
+            round_number: round_label_info.get_round_number_from_label(round_labels),
+            label: round_label_info.to_owned(),
             competition_id,
             divs: vec![],
             phantom: true,
@@ -565,9 +485,7 @@ impl RoundInformation {
             .count()
             >= (players.len() / 2);
 
-        if self.phantom {
-            RoundStatus::Pending
-        } else if players.is_empty() {
+        if self.phantom || players.is_empty() {
             RoundStatus::Pending
         } else if players.iter().all(|p| p.started == PlayerStatus::Finished) || is_majority_finished {
             RoundStatus::Finished
