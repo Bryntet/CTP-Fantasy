@@ -494,7 +494,6 @@ impl RoundInformation {
             players: player_scores
                 .into_iter()
                 .filter_map(|p| {
-                    let p: PlayerScore = p;
                     if p.started != PlayerStatus::DidNotStart || p.started != PlayerStatus::DidNotFinish {
                         Some(p)
                     } else {
