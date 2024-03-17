@@ -342,7 +342,7 @@ impl From<CompetitionLevel> for sea_orm_active_enums::CompetitionLevel {
 }
 
 impl CompetitionLevel {
-    pub(crate) fn multiplier(&self) -> f32 {
+    pub(crate) fn multiplier(&self) -> f64 {
         match self {
             CompetitionLevel::Major => 2.0,
             CompetitionLevel::Playoff => 1.5,

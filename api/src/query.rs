@@ -10,7 +10,7 @@ use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 
 use crate::authenticate;
-use service::dto::{Division, UserWithCompetitionScore};
+use service::dto::{Division, UserWithCompetitionScores};
 use service::{dto, SimpleFantasyTournament};
 use uuid::Uuid;
 
@@ -197,7 +197,7 @@ pub(crate) async fn get_competition_scores(
     db: &State<DatabaseConnection>,
     tournament_id: i32,
     competition_id: i32,
-) -> Result<Json<Vec<UserWithCompetitionScore>>, GenericError> {
+) -> Result<Json<Vec<UserWithCompetitionScores>>, GenericError> {
     dto::user_competition_scores(db.inner(), tournament_id, competition_id)
         .await
         .map(Json)

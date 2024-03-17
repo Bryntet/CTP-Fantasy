@@ -1,4 +1,4 @@
-use super::User;
+use super::{CompetitionLevel, User};
 use crate::error::GenericError;
 use rocket::{error, warn};
 use rocket_okapi::okapi::schemars::{self, JsonSchema};
@@ -24,6 +24,7 @@ impl From<entity::player::Model> for Player {
 struct PlayerCompetitionScore {
     player: Player,
     score: u8,
+    placement: u32,
 }
 
 impl PlayerCompetitionScore {
@@ -45,9 +46,28 @@ impl PlayerCompetitionScore {
                 )
             })?
         {
+            let mut players: Vec<entity::player_round_score::Model> =
+                entity::player_round_score::Entity::find()
+                    .filter(
+                        entity::player_round_score::Column::PdgaNumber
+                            .eq(score_model.pdga_number)
+                            .and(
+                                entity::player_round_score::Column::CompetitionId
+                                    .eq(score_model.competition_id),
+                            ),
+                    )
+                    .all(db)
+                    .await
+                    .map_err(|e| {
+                        error!("Unable to get player round scores from db {:#?}", e);
+                        GenericError::UnknownError("Unable to get player round scores from db")
+                    })?;
+            players.sort_by(|a, b| a.round.cmp(&b.round));
+
             Ok(Some(Self {
                 player: Player::from(player_model),
                 score: score_model.score as u8,
+                placement: players.last().unwrap().placement as u32,
             }))
         } else {
             Ok(None)
@@ -88,7 +108,7 @@ impl CompetitionScores {
                 Some(score) => scores.push(score),
             }
         }
-
+        scores.sort_by(|a, b| a.placement.cmp(&b.placement));
         Ok(Self(scores))
     }
 
@@ -97,7 +117,7 @@ impl CompetitionScores {
     }
 }
 #[derive(Debug, Serialize, JsonSchema)]
-pub struct UserWithCompetitionScore {
+pub struct UserWithCompetitionScores {
     pub user: User,
     pub competition_scores: CompetitionScores,
     pub total_score: u32,
@@ -112,7 +132,7 @@ impl From<entity::user::Model> for User {
     }
 }
 
-impl UserWithCompetitionScore {
+impl UserWithCompetitionScores {
     async fn new(
         db: &impl ConnectionTrait,
         user: entity::user::Model,
@@ -134,7 +154,7 @@ pub async fn user_competition_scores(
     db: &impl ConnectionTrait,
     tournament_id: i32,
     competition_id: i32,
-) -> Result<Vec<UserWithCompetitionScore>, GenericError> {
+) -> Result<Vec<UserWithCompetitionScores>, GenericError> {
     use entity::user::Entity as UserEnt;
     let user_fantasy_models = entity::user_in_fantasy_tournament::Entity::find()
         .filter(entity::user_in_fantasy_tournament::Column::FantasyTournamentId.eq(tournament_id))
@@ -154,7 +174,7 @@ pub async fn user_competition_scores(
 
     let mut users = Vec::new();
     for user in user_models.into_iter().flatten() {
-        users.push(UserWithCompetitionScore::new(db, user, tournament_id, competition_id).await?);
+        users.push(UserWithCompetitionScores::new(db, user, tournament_id, competition_id).await?);
     }
     Ok(users)
 }

@@ -197,7 +197,7 @@ impl PlayerScore {
             }
             Tied::NotTied => placement_to_score(self.placement) as u32,
         };
-        (score as f32 * level.multiplier()).round() as u16
+        (score as f64 * level.multiplier()).round() as u16
     }
 
     pub(crate) async fn get_user_fantasy_score(

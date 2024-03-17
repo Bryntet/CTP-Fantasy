@@ -17,7 +17,7 @@ use rocket_okapi::okapi::schemars::{self, JsonSchema};
 use sea_orm::ConnectionTrait;
 use strum_macros::EnumIter;
 
-pub use scoring_visualisation::{user_competition_scores, UserWithCompetitionScore};
+pub use scoring_visualisation::{user_competition_scores, UserWithCompetitionScores};
 pub mod traits {
     pub use super::mutation::InsertCompetition;
 }
