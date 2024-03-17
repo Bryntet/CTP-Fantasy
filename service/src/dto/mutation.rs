@@ -575,7 +575,11 @@ impl CompetitionInfo {
             user_competition_score_in_fantasy_tournament::Entity::insert_many(
                 user_scores
                     .into_iter()
-                    .dedup_by(|a, b| a.competition_id == b.competition_id && a.pdga_num == b.pdga_num)
+                    .dedup_by(|a, b| {
+                        a.competition_id == b.competition_id
+                            && a.pdga_num == b.pdga_num
+                            && a.fantasy_tournament_id == b.fantasy_tournament_id
+                    })
                     .map(|p| p.into_active_model(self.competition_id as i32)),
             )
             .exec(db)
