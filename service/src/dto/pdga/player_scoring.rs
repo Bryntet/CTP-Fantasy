@@ -217,7 +217,7 @@ impl PlayerScore {
             return Err(GenericError::NotFound("Competition not found"));
         };
         let score = self.get_user_score(competition_level) as i32;
-        if let Ok(Some((user, benched, slot))) = self.get_user(db, fantasy_tournament_id).await {
+        if let Ok(Some((user, benched, slot, division))) = self.get_user(db, fantasy_tournament_id).await {
             Ok(Some(UserScore {
                 user: user.id,
                 score,
@@ -226,6 +226,7 @@ impl PlayerScore {
                 fantasy_tournament_id,
                 benched,
                 slot,
+                division,
             }))
         } else {
             Ok(None)
@@ -237,7 +238,7 @@ impl PlayerScore {
         &self,
         db: &impl ConnectionTrait,
         fantasy_id: u32,
-    ) -> Result<Option<(user::Model, bool, u8)>, GenericError> {
+    ) -> Result<Option<(user::Model, bool, u8, Division)>, GenericError> {
         if let Some(pick) = FantasyPick::find()
             .filter(
                 fantasy_pick::Column::Player
@@ -252,7 +253,7 @@ impl PlayerScore {
                 .one(db)
                 .await
                 .map_err(|_| GenericError::UnknownError("User not found due to unknown database error"))
-                .map(|u| u.map(|u| (u, pick.benched, pick.pick_number as u8)))
+                .map(|u| u.map(|u| (u, pick.benched, pick.pick_number as u8, pick.division.into())))
         } else {
             Ok(None)
         }

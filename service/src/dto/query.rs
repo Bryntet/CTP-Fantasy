@@ -241,22 +241,35 @@ impl CompetitionInfo {
         let bench_size =
             super::super::query::get_tournament_bench_size(db, fantasy_tournament_id as i32).await?;
         let mut filtered_scores = Vec::new();
-        for user_id in user_scores.iter().map(|score| score.user).dedup() {
-            let played_picks = user_scores
+        let divs = user_scores
+            .iter()
+            .map(|score| score.division)
+            .dedup()
+            .collect_vec();
+        for div in divs {
+            for user_id in user_scores
                 .iter()
-                .filter(|score| score.user == user_id)
-                .cloned()
-                .collect_vec();
-            let amount_of_played_picks = played_picks.len();
-            for pick in played_picks {
-                if (pick.slot as isize)
-                    <= max_picks as isize
-                        - (bench_size as isize - (max_picks as isize - amount_of_played_picks as isize))
-                {
-                    filtered_scores.push(pick);
+                .filter(|score| score.division == div)
+                .map(|score| score.user)
+                .dedup()
+            {
+                let played_picks = user_scores
+                    .iter()
+                    .filter(|score| score.user == user_id)
+                    .cloned()
+                    .collect_vec();
+                let amount_of_played_picks = played_picks.len();
+                for pick in played_picks {
+                    if (pick.slot as isize)
+                        <= max_picks as isize
+                            - (bench_size as isize - (max_picks as isize - amount_of_played_picks as isize))
+                    {
+                        filtered_scores.push(pick);
+                    }
                 }
             }
         }
+
         Ok(filtered_scores)
     }
 

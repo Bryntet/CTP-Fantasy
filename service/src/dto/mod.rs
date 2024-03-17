@@ -88,6 +88,7 @@ pub struct UserScore {
     // Required for later filtering of scores
     pub benched: bool,
     pub slot: u8,
+    pub division: Division,
 }
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug)]
@@ -115,7 +116,9 @@ pub struct LoginInput {
     pub password: String,
 }
 
-#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq, FromFormField, EnumIter, Default)]
+#[derive(
+    Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq, FromFormField, EnumIter, Default, Copy,
+)]
 pub enum Division {
     MPO,
     FPO,
