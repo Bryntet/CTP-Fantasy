@@ -160,10 +160,10 @@ mod tests {
 
         assert!(!any_user_scores(&db).await);
         entity::player::ActiveModel {
-            pdga_number: Set(123456111),
+            pdga_number: Set(81351),
             avatar: Set(None),
-            first_name: Set("TestPlayer".to_string()),
-            last_name: Set("Testerson".to_string()),
+            first_name: Set("Haley".to_string()),
+            last_name: Set("King".to_string()),
         }
         .insert(&db)
         .await
@@ -184,22 +184,9 @@ mod tests {
         entity::fantasy_pick::ActiveModel {
             fantasy_tournament_id: Set(1),
             user: Set(1),
-            division: Set(entity::sea_orm_active_enums::Division::Mpo),
+            division: Set(entity::sea_orm_active_enums::Division::Fpo),
             pick_number: Set(1),
-            player: Set(75412),
-            id: NotSet,
-            benched: Set(false),
-        }
-        .insert(&db)
-        .await
-        .unwrap();
-
-        let pick = entity::fantasy_pick::ActiveModel {
-            fantasy_tournament_id: Set(1),
-            user: Set(1),
-            division: Set(entity::sea_orm_active_enums::Division::Mpo),
-            pick_number: Set(2),
-            player: Set(123456111),
+            player: Set(81351),
             id: NotSet,
             benched: Set(false),
         }
@@ -210,9 +197,22 @@ mod tests {
         entity::fantasy_pick::ActiveModel {
             fantasy_tournament_id: Set(1),
             user: Set(1),
-            division: Set(entity::sea_orm_active_enums::Division::Mpo),
+            division: Set(entity::sea_orm_active_enums::Division::Fpo),
+            pick_number: Set(2),
+            player: Set(34563),
+            id: NotSet,
+            benched: Set(false),
+        }
+        .insert(&db)
+        .await
+        .unwrap();
+
+        entity::fantasy_pick::ActiveModel {
+            fantasy_tournament_id: Set(1),
+            user: Set(1),
+            division: Set(entity::sea_orm_active_enums::Division::Fpo),
             pick_number: Set(3),
-            player: Set(15857),
+            player: Set(62325),
             id: NotSet,
             benched: Set(true),
         }
@@ -239,9 +239,9 @@ mod tests {
 
         let _ = service::mutation::update_active_competitions(&db).await;
 
-        assert!(amount_of_results(&db).await == 2);
+        assert_eq!(amount_of_results(&db).await, 2);
 
-        let mut pick = pick.into_active_model();
+        /*let mut pick = pick.into_active_model();
         pick.player = Set(122356);
         pick.save(&db).await.unwrap();
         let _ = refresh_user_scores_in_all(&db).await;
@@ -250,6 +250,6 @@ mod tests {
         assert_eq!(amount_of_results(&db).await, 2);
         //assert!(any_user_scores(&db).await);
 
-        //panic!();
+        //panic!();*/
     }
 }

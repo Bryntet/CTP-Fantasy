@@ -246,16 +246,13 @@ impl CompetitionInfo {
             .map(|score| score.division)
             .dedup()
             .collect_vec();
-        for div in divs {
-            for user_id in user_scores
-                .iter()
-                .filter(|score| score.division == div)
-                .map(|score| score.user)
-                .dedup()
-            {
+
+        let user_ids = user_scores.iter().map(|score| score.user).dedup();
+        for user_id in user_ids {
+            for div in &divs {
                 let played_picks = user_scores
                     .iter()
-                    .filter(|score| score.user == user_id)
+                    .filter(|score| score.user == user_id && &score.division == div)
                     .cloned()
                     .collect_vec();
                 let amount_of_played_picks = played_picks.len();
