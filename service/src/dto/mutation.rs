@@ -576,7 +576,9 @@ impl CompetitionInfo {
                 user_scores
                     .into_iter()
                     .dedup_by(|a, b| {
-                        a.pdga_num == b.pdga_num && a.fantasy_tournament_id == b.fantasy_tournament_id
+                        a.competition_id == b.competition_id
+                            && a.pdga_num == b.pdga_num
+                            && a.fantasy_tournament_id == b.fantasy_tournament_id
                     })
                     .map(|p| p.into_active_model(self.competition_id as i32)),
             )
