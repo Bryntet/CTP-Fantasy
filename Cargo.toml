@@ -8,14 +8,14 @@ edition = "2021"
 [dependencies]
 dotenvy = "0.15"
 reqwest = { version = "0.11.20", features = ["json", "serde_json"] }
-tokio = { version = "1.35.1", features = ["full"] }
-serde = "1.0.186"
+tokio = { version = "1.36.0", features = ["full"] }
+serde = "1.0.197"
 entity = { path = "./entity" }
-itertools = "0.12.0"
+itertools = "0.12.1"
 api = { path = "./api" }
 rocket = "0.5.0"
 service = {path = "./service" }
-chrono = "0.4.33"
+chrono = "0.4.35"
 
 
 [dependencies.sea-orm]
