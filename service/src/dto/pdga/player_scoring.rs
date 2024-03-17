@@ -217,21 +217,17 @@ impl PlayerScore {
             return Err(GenericError::NotFound("Competition not found"));
         };
         let score = self.get_user_score(competition_level) as i32;
-        if score > 0 {
-            if let Ok(Some(user)) = self
-                .get_user(db, fantasy_tournament_id, competition_id as i32)
-                .await
-            {
-                Ok(Some(UserScore {
-                    user: user.id,
-                    score,
-                    competition_id,
-                    pdga_num: self.pdga_number,
-                    fantasy_tournament_id,
-                }))
-            } else {
-                Ok(None)
-            }
+        if let Ok(Some(user)) = self
+            .get_user(db, fantasy_tournament_id, competition_id as i32)
+            .await
+        {
+            Ok(Some(UserScore {
+                user: user.id,
+                score,
+                competition_id,
+                pdga_num: self.pdga_number,
+                fantasy_tournament_id,
+            }))
         } else {
             Ok(None)
         }
