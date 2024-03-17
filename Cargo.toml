@@ -11,7 +11,6 @@ reqwest = { version = "0.11.20", features = ["json", "serde_json"] }
 tokio = { version = "1.35.1", features = ["full"] }
 serde = "1.0.186"
 entity = { path = "./entity" }
-migration = { path = "./migration" }
 itertools = "0.12.0"
 api = { path = "./api" }
 rocket = "0.5.0"
@@ -32,9 +31,7 @@ dotenvy = "0.15.7"
 [[test]]
 name = "mock"
 
-[features]
-mock = ["sea-orm/mock"]
-required-features = ["mock"]
+
 
 
 [dev-dependencies]
