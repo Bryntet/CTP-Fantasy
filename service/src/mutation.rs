@@ -140,12 +140,13 @@ pub async fn refresh_user_scores_in_fantasy(
         .map(|c| c.id as u32)
         .collect_vec();
 
+    dbg!(&competition_ids);
     for id in competition_ids {
         match dto::CompetitionInfo::from_web(id).await {
             Err(GenericError::PdgaGaveUp(_)) => {
                 tokio::time::sleep(tokio::time::Duration::from_millis(250)).await;
-                let comp = dto::CompetitionInfo::from_web(id).await?;
-                comp.save_user_scores(db, fantasy_tournament_id).await?;
+                //let comp = dto::CompetitionInfo::from_web(id).await?;
+                //comp.save_user_scores(db, fantasy_tournament_id).await?;
             }
             Ok(comp) => comp.save_user_scores(db, fantasy_tournament_id).await?,
             Err(e) => Err(e)?,
@@ -165,13 +166,15 @@ pub async fn refresh_player_scores_in_active_competitions(
     Ok(())
 }
 
-pub async fn refresh_user_scores_in_all(db: &impl ConnectionTrait) -> Result<(), GenericError> {
+pub async fn refresh_user_scores_in_all(db: &DatabaseConnection) -> Result<(), GenericError> {
     let fantasy_tournaments = FantasyTournament::find()
         .all(db)
         .await
         .map_err(|_| GenericError::UnknownError("database error on fantasy tournament"))?;
     for tournament in fantasy_tournaments {
-        refresh_user_scores_in_fantasy(db, tournament.id as u32).await?;
+        let transaction = db.begin().await.unwrap();
+        refresh_user_scores_in_fantasy(&transaction, tournament.id as u32).await?;
+        transaction.commit().await.unwrap();
     }
     Ok(())
 }

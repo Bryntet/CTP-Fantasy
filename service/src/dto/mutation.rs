@@ -555,7 +555,7 @@ impl CompetitionInfo {
         fantasy_tournament_id: u32,
     ) -> Result<(), GenericError> {
         self.make_sure_all_players_exist_in_db(db).await?;
-        let user_scores = self.get_user_scores(db, fantasy_tournament_id).await?;
+        let mut user_scores = self.get_user_scores(db, fantasy_tournament_id).await?;
         if !user_scores.is_empty() {
             user_competition_score_in_fantasy_tournament::Entity::delete_many()
                 .filter(
@@ -572,22 +572,35 @@ impl CompetitionInfo {
                     error!("Unable to delete user scores from competition {:#?}", e);
                     GenericError::UnknownError("Unable to delete user scores from competition")
                 })?;
-            user_competition_score_in_fantasy_tournament::Entity::insert_many(
-                user_scores
-                    .into_iter()
-                    .dedup_by(|a, b| {
-                        a.competition_id == b.competition_id
-                            && a.pdga_num == b.pdga_num
-                            && a.fantasy_tournament_id == b.fantasy_tournament_id
-                    })
-                    .map(|p| p.into_active_model(self.competition_id as i32)),
-            )
-            .exec(db)
-            .await
-            .map_err(|e| {
-                error!("Unable to insert user scores into database: {:#?}", e);
-                GenericError::UnknownError("Unable to insert user score from competition into database")
-            })?;
+            user_scores.dedup_by(|a, b| a.pdga_num.eq(&b.pdga_num));
+            for score in &user_scores {
+                if score.pdga_num == 91249 {}
+            }
+            let mut new_scores: Vec<UserScore> = Vec::new();
+            for score in &user_scores {
+                if !new_scores
+                    .iter()
+                    .any(|new_score| new_score.pdga_num == score.pdga_num)
+                {
+                    new_scores.push(score.clone());
+                }
+            }
+            dbg!(new_scores.len(), user_scores.len());
+
+            dbg!("done");
+
+            let scores = new_scores
+                .into_iter()
+                .map(|p| p.into_active_model(self.competition_id as i32))
+                .dedup()
+                .collect_vec();
+            user_competition_score_in_fantasy_tournament::Entity::insert_many(scores)
+                .exec(db)
+                .await
+                .map_err(|e| {
+                    error!("Unable to insert user scores into database: {:#?}", e);
+                    GenericError::UnknownError("Unable to insert user score from competition into database")
+                })?;
         }
         Ok(())
     }

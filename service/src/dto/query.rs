@@ -218,7 +218,7 @@ impl CompetitionInfo {
         if current_round >= self.rounds.len() {
             error!("Current round is higher than rounds length");
         }
-        self.rounds[current_round].players.iter().collect_vec()
+        self.rounds[current_round].players.iter().dedup().collect_vec()
     }
 
     pub(super) async fn get_user_scores(
@@ -230,6 +230,9 @@ impl CompetitionInfo {
         let players = self.get_current_player_scores();
 
         for player in players {
+            if player.pdga_number == 91249 {
+                dbg!(player);
+            }
             let score = player
                 .get_user_fantasy_score(db, fantasy_tournament_id, self.competition_id)
                 .await?;
@@ -246,14 +249,19 @@ impl CompetitionInfo {
             .map(|score| score.division)
             .dedup()
             .collect_vec();
+        dbg!(&divs);
 
-        let user_ids = user_scores.iter().map(|score| score.user).dedup();
+        let mut user_ids = user_scores.iter().map(|score| score.user).collect_vec();
+        dbg!(user_ids.len());
+        user_ids.dedup();
+        dbg!(user_ids.len());
+
         for user_id in user_ids {
             for div in &divs {
                 let played_picks = user_scores
-                    .iter()
+                    .clone()
+                    .into_iter()
                     .filter(|score| score.user == user_id && &score.division == div)
-                    .cloned()
                     .collect_vec();
                 let amount_of_played_picks = played_picks.len();
                 for pick in played_picks {

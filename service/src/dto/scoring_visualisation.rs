@@ -1,4 +1,4 @@
-use super::{CompetitionLevel, User};
+use super::User;
 use crate::error::GenericError;
 use rocket::{error, warn};
 use rocket_okapi::okapi::schemars::{self, JsonSchema};

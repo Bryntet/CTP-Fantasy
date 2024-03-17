@@ -1,6 +1,6 @@
 use api::launch;
 use dotenvy::dotenv;
-use sea_orm::DatabaseConnection;
+use sea_orm::{DatabaseConnection, TransactionTrait};
 
 use rocket::error;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
@@ -17,11 +17,11 @@ async fn main() -> Result<(), rocket::Error> {
     tokio::spawn(async move {
         let db = api::get_db().await;
         loop {
+            round_update_interval.tick().await;
             if let Err(e) = service::mutation::refresh_user_scores_in_all(&db).await {
                 error!("Unable to refresh global user scores {:#?}", e);
             }
             check_active_rounds(&db).await;
-            round_update_interval.tick().await;
         }
     });
 
