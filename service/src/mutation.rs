@@ -140,7 +140,6 @@ pub async fn refresh_user_scores_in_fantasy(
         .map(|c| c.id as u32)
         .collect_vec();
 
-    dbg!(&competition_ids);
     for id in competition_ids {
         match dto::CompetitionInfo::from_web(id).await {
             Err(GenericError::PdgaGaveUp(_)) => {

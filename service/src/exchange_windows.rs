@@ -38,7 +38,7 @@ pub async fn see_which_users_can_exchange(
     let now = chrono::Utc::now().naive_local();
     let mut users = get_user_participants_in_tournament(db, tournament.id).await?;
     // Sort by score
-    users.sort_by(|a, b| a.score.cmp(&b.score));
+    users.sort_by(|a, b| b.score.cmp(&a.score));
     let mut possible_exchange_window_time = first_exchange_window;
     let mut allowed_users = Vec::new();
     let time_to_allow_all = last_possible_exchange_window_time(db, tournament).await?;
@@ -130,25 +130,18 @@ pub async fn see_when_users_can_exchange(
         .ok_or(GenericError::NotFound("Tournament not found"))?;
     let first_exchange_window = get_first_exchange_window_time(db, &tournament).await?;
 
-    let now = chrono::Utc::now().naive_local();
     let mut users = get_user_participants_in_tournament(db, tournament.id).await?;
     // Sort by score
-    users.sort_by(|a, b| a.score.cmp(&b.score));
+    users.sort_by(|a, b| b.score.cmp(&a.score));
     let mut possible_exchange_window_time = first_exchange_window;
     let mut user_exchange_times = Vec::new();
-    let time_to_allow_all = last_possible_exchange_window_time(db, &tournament).await?;
-    if let Some(time_to_allow_all) = time_to_allow_all {
-        if now > time_to_allow_all {
-            return Ok(users.into_iter().map(|user| (user, now)).collect());
-        }
-    }
+
     while let Some(exchange_time) = possible_exchange_window_time {
-        if now < exchange_time {
-            break;
-        }
         // Use the users with worst score first
         if let Some(user) = users.pop() {
             user_exchange_times.push((user, exchange_time));
+        } else {
+            break;
         }
         if exchange_time.hour() == 20 {
             possible_exchange_window_time = exchange_time

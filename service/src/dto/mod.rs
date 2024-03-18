@@ -41,14 +41,16 @@ impl ExchangeWindow {
                 status: ExchangeWindowStatus::AllowedToExchange,
             })
         } else if !super::exchange_windows::any_competitions_running(db, tournament as i32).await? {
-            let status = if let Some(time) =
-                super::exchange_windows::see_when_users_can_exchange(db, tournament as i32)
-                    .await?
-                    .into_iter()
-                    .find(|(user, _)| user.user.id == user_id as i32)
-                    .map(|(_, time)| time)
+            let thing = super::exchange_windows::see_when_users_can_exchange(db, tournament as i32).await?;
+            dbg!(&thing);
+            let status = if let Some(time) = thing
+                .into_iter()
+                .find(|(user, _)| user.user.id == user_id as i32)
+                .map(|(_, time)| time)
             {
-                ExchangeWindowStatus::AllowedToReorder { opens_at: time }
+                ExchangeWindowStatus::AllowedToReorder {
+                    allowed_to_exchange_at: time,
+                }
             } else {
                 unreachable!()
             };
@@ -70,7 +72,9 @@ impl ExchangeWindow {
 #[derive(Serialize, Deserialize, JsonSchema)]
 pub enum ExchangeWindowStatus {
     AllowedToExchange,
-    AllowedToReorder { opens_at: chrono::NaiveDateTime },
+    AllowedToReorder {
+        allowed_to_exchange_at: chrono::NaiveDateTime,
+    },
     Closed,
 }
 

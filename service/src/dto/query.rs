@@ -246,12 +246,9 @@ impl CompetitionInfo {
             .map(|score| score.division)
             .dedup()
             .collect_vec();
-        dbg!(&divs);
 
         let mut user_ids = user_scores.iter().map(|score| score.user).collect_vec();
-        dbg!(user_ids.len());
         user_ids.dedup();
-        dbg!(user_ids.len());
 
         for user_id in user_ids {
             for div in &divs {
