@@ -136,8 +136,8 @@ impl CompetitionInfo {
         match self.status() {
             CompetitionStatus::Finished => {
                 let tz = self.date_range.timezone();
-                let now = Utc::now().naive_utc();
-                let local_time = tz.from_utc_datetime(&now);
+                let now = Utc::now();
+                let local_time = tz.from_utc_datetime(&now.naive_utc());
                 /*let minute = local_time.minute();
                 let rounded_time = if minute < 30 {
                     local_time.with_minute(30)?.with_second(0)?

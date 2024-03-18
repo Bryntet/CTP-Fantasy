@@ -1,3 +1,4 @@
+use chrono::FixedOffset;
 use itertools::Itertools;
 use rocket::request::FromParam;
 use rocket::serde::{Deserialize, Serialize};
@@ -23,59 +24,37 @@ pub mod traits {
 }
 
 #[derive(Serialize, Deserialize, JsonSchema)]
-pub struct ExchangeWindow {
-    user_id: u32,
-    fantasy_tournament_id: u32,
-    pub status: ExchangeWindowStatus,
+pub enum ExchangeWindowStatus {
+    AllowedToExchange,
+    AllowedToReorder {
+        window_opens_at: chrono::DateTime<FixedOffset>,
+    },
+    Closed,
 }
-
-impl ExchangeWindow {
+impl ExchangeWindowStatus {
     pub async fn new(db: &impl ConnectionTrait, user_id: u32, tournament: u32) -> Result<Self, GenericError> {
         let allowed_to_exchange =
             super::exchange_windows::is_user_allowed_to_exchange(db, user_id as i32, tournament as i32)
                 .await?;
         if allowed_to_exchange {
-            Ok(Self {
-                user_id,
-                fantasy_tournament_id: tournament,
-                status: ExchangeWindowStatus::AllowedToExchange,
-            })
+            Ok(Self::AllowedToExchange)
         } else if !super::exchange_windows::any_competitions_running(db, tournament as i32).await? {
-            let thing = super::exchange_windows::see_when_users_can_exchange(db, tournament as i32).await?;
-            dbg!(&thing);
-            let status = if let Some(time) = thing
+            if let Some(time) = super::exchange_windows::see_when_users_can_exchange(db, tournament as i32)
+                .await?
                 .into_iter()
                 .find(|(user, _)| user.user.id == user_id as i32)
                 .map(|(_, time)| time)
             {
-                ExchangeWindowStatus::AllowedToReorder {
-                    allowed_to_exchange_at: time,
-                }
+                Ok(Self::AllowedToReorder {
+                    window_opens_at: time,
+                })
             } else {
                 unreachable!()
-            };
-            Ok(Self {
-                user_id,
-                fantasy_tournament_id: tournament,
-                status,
-            })
+            }
         } else {
-            Ok(Self {
-                user_id,
-                fantasy_tournament_id: tournament,
-                status: ExchangeWindowStatus::Closed,
-            })
+            Ok(Self::Closed)
         }
     }
-}
-
-#[derive(Serialize, Deserialize, JsonSchema)]
-pub enum ExchangeWindowStatus {
-    AllowedToExchange,
-    AllowedToReorder {
-        allowed_to_exchange_at: chrono::NaiveDateTime,
-    },
-    Closed,
 }
 
 pub struct PhantomCompetition {
