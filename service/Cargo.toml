@@ -37,6 +37,7 @@ features = [
     "sqlx-postgres",
 ]
 [dependencies.schemars]
+version = "*"
 features = ["chrono"]
 
 [dev-dependencies]

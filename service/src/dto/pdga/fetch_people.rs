@@ -1,4 +1,3 @@
-use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
 
 use sea_orm::{sea_query, ConnectionTrait, EntityTrait};

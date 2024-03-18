@@ -2,7 +2,6 @@ use rocket::response::Responder;
 use rocket::serde::{Deserialize, Serialize};
 use rocket_okapi::gen::OpenApiGenerator;
 use rocket_okapi::okapi::openapi3::Responses;
-use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::{JsonSchema, Map};
 use rocket_okapi::response::OpenApiResponderInner;
 use std::fmt::Debug;

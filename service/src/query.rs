@@ -7,7 +7,6 @@ use entity::*;
 
 use log::{error, warn};
 
-use rocket_okapi::okapi::schemars;
 use rocket_okapi::okapi::schemars::JsonSchema;
 use sea_orm::entity::prelude::*;
 use sea_orm::ActiveValue::Set;

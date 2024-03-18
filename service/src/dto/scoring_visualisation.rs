@@ -1,7 +1,7 @@
 use super::User;
 use crate::error::GenericError;
 use rocket::{error, warn};
-use rocket_okapi::okapi::schemars::{self, JsonSchema};
+use rocket_okapi::okapi::schemars::JsonSchema;
 use sea_orm::{ColumnTrait, ConnectionTrait, EntityTrait, ModelTrait, QueryFilter};
 use serde_derive::Serialize;
 

@@ -1,6 +1,6 @@
 use api::launch;
 use dotenvy::dotenv;
-use sea_orm::{DatabaseConnection, TransactionTrait};
+use sea_orm::DatabaseConnection;
 
 use rocket::error;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};

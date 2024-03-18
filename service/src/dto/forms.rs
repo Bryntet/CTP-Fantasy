@@ -1,5 +1,5 @@
 use super::CompetitionLevel;
-use super::{schemars, JsonSchema};
+use super::JsonSchema;
 use serde_derive::{Deserialize, Serialize};
 
 #[derive(Debug, JsonSchema, Serialize, Deserialize)]

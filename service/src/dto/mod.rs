@@ -2,7 +2,7 @@ use itertools::Itertools;
 use rocket::request::FromParam;
 use rocket::serde::{Deserialize, Serialize};
 use rocket::FromFormField;
-use rocket_okapi::okapi::schemars::{self, JsonSchema};
+use rocket_okapi::okapi::schemars::JsonSchema;
 use sea_orm::ConnectionTrait;
 use strum_macros::EnumIter;
 
@@ -34,8 +34,6 @@ impl ExchangeWindow {
         let allowed_to_exchange =
             super::exchange_windows::is_user_allowed_to_exchange(db, user_id as i32, tournament as i32)
                 .await?;
-        let now = chrono::Utc::now().naive_local();
-
         if allowed_to_exchange {
             Ok(Self {
                 user_id,
