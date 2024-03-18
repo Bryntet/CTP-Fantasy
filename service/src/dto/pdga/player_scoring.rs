@@ -131,7 +131,7 @@ impl PlayerScore {
                 .collect(),
             placement: api.running_place.unwrap_or(0),
             started: status,
-            division: api.division.clone(),
+            division: api.division,
             name: api.name.clone(),
             first_name: api.first_name.clone(),
             last_name: api.last_name.clone(),

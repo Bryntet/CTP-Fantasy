@@ -166,7 +166,7 @@ pub(crate) async fn add_picks(
             .await
             .map_err(|_| GenericError::UnknownError("transaction start failed"))?;
         for pick in picks {
-            pick.change_or_insert(&txn, user.id, fantasy_tournament_id, division.clone())
+            pick.change_or_insert(&txn, user.id, fantasy_tournament_id, division)
                 .await?;
         }
         txn.commit()
