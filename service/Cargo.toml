@@ -36,6 +36,8 @@ features = [
     "runtime-tokio-native-tls",
     "sqlx-postgres",
 ]
+[dependencies.schemars]
+features = ["chrono"]
 
 [dev-dependencies]
 tokio = { version = "1.36.0", features = ["macros", "rt"] }

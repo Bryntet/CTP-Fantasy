@@ -193,9 +193,6 @@ pub(crate) async fn get_fantasy_tournament_model(
         .map_err(|_| GenericError::UnknownError("Unknown DB ERROR"))
 }
 
-pub use crate::exchange_windows::{
-    has_exchange_begun, is_user_allowed_to_exchange, see_which_users_can_exchange,
-};
 pub async fn get_user_participants_in_tournament(
     db: &impl ConnectionTrait,
     tournament_id: i32,

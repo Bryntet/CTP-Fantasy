@@ -1,6 +1,6 @@
 use crate::query::get_fantasy_tournament_model;
 use crate::{
-    error::GenericError, get_competitions_in_fantasy_tournament, get_user_participants_in_tournament,
+    error::GenericError, get_competitions_in_fantasy_tournament, get_user_participants_in_tournament, query,
 };
 use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime, Timelike};
 use entity::sea_orm_active_enums::CompetitionStatus;
@@ -15,7 +15,7 @@ pub async fn is_user_allowed_to_exchange(
 ) -> Result<bool, GenericError> {
     if let Some(tournament) = get_fantasy_tournament_model(db, tournament_id).await? {
         let users = see_which_users_can_exchange(db, &tournament).await?;
-        Ok(!any_competitions_running(db, &tournament).await? && users.iter().any(|u| u.user.id == user_id))
+        Ok(!any_competitions_running(db, tournament.id).await? && users.iter().any(|u| u.user.id == user_id))
     } else {
         Err(GenericError::NotFound("Tournament not found"))
     }
@@ -23,9 +23,9 @@ pub async fn is_user_allowed_to_exchange(
 
 pub async fn any_competitions_running(
     db: &impl ConnectionTrait,
-    tournament: &entity::fantasy_tournament::Model,
+    tournament_id: i32,
 ) -> Result<bool, GenericError> {
-    let comps = get_competitions_in_fantasy_tournament(db, tournament.id).await?;
+    let comps = get_competitions_in_fantasy_tournament(db, tournament_id).await?;
     Ok(comps.iter().any(|c| c.status == CompetitionStatus::Running))
 }
 
@@ -119,4 +119,45 @@ async fn next_competition_beginning(
         .filter(|comp| comp.status == CompetitionStatus::NotStarted)
         .min_by_key(|c| c.start_date);
     Ok(next_competition.map(|c| c.start_date))
+}
+
+pub async fn see_when_users_can_exchange(
+    db: &impl ConnectionTrait,
+    tournament: i32,
+) -> Result<Vec<(crate::dto::UserWithScore, NaiveDateTime)>, GenericError> {
+    let tournament = get_fantasy_tournament_model(db, tournament)
+        .await?
+        .ok_or(GenericError::NotFound("Tournament not found"))?;
+    let first_exchange_window = get_first_exchange_window_time(db, &tournament).await?;
+
+    let now = chrono::Utc::now().naive_local();
+    let mut users = get_user_participants_in_tournament(db, tournament.id).await?;
+    // Sort by score
+    users.sort_by(|a, b| a.score.cmp(&b.score));
+    let mut possible_exchange_window_time = first_exchange_window;
+    let mut user_exchange_times = Vec::new();
+    let time_to_allow_all = last_possible_exchange_window_time(db, &tournament).await?;
+    if let Some(time_to_allow_all) = time_to_allow_all {
+        if now > time_to_allow_all {
+            return Ok(users.into_iter().map(|user| (user, now)).collect());
+        }
+    }
+    while let Some(exchange_time) = possible_exchange_window_time {
+        if now < exchange_time {
+            break;
+        }
+        // Use the users with worst score first
+        if let Some(user) = users.pop() {
+            user_exchange_times.push((user, exchange_time));
+        }
+        if exchange_time.hour() == 20 {
+            possible_exchange_window_time = exchange_time
+                .add(Duration::try_days(1).unwrap())
+                .with_hour(8)
+                .and_then(|x| x.with_minute(0).and_then(|x| x.with_second(0)))
+        } else {
+            possible_exchange_window_time = Some(exchange_time.add(Duration::try_hours(4).unwrap()));
+        }
+    }
+    Ok(user_exchange_times)
 }

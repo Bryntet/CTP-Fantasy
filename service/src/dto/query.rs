@@ -230,9 +230,6 @@ impl CompetitionInfo {
         let players = self.get_current_player_scores();
 
         for player in players {
-            if player.pdga_number == 91249 {
-                dbg!(player);
-            }
             let score = player
                 .get_user_fantasy_score(db, fantasy_tournament_id, self.competition_id)
                 .await?;

@@ -202,3 +202,15 @@ pub(crate) async fn get_competition_scores(
         .await
         .map(Json)
 }
+
+#[openapi(tag = "Pick Exchange")]
+#[get("/fantasy-tournament/<tournament_id>/user/<user_id>/exchange_window")]
+pub(crate) async fn get_exchange_window(
+    db: &State<DatabaseConnection>,
+    tournament_id: u32,
+    user_id: u32,
+) -> Result<Json<dto::ExchangeWindow>, GenericError> {
+    dto::ExchangeWindow::new(db.inner(), user_id, tournament_id)
+        .await
+        .map(Json)
+}

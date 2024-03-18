@@ -42,7 +42,7 @@ impl AllowedToExchangeGuard {
         if self.0 {
             true
         } else {
-            service::query::has_exchange_begun(db, tournament_id)
+            service::exchange_windows::has_exchange_begun(db, tournament_id)
                 .await
                 .unwrap_or(false)
         }
@@ -71,7 +71,13 @@ impl<'r> FromRequest<'r> for AllowedToExchangeGuard {
             match user {
                 Ok(user) => {
                     let user = user.id;
-                    match service::query::is_user_allowed_to_exchange(db, user, tournament_id as i32).await {
+                    match service::exchange_windows::is_user_allowed_to_exchange(
+                        db,
+                        user,
+                        tournament_id as i32,
+                    )
+                    .await
+                    {
                         Ok(allowed) => Outcome::Success(AllowedToExchangeGuard(allowed)),
                         Err(e) => Outcome::Error((Status::InternalServerError, e)),
                     }

@@ -1,6 +1,6 @@
 pub mod dto;
 pub mod error;
-mod exchange_windows;
+pub mod exchange_windows;
 pub mod mutation;
 pub mod query;
 

@@ -572,7 +572,7 @@ impl CompetitionInfo {
                     error!("Unable to delete user scores from competition {:#?}", e);
                     GenericError::UnknownError("Unable to delete user scores from competition")
                 })?;
-            user_scores.dedup_by(|a, b| a.pdga_num.eq(&b.pdga_num));
+            user_scores.dedup_by(|a, b| a.pdga_num == b.pdga_num);
             for score in &user_scores {
                 if score.pdga_num == 91249 {}
             }
@@ -585,9 +585,6 @@ impl CompetitionInfo {
                     new_scores.push(score.clone());
                 }
             }
-            dbg!(new_scores.len(), user_scores.len());
-
-            dbg!("done");
 
             let scores = new_scores
                 .into_iter()
