@@ -2,9 +2,10 @@ use crate::query::get_fantasy_tournament_model;
 use crate::{
     error::GenericError, get_competitions_in_fantasy_tournament, get_user_participants_in_tournament,
 };
-use chrono::{Duration, NaiveDate, NaiveDateTime, NaiveTime, Timelike};
+use chrono::{DateTime, Duration, FixedOffset, Timelike};
 use entity::sea_orm_active_enums::CompetitionStatus;
 use rocket::error;
+use sea_orm::prelude::Time;
 use sea_orm::ConnectionTrait;
 use std::ops::Add;
 
@@ -35,7 +36,7 @@ pub async fn see_which_users_can_exchange(
 ) -> Result<Vec<crate::dto::UserWithScore>, GenericError> {
     let first_exchange_window = get_first_exchange_window_time(db, tournament).await?;
 
-    let now = chrono::Utc::now().naive_local();
+    let now = chrono::Utc::now();
     let mut users = get_user_participants_in_tournament(db, tournament.id).await?;
     // Sort by score
     users.sort_by(|a, b| b.score.cmp(&a.score));
@@ -72,7 +73,7 @@ pub async fn has_exchange_begun(db: &impl ConnectionTrait, tournament_id: i32) -
         let first_exchange_window = get_first_exchange_window_time(db, &tournament).await?;
         error!("{:#?}", &first_exchange_window);
         Ok(first_exchange_window
-            .map(|x| x < chrono::Utc::now().naive_local())
+            .map(|x| x < chrono::Utc::now())
             .unwrap_or(false))
     } else {
         Err(GenericError::NotFound("Tournament not found"))
@@ -82,15 +83,15 @@ pub async fn has_exchange_begun(db: &impl ConnectionTrait, tournament_id: i32) -
 async fn get_first_exchange_window_time(
     db: &impl ConnectionTrait,
     tournament: &entity::fantasy_tournament::Model,
-) -> Result<Option<NaiveDateTime>, GenericError> {
+) -> Result<Option<DateTime<FixedOffset>>, GenericError> {
     let comps = get_competitions_in_fantasy_tournament(db, tournament.id).await?;
 
     if comps.iter().any(|c| c.status == CompetitionStatus::Running) {
         Ok(None)
     } else if let Some(end_time) = comps.iter().filter_map(|c| c.ended_at).max() {
-        let first_exchange_time: Option<NaiveDateTime> = end_time
+        let first_exchange_time: Option<DateTime<FixedOffset>> = end_time
+            .fixed_offset()
             .add(Duration::try_days(1).unwrap())
-            .naive_local()
             .with_hour(8)
             .and_then(|x| x.with_minute(0).and_then(|x| x.with_second(0)));
         Ok(first_exchange_time)
@@ -102,29 +103,34 @@ async fn get_first_exchange_window_time(
 async fn last_possible_exchange_window_time(
     db: &impl ConnectionTrait,
     tournament: &entity::fantasy_tournament::Model,
-) -> Result<Option<NaiveDateTime>, GenericError> {
+) -> Result<Option<DateTime<FixedOffset>>, GenericError> {
     Ok(next_competition_beginning(db, tournament).await?.map(|x| {
         x.add(Duration::try_days(-1).unwrap())
-            .and_time(NaiveTime::from_hms_opt(20, 0, 0).unwrap())
+            .with_hour(20)
+            .unwrap()
+            .with_minute(0)
+            .unwrap()
+            .with_second(0)
+            .unwrap()
     }))
 }
 
 async fn next_competition_beginning(
     db: &impl ConnectionTrait,
     tournament: &entity::fantasy_tournament::Model,
-) -> Result<Option<NaiveDate>, GenericError> {
+) -> Result<Option<DateTime<FixedOffset>>, GenericError> {
     let comps = get_competitions_in_fantasy_tournament(db, tournament.id).await?;
     let next_competition = comps
         .iter()
         .filter(|comp| comp.status == CompetitionStatus::NotStarted)
         .min_by_key(|c| c.start_date);
-    Ok(next_competition.map(|c| c.start_date))
+    Ok(next_competition.map(|c| c.start_date.and_time(Time::default()).and_utc().fixed_offset()))
 }
 
 pub async fn see_when_users_can_exchange(
     db: &impl ConnectionTrait,
     tournament: i32,
-) -> Result<Vec<(crate::dto::UserWithScore, NaiveDateTime)>, GenericError> {
+) -> Result<Vec<(crate::dto::UserWithScore, DateTime<FixedOffset>)>, GenericError> {
     let tournament = get_fantasy_tournament_model(db, tournament)
         .await?
         .ok_or(GenericError::NotFound("Tournament not found"))?;
