@@ -1,4 +1,4 @@
-use chrono::FixedOffset;
+use chrono::{Date, DateTime, FixedOffset, NaiveDate, Utc};
 use itertools::Itertools;
 use rocket::request::FromParam;
 use rocket::serde::{Deserialize, Serialize};
@@ -75,6 +75,7 @@ pub struct Competition {
     pub name: String,
     pub competition_id: i32,
     pub level: CompetitionLevel,
+    pub start_date: NaiveDate,
 }
 impl Competition {
     pub async fn all_in_fantasy_tournament(
@@ -89,6 +90,7 @@ impl Competition {
                 level: c.level.into(),
                 name: c.name,
                 competition_id: c.id,
+                start_date: c.start_date,
             })
             .collect())
     }
