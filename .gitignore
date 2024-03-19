@@ -5,6 +5,8 @@ ctp_fantasy.code-workspace
 /serde-test
 build.rs.bak
 Rocket.toml
+prod.sql
+copy-prod-to-local.nu
 # Added by cargo
 #
 # already existing elements were commented out
