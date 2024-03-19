@@ -37,9 +37,7 @@ pub async fn see_which_users_can_exchange(
     let first_exchange_window = get_first_exchange_window_time(db, tournament).await?;
 
     let now = chrono::Utc::now();
-    let mut users = get_user_participants_in_tournament(db, tournament.id).await?;
-    // Sort by score
-    users.sort_by(|a, b| b.score.cmp(&a.score));
+    let mut users = get_sorted_users(db, tournament.id).await?;
     let mut possible_exchange_window_time = first_exchange_window;
     let mut allowed_users = Vec::new();
     let time_to_allow_all = last_possible_exchange_window_time(db, tournament).await?;
@@ -52,18 +50,10 @@ pub async fn see_which_users_can_exchange(
         if now < exchange_time {
             break;
         }
-        // Use the users with worst score first
         if let Some(user) = users.pop() {
             allowed_users.push(user);
         }
-        if exchange_time.hour() == 20 {
-            possible_exchange_window_time = exchange_time
-                .add(Duration::try_days(1).unwrap())
-                .with_hour(8)
-                .and_then(|x| x.with_minute(0).and_then(|x| x.with_second(0)))
-        } else {
-            possible_exchange_window_time = Some(exchange_time.add(Duration::try_hours(4).unwrap()));
-        }
+        possible_exchange_window_time = get_next_exchange_window_time(exchange_time).await;
     }
     Ok(allowed_users)
 }
@@ -136,27 +126,39 @@ pub async fn see_when_users_can_exchange(
         .ok_or(GenericError::NotFound("Tournament not found"))?;
     let first_exchange_window = get_first_exchange_window_time(db, &tournament).await?;
 
-    let mut users = get_user_participants_in_tournament(db, tournament.id).await?;
-    // Sort by score
-    users.sort_by(|a, b| b.score.cmp(&a.score));
+    let mut users = get_sorted_users(db, tournament.id).await?;
     let mut possible_exchange_window_time = first_exchange_window;
     let mut user_exchange_times = Vec::new();
 
     while let Some(exchange_time) = possible_exchange_window_time {
-        // Use the users with worst score first
         if let Some(user) = users.pop() {
             user_exchange_times.push((user, exchange_time));
         } else {
             break;
         }
-        if exchange_time.hour() == 20 {
-            possible_exchange_window_time = exchange_time
-                .add(Duration::try_days(1).unwrap())
-                .with_hour(8)
-                .and_then(|x| x.with_minute(0).and_then(|x| x.with_second(0)))
-        } else {
-            possible_exchange_window_time = Some(exchange_time.add(Duration::try_hours(4).unwrap()));
-        }
+        possible_exchange_window_time = get_next_exchange_window_time(exchange_time).await;
     }
     Ok(user_exchange_times)
+}
+
+async fn get_sorted_users(
+    db: &impl ConnectionTrait,
+    tournament_id: i32,
+) -> Result<Vec<crate::dto::UserWithScore>, GenericError> {
+    let mut users = get_user_participants_in_tournament(db, tournament_id).await?;
+    users.sort_by(|a, b| b.score.cmp(&a.score));
+    Ok(users)
+}
+
+async fn get_next_exchange_window_time(
+    exchange_time: DateTime<FixedOffset>,
+) -> Option<DateTime<FixedOffset>> {
+    if exchange_time.hour() == 20 {
+        exchange_time
+            .add(Duration::try_days(1).unwrap())
+            .with_hour(8)
+            .and_then(|x| x.with_minute(0).and_then(|x| x.with_second(0)))
+    } else {
+        Some(exchange_time.add(Duration::try_hours(4).unwrap()))
+    }
 }
