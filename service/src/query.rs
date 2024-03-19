@@ -251,7 +251,7 @@ pub async fn get_user_pick_in_tournament(
     user_id: i32,
     tournament_id: i32,
     slot: i32,
-    division: sea_orm_active_enums::Division,
+    division: Division,
 ) -> Result<dto::FantasyPick, GenericError> {
     let pick = FantasyPick::find()
         .filter(
@@ -430,9 +430,9 @@ pub async fn active_competitions(db: &impl ConnectionTrait) -> Result<Vec<Compet
     let competition_models = Competition::find()
         .filter(
             competition::Column::Status
-                .eq(sea_orm_active_enums::CompetitionStatus::Running)
+                .eq(CompetitionStatus::Running)
                 .or(competition::Column::Status
-                    .eq(sea_orm_active_enums::CompetitionStatus::NotStarted)
+                    .eq(CompetitionStatus::NotStarted)
                     .and(competition::Column::StartDate.lte(chrono::Utc::now().date_naive()))),
         )
         .all(db)
@@ -546,7 +546,7 @@ pub async fn get_active_competitions(
     db: &impl ConnectionTrait,
 ) -> Result<Vec<competition::Model>, GenericError> {
     let competitions = Competition::find()
-        .filter(competition::Column::Status.eq(sea_orm_active_enums::CompetitionStatus::Running))
+        .filter(competition::Column::Status.eq(CompetitionStatus::Running))
         .all(db)
         .await
         .expect("good query");
@@ -561,7 +561,7 @@ pub async fn get_pending_competitions(
     db: &impl ConnectionTrait,
 ) -> Result<Vec<competition::Model>, GenericError> {
     let competitions = Competition::find()
-        .filter(competition::Column::Status.eq(sea_orm_active_enums::CompetitionStatus::NotStarted))
+        .filter(competition::Column::Status.eq(CompetitionStatus::NotStarted))
         .all(db)
         .await
         .expect("good query");

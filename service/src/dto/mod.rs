@@ -60,7 +60,7 @@ impl ExchangeWindowStatus {
 pub struct PhantomCompetition {
     name: String,
     competition_id: Option<u32>,
-    start_date: chrono::NaiveDate,
+    start_date: NaiveDate,
 }
 #[derive(Serialize, Deserialize, JsonSchema, Clone)]
 pub struct CreateTournament {
