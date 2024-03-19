@@ -25,6 +25,8 @@ pub enum Relation {
     PhantomCompetitionInFantasyTournament,
     #[sea_orm(has_many = "super::player_division_in_fantasy_tournament::Entity")]
     PlayerDivisionInFantasyTournament,
+    #[sea_orm(has_many = "super::player_trade::Entity")]
+    PlayerTrade,
     #[sea_orm(
         belongs_to = "super::user::Entity",
         from = "Column::Owner",
@@ -66,6 +68,12 @@ impl Related<super::phantom_competition_in_fantasy_tournament::Entity> for Entit
 impl Related<super::player_division_in_fantasy_tournament::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::PlayerDivisionInFantasyTournament.def()
+    }
+}
+
+impl Related<super::player_trade::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::PlayerTrade.def()
     }
 }
 

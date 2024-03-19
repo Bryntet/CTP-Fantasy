@@ -13,6 +13,7 @@ pub mod player;
 pub mod player_division_in_fantasy_tournament;
 pub mod player_in_competition;
 pub mod player_round_score;
+pub mod player_trade;
 pub mod round;
 pub mod sea_orm_active_enums;
 pub mod user;

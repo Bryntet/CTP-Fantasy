@@ -152,6 +152,21 @@ pub(crate) enum FantasyPick {
     Division,
     Benched,
 }
+
+#[derive(DeriveIden)]
+pub(crate) enum PlayerTrade {
+    Table,
+    Id,
+    FantasyTournamentId,
+    User,
+    Player,
+    Slot,
+    OtherPlayer,
+    OtherSlot,
+    Timestamp,
+    IsLocalSwap,
+}
+
 #[derive(DeriveIden)]
 pub(crate) enum UserCompetitionScoreInFantasyTournament {
     Table,

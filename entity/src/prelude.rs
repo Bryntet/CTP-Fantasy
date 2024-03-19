@@ -11,6 +11,7 @@ pub use super::player::Entity as Player;
 pub use super::player_division_in_fantasy_tournament::Entity as PlayerDivisionInFantasyTournament;
 pub use super::player_in_competition::Entity as PlayerInCompetition;
 pub use super::player_round_score::Entity as PlayerRoundScore;
+pub use super::player_trade::Entity as PlayerTrade;
 pub use super::round::Entity as Round;
 pub use super::user::Entity as User;
 pub use super::user_authentication::Entity as UserAuthentication;
