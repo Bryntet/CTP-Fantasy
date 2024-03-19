@@ -241,6 +241,7 @@
       <scope name="Project Files" level="ERROR" enabled="true" />
       <scope name="Scratches and Consoles" level="ERROR" enabled="true" />
     </inspection_tool>
+    <inspection_tool class="RsExperimentalUnresolvedMethod" enabled="true" level="ERROR" enabled_by_default="true" />
     <inspection_tool class="RsExperimentalUnresolvedPath" enabled="true" level="ERROR" enabled_by_default="true" />
     <inspection_tool class="RsExternalLinter" enabled="true" level="ERROR" enabled_by_default="true">
       <scope name="All Changed Files" level="ERROR" enabled="true" />
