@@ -153,6 +153,7 @@ impl MigrationTrait for Migration {
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         drop_table!(FantasyPick, manager);
         drop_table!(UserCompetitionScoreInFantasyTournament, manager);
+
         Ok(())
     }
 }

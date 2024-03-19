@@ -414,20 +414,16 @@ impl MigrationTrait for Migration {
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         drop_table!(PlayerInCompetition, manager);
         drop_table!(PlayerRoundScore, manager);
-        drop_table!(PhantomCompetition, manager);
-        drop_table!(Competition, manager);
-        drop_type!(CompetitionStatus, manager);
-        drop_table!(FantasyTournament, manager);
-        drop_table!(FantasyTournamentDivision, manager);
         drop_table!(PlayerDivisionInFantasyTournament, manager);
+        drop_table!(FantasyTournamentDivision, manager);
+        drop_table!(PhantomCompetitionInFantasyTournament, manager);
         drop_table!(CompetitionInFantasyTournament, manager);
         drop_table!(Round, manager);
+        drop_table!(FantasyTournament, manager);
+        drop_table!(Competition, manager);
+        drop_table!(PhantomCompetition, manager);
+        drop_type!(CompetitionStatus, manager);
         drop_type!(CompetitionLevel, manager);
-
-        /*manager.drop_foreign_key(
-            ForeignKey::drop()
-                .name("fk_competition_to_competition_in_tournament").to_owned()
-        ).await?;*/
         Ok(())
     }
 }
