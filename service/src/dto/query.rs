@@ -2,8 +2,6 @@ use chrono::{TimeZone, Utc};
 use log::error;
 use sea_orm::prelude::DateTimeWithTimeZone;
 use sea_orm::ActiveValue::Set;
-use sea_orm::ColumnTrait;
-use sea_orm::QueryFilter;
 use sea_orm::{EntityTrait, NotSet};
 
 //use entity::prelude::Round;
@@ -63,56 +61,6 @@ impl CreateTournament {
                 None => NotSet,
             },
         }
-    }
-}
-
-impl FantasyPick {
-    pub(super) async fn player_in_slot<C>(
-        db: &C,
-        user_id: i32,
-        fantasy_tournament_id: i32,
-        slot: i32,
-        division: sea_orm_active_enums::Division,
-    ) -> Result<Option<fantasy_pick::Model>, GenericError>
-    where
-        C: ConnectionTrait,
-    {
-        use entity::prelude::FantasyPick as FantasyPickEntity;
-        let existing_pick = FantasyPickEntity::find()
-            .filter(
-                fantasy_pick::Column::PickNumber
-                    .eq(slot)
-                    .and(fantasy_pick::Column::FantasyTournamentId.eq(fantasy_tournament_id))
-                    .and(fantasy_pick::Column::User.eq(user_id))
-                    .and(fantasy_pick::Column::Division.eq(division)),
-            )
-            .one(db)
-            .await
-            .map_err(|_| GenericError::UnknownError("database error while trying to find pick"))?;
-        Ok(existing_pick)
-    }
-
-    pub(super) async fn player_already_chosen<C>(
-        db: &C,
-        user_id: i32,
-        fantasy_tournament_id: i32,
-        pdga_number: i32,
-    ) -> Result<Option<fantasy_pick::Model>, GenericError>
-    where
-        C: ConnectionTrait,
-    {
-        use entity::prelude::FantasyPick as FantasyPickEntity;
-        let existing_pick = FantasyPickEntity::find()
-            .filter(
-                fantasy_pick::Column::Player
-                    .eq(pdga_number)
-                    .and(fantasy_pick::Column::FantasyTournamentId.eq(fantasy_tournament_id))
-                    .and(fantasy_pick::Column::User.eq(user_id)),
-            )
-            .one(db)
-            .await
-            .map_err(|_| GenericError::UnknownError("Unknown error while trying to find pick in database"))?;
-        Ok(existing_pick)
     }
 }
 
