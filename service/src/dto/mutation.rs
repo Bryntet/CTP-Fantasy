@@ -1,14 +1,15 @@
 use std::fmt::Display;
 
 use bcrypt::{hash, DEFAULT_COST};
+use chrono::Utc;
 use log::error;
 use rocket::http::CookieJar;
 use rocket::warn;
 use sea_orm::sea_query::OnConflict;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, DbErr, EntityTrait, ModelTrait, NotSet, QueryFilter,
-    SqlErr, TransactionTrait,
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, DbErr, EntityTrait, IntoActiveModel, ModelTrait,
+    NotSet, QueryFilter, SqlErr, TransactionTrait,
 };
 
 use entity::prelude::{
@@ -62,10 +63,9 @@ impl FantasyPick {
             Err(GenericError::Conflict("Player division does not match division"))?
         }
 
-        let person_in_slot =
-            Self::player_in_slot(db, user_id, tournament_id, self.slot, (&div).into()).await?;
+        //let person_in_slot = Self::player_in_slot(db, user_id, tournament_id, self.slot, (&div).into()).await?;
 
-        if let Some(player) = person_in_slot {
+        /*if let Some(player) = person_in_slot {
             let player: fantasy_pick::ActiveModel = player.into();
             player
                 .delete(db)
@@ -81,7 +81,7 @@ impl FantasyPick {
                 .delete(db)
                 .await
                 .map_err(|_| GenericError::UnknownError("Unable to remove pick"))?;
-        }
+        }*/
         self.insert(db, user_id, tournament_id, actual_player_div).await?;
         Ok(())
     }
@@ -97,7 +97,7 @@ impl FantasyPick {
         tournament_id: i32,
         division: Division,
     ) -> Result<(), GenericError> {
-        let pick = fantasy_pick::ActiveModel {
+        let mut new_pick = fantasy_pick::ActiveModel {
             id: NotSet,
             user: Set(user_id),
             pick_number: Set(self.slot),
@@ -106,10 +106,167 @@ impl FantasyPick {
             division: Set((&division).into()),
             benched: Set(self.is_benched(db, tournament_id).await?),
         };
-        pick.save(db)
+        let column_filter = fantasy_pick::Column::User
+            .eq(user_id)
+            .and(fantasy_pick::Column::FantasyTournamentId.eq(tournament_id))
+            .and(fantasy_pick::Column::Division.eq::<sea_orm_active_enums::Division>(division.into()));
+
+        let possible_prev_pick = fantasy_pick::Entity::find()
+            .filter(
+                column_filter
+                    .clone()
+                    .and(fantasy_pick::Column::Player.eq(new_pick.player.clone().take())),
+            )
+            .one(db)
             .await
-            .map_err(|_| GenericError::UnknownError("Unknown error while saving pick"))?;
-        Ok(())
+            .map(|p| p.map(|p| p.into_active_model()));
+        let other_pick = fantasy_pick::Entity::find()
+            .filter(column_filter.and(fantasy_pick::Column::PickNumber.eq(self.slot)))
+            .one(db)
+            .await
+            .map(|p| p.map(|p| p.into_active_model()));
+        match (possible_prev_pick, other_pick) {
+            // Swap two picks
+            (Ok(Some(mut previous_placement_of_player)), Ok(Some(mut other_pick))) => {
+                if previous_placement_of_player
+                    .pick_number
+                    .clone()
+                    .take()
+                    .is_some_and(|num| num != self.slot)
+                {
+                    previous_placement_of_player.player = Set(other_pick.player.clone().take().unwrap());
+                    other_pick.clone().delete(db).await.map_err(|e| {
+                        warn!("Unable to insert pick: {:#?}", e);
+                        GenericError::UnknownError("Unable to insert pick")
+                    })?;
+                    new_pick.id = Set(other_pick.id.take().unwrap());
+                    player_trade::ActiveModel {
+                        id: NotSet,
+                        user: Set(user_id),
+                        player: Set(self.pdga_number),
+                        slot: Set(self.slot),
+                        fantasy_tournament_id: Set(tournament_id),
+                        timestamp: Set(Utc::now().fixed_offset()),
+                        is_local_swap: Set(true),
+                        other_player: Set(previous_placement_of_player.player.clone().take()),
+                        other_slot: Set(previous_placement_of_player.pick_number.clone().take()),
+                    }
+                    .save(db)
+                    .await
+                    .map_err(|e| {
+                        warn!("Unable to insert pick: {:#?}", e);
+                        GenericError::UnknownError("Unable to insert pick")
+                    })?;
+                    previous_placement_of_player.save(db).await.map_err(|e| {
+                        warn!("Unable to insert pick: {:#?}", e);
+                        GenericError::UnknownError("Unable to insert pick")
+                    })?;
+                    new_pick.insert(db).await.map_err(|e| {
+                        warn!("Unable to insert pick: {:#?}", e);
+                        GenericError::UnknownError("Unable to insert pick")
+                    })?;
+                }
+                Ok(())
+            }
+
+            // Move pick to new slot when there is no pick in the new slot
+            (Ok(Some(mut previous_placement_of_player)), Ok(None)) => {
+                if previous_placement_of_player
+                    .pick_number
+                    .clone()
+                    .take()
+                    .is_some_and(|num| num != self.slot)
+                {
+                    player_trade::ActiveModel {
+                        id: NotSet,
+                        user: Set(user_id),
+                        player: Set(self.pdga_number),
+                        slot: Set(self.slot),
+                        fantasy_tournament_id: Set(tournament_id),
+                        timestamp: Set(Utc::now().fixed_offset()),
+                        is_local_swap: Set(false),
+                        other_player: Set(None),
+                        other_slot: Set(previous_placement_of_player.pick_number.clone().take()),
+                    }
+                    .save(db)
+                    .await
+                    .map_err(|e| {
+                        warn!("Unable to insert pick: {:#?}", e);
+                        GenericError::UnknownError("Unable to insert pick")
+                    })?;
+                    previous_placement_of_player.pick_number = Set(self.slot);
+                    dbg!(&previous_placement_of_player);
+
+                    previous_placement_of_player.save(db).await.map_err(|e| {
+                        warn!("Unable to insert pick: {:#?}", e);
+                        GenericError::UnknownError("Unable to insert pick")
+                    })?;
+                }
+                Ok(())
+            }
+
+            // Insert new pick when there is no pick in the new slot
+            (Ok(None), Ok(None)) => {
+                dbg!(&new_pick);
+                player_trade::ActiveModel {
+                    id: NotSet,
+                    user: Set(user_id),
+                    player: Set(self.pdga_number),
+                    slot: Set(self.slot),
+                    fantasy_tournament_id: Set(tournament_id),
+                    timestamp: Set(Utc::now().fixed_offset()),
+                    is_local_swap: Set(false),
+                    other_player: Set(None),
+                    other_slot: Set(None),
+                }
+                .save(db)
+                .await
+                .map_err(|e| {
+                    warn!("Unable to insert pick: {:#?}", e);
+                    GenericError::UnknownError("Unable to insert pick")
+                })?;
+                fantasy_pick::Entity::insert(new_pick)
+                    .exec(db)
+                    .await
+                    .map_err(|e| {
+                        warn!("Unable to insert pick: {:#?}", e);
+                        GenericError::UnknownError("Unable to insert pick")
+                    })?;
+                Ok(())
+            }
+
+            // Insert new pick when there is a pick in the new slot
+            (Ok(None), Ok(Some(mut other_pick))) => {
+                other_pick.player = Set(self.pdga_number);
+                dbg!(&other_pick);
+                player_trade::ActiveModel {
+                    id: NotSet,
+                    user: Set(user_id),
+                    player: Set(self.pdga_number),
+                    slot: Set(self.slot),
+                    fantasy_tournament_id: Set(tournament_id),
+                    timestamp: Set(Utc::now().fixed_offset()),
+                    is_local_swap: Set(false),
+                    other_player: Set(other_pick.player.clone().take()),
+                    other_slot: Set(other_pick.pick_number.clone().take()),
+                }
+                .save(db)
+                .await
+                .map_err(|e| {
+                    warn!("Unable to insert pick: {:#?}", e);
+                    GenericError::UnknownError("Unable to insert pick")
+                })?;
+                other_pick.player = Set(self.pdga_number);
+                other_pick.save(db).await.map_err(|e| {
+                    warn!("Unable to insert pick: {:#?}", e);
+                    GenericError::UnknownError("Unable to insert pick")
+                })?;
+                Ok(())
+            }
+            (Err(_), Err(_)) | (Err(_), _) | (_, Err(_)) => {
+                Err(GenericError::UnknownError("Unable to insert pick"))
+            }
+        }
     }
 }
 

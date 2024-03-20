@@ -9,7 +9,6 @@ publish = false
 
 [dependencies]
 sea-orm = "0.12.5" # sea-orm version
-
 [lib]
 name = "entity"
 path = "src/lib.rs"

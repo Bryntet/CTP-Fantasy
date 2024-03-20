@@ -116,8 +116,15 @@ pub(crate) async fn add_pick(
             benched: false,
         };
 
-        pick.change_or_insert(db, user.id, fantasy_tournament_id, division)
+        let txn = db
+            .begin()
+            .await
+            .map_err(|_| GenericError::UnknownError("transaction start failed"))?;
+        pick.change_or_insert(&txn, user.id, fantasy_tournament_id, division)
             .await?;
+        txn.commit()
+            .await
+            .map_err(|_| GenericError::UnknownError("transaction failed"))?;
 
         Ok("Successfully added pick")
     } else {
