@@ -225,6 +225,10 @@ pub async fn insert_competition_in_fantasy(
         Some(c) => {
             match c
                 .find_related(CompetitionInFantasyTournament)
+                .filter(
+                    competition_in_fantasy_tournament::Column::FantasyTournamentId
+                        .eq(fantasy_tournament_id as i32),
+                )
                 .one(db)
                 .await
                 .map_err(|_| {
@@ -234,12 +238,12 @@ pub async fn insert_competition_in_fantasy(
                 })? {
                 Some(_) => Err(GenericError::Conflict("Competition already added")),
                 None => {
-                    CompetitionInFantasyTournament::insert(competition_in_fantasy_tournament::ActiveModel {
+                    competition_in_fantasy_tournament::ActiveModel {
                         id: NotSet,
                         competition_id: Set(competition_id as i32),
                         fantasy_tournament_id: Set(fantasy_tournament_id as i32),
-                    })
-                    .exec(db)
+                    }
+                    .save(db)
                     .await
                     .map_err(|_| {
                         GenericError::UnknownError(
