@@ -8,8 +8,7 @@ publish = false
 
 
 [dependencies]
-sea-orm = "0.12.14" # sea-orm version
-serde = { version = "1.0.197", features = ["derive"] }
+sea-orm = "0.12.5" # sea-orm version
 
 [lib]
 name = "entity"

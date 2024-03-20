@@ -10,16 +10,16 @@ dotenvy = "0.15"
 reqwest = { version = "0.11.26", features = ["json", "serde_json"] }
 tokio = { version = "1.36.0", features = ["full"] }
 serde = "1.0.197"
-entity = { path = "./entity" }
+entity = { path = "entity" }
 itertools = "0.12.1"
-api = { path = "./api" }
+api = { path = "api" }
 rocket = "0.5.0"
-service = {path = "./service" }
+service = {path = "service" }
 chrono = "0.4.35"
 
 
 [dependencies.sea-orm]
-version = "0.12.14"
+version = "0.12.15"
 features = ["sqlx-postgres", "runtime-tokio-rustls", "macros"]
 
 [workspace]
