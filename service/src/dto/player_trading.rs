@@ -9,6 +9,7 @@ use itertools::Itertools;
 use rayon::prelude::*;
 use rocket::warn;
 use rocket_okapi::JsonSchema;
+use sea_orm::prelude::DateTimeWithTimeZone;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, ConnectionTrait, EntityTrait, IntoActiveModel, ModelTrait, NotSet,
@@ -16,6 +17,7 @@ use sea_orm::{
 };
 use serde_derive::{Deserialize, Serialize};
 use std::collections::HashMap;
+
 #[derive(Deserialize, Serialize, JsonSchema, Debug)]
 pub struct FantasyPick {
     pub slot: i32,
@@ -264,6 +266,7 @@ struct PlayerTradeLog {
     player: i32,
     slot: usize,
     action: PlayerTradingAction,
+    timestamp: DateTimeWithTimeZone,
 }
 
 impl PlayerTradeLog {
@@ -309,7 +312,14 @@ impl PlayerTradeLog {
                 }
             }
         };
-        format!("{}: {}", user, action)
+
+        // TODO: Send timestamp data with TZ to frontend to display based on local timezone
+        format!(
+            "{}: {} - At {}",
+            user,
+            action,
+            self.timestamp.format("%Y-%m-%d %H:%M:%S")
+        )
     }
 }
 
@@ -358,6 +368,7 @@ impl From<player_trade::Model> for PlayerTradeLog {
             player,
             slot,
             action,
+            timestamp: trade.timestamp,
         }
     }
 }
