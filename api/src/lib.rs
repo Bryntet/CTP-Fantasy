@@ -78,7 +78,8 @@ pub fn routes() -> Vec<Route> {
         proxy_image,
         get_competition_scores,
         change_passsword,
-        get_exchange_window
+        get_exchange_window,
+        get_trade_log
     ]
 }
 

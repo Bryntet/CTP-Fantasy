@@ -1,10 +1,7 @@
 use chrono::{TimeZone, Utc};
 use log::error;
-use sea_orm::prelude::DateTimeWithTimeZone;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{EntityTrait, NotSet};
-
-//use entity::prelude::Round;
 
 use crate::dto::pdga::{PlayerScore, RoundStatus};
 

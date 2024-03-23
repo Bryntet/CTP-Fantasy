@@ -4,6 +4,7 @@ use rocket::request::FromParam;
 use rocket::serde::{Deserialize, Serialize};
 use rocket::FromFormField;
 use rocket_okapi::okapi::schemars::JsonSchema;
+use sea_orm::prelude::DateTimeWithTimeZone;
 use sea_orm::ConnectionTrait;
 use strum_macros::EnumIter;
 
@@ -16,6 +17,7 @@ use crate::error::GenericError;
 pub mod forms;
 mod mutation;
 mod pdga;
+mod player_trading;
 mod query;
 mod scoring_visualisation;
 
@@ -95,20 +97,8 @@ impl Competition {
             .collect())
     }
 }
-#[derive(Deserialize, Serialize, JsonSchema, Debug)]
-pub struct FantasyPick {
-    pub slot: i32,
-    pub pdga_number: i32,
-    pub name: Option<String>,
-    #[serde(default)]
-    pub benched: bool,
-}
-#[derive(serde::Serialize, serde::Deserialize, JsonSchema, Debug)]
-pub struct FantasyPicks {
-    pub picks: Vec<FantasyPick>,
-    pub(crate) owner: bool,
-    pub(crate) fantasy_tournament_id: i32,
-}
+
+pub use player_trading::{FantasyPick, FantasyPicks, PlayerTradesLog};
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug, Clone)]
 pub struct UserLogin {

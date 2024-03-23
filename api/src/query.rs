@@ -214,3 +214,14 @@ pub(crate) async fn get_exchange_window(
         .await
         .map(Json)
 }
+
+#[openapi(tag = "Fantasy Tournament")]
+#[get("/fantasy-tournament/<tournament_id>/trade-log")]
+pub(crate) async fn get_trade_log(db: &State<DatabaseConnection>, tournament_id: i32) -> Json<Vec<String>> {
+    let db = db.inner();
+    dto::PlayerTradesLog::get(db, tournament_id)
+        .await
+        .into_formatting(db)
+        .await
+        .into()
+}
