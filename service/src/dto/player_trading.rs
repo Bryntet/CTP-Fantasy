@@ -294,23 +294,28 @@ impl PlayerTradeLog {
 
         let action = match self.action {
             PlayerTradingAction::Add => format!("Added {} to slot {}", player, self.slot),
-            PlayerTradingAction::Swap(swap) => {
-                let other_player = players
-                    .get(&swap.get_player())
-                    .map(|s| s.to_owned())
-                    .unwrap_or(swap.get_player().to_string());
-                match swap {
-                    PlayerTradingSwapType::Local { other_slot, .. } => {
-                        format!(
-                            "Swapped {} with {} (slots {} and {})",
-                            player, other_player, self.slot, other_slot
-                        )
-                    }
-                    PlayerTradingSwapType::Tournament { .. } => {
-                        format!("Swapped {} in slot {} with {}", player, self.slot, other_player,)
-                    }
+            PlayerTradingAction::Swap(swap) => match swap {
+                PlayerTradingSwapType::Local {
+                    other_slot,
+                    other_player,
+                } => {
+                    let other_player = players
+                        .get(&other_player)
+                        .map(|s| s.to_owned())
+                        .unwrap_or(swap.get_player().to_string());
+                    format!(
+                        "Swapped {} with {} (slots {} and {})",
+                        player, other_player, self.slot, other_slot
+                    )
                 }
-            }
+                PlayerTradingSwapType::Tournament { other_player } => {
+                    let other_player = players
+                        .get(&other_player)
+                        .map(|s| s.to_owned())
+                        .unwrap_or(swap.get_player().to_string());
+                    format!("Swapped {} in slot {} with {}", player, self.slot, other_player,)
+                }
+            },
         };
 
         // TODO: Send timestamp data with TZ to frontend to display based on local timezone
