@@ -307,7 +307,7 @@ impl PlayerTradeLog {
                         )
                     }
                     PlayerTradingSwapType::Tournament { .. } => {
-                        format!("Swapped {} in slot {} with {}", player, other_player, self.slot)
+                        format!("Swapped {} in slot {} with {}", player, self.slot, other_player,)
                     }
                 }
             }
