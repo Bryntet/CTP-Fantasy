@@ -390,7 +390,7 @@ impl PlayerTradesLog {
         Self(
             trades
                 .into_iter()
-                .sorted_by(|a, b| a.timestamp.cmp(&b.timestamp))
+                .sorted_by(|a, b| b.timestamp.cmp(&a.timestamp))
                 .map(PlayerTradeLog::from)
                 .collect_vec(),
         )
