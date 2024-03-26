@@ -221,8 +221,6 @@ impl FantasyPick {
 
             // Insert new pick when there is a pick in the new slot
             (Ok(None), Ok(Some(mut other_pick))) => {
-                other_pick.player = Set(self.pdga_number);
-                dbg!(&other_pick);
                 player_trade::ActiveModel {
                     id: NotSet,
                     user: Set(user_id),
@@ -260,7 +258,7 @@ pub struct FantasyPicks {
     pub(crate) owner: bool,
     pub(crate) fantasy_tournament_id: i32,
 }
-
+#[derive(Debug)]
 struct PlayerTradeLog {
     user: i32,
     player: i32,
@@ -327,12 +325,12 @@ impl PlayerTradeLog {
         )
     }
 }
-
+#[derive(Debug)]
 enum PlayerTradingAction {
     Add,
     Swap(PlayerTradingSwapType),
 }
-
+#[derive(Debug)]
 enum PlayerTradingSwapType {
     Local { other_slot: usize, other_player: i32 },
     Tournament { other_player: i32 },
@@ -368,13 +366,15 @@ impl From<player_trade::Model> for PlayerTradeLog {
             PlayerTradingAction::Add
         };
 
-        Self {
+        let out = Self {
             user,
             player,
             slot,
             action,
             timestamp: trade.timestamp,
-        }
+        };
+        dbg!(&trade, &out);
+        out
     }
 }
 
