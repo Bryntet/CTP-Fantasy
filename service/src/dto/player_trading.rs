@@ -179,8 +179,6 @@ impl FantasyPick {
                         GenericError::UnknownError("Unable to insert pick")
                     })?;
                     previous_placement_of_player.pick_number = Set(self.slot);
-                    dbg!(&previous_placement_of_player);
-
                     previous_placement_of_player.save(db).await.map_err(|e| {
                         warn!("Unable to insert pick: {:#?}", e);
                         GenericError::UnknownError("Unable to insert pick")
@@ -191,7 +189,6 @@ impl FantasyPick {
 
             // Insert new pick when there is no pick in the new slot
             (Ok(None), Ok(None)) => {
-                dbg!(&new_pick);
                 player_trade::ActiveModel {
                     id: NotSet,
                     user: Set(user_id),
@@ -366,15 +363,13 @@ impl From<player_trade::Model> for PlayerTradeLog {
             PlayerTradingAction::Add
         };
 
-        let out = Self {
+        Self {
             user,
             player,
             slot,
             action,
             timestamp: trade.timestamp,
-        };
-        dbg!(&trade, &out);
-        out
+        }
     }
 }
 
