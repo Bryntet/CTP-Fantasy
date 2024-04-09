@@ -6,11 +6,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
 entity = { path = "../entity" }
-serde = { version = "1.0.193", features = ["derive"] }
+serde = { version = "1.0.197", features = ["derive"] }
 itertools = "0.12.1"
 serde_derive = "1.0.197"
-serde_json = "1.0.114"
-reqwest = { version = "0.12.0", features = ["json"] }
+serde_json = "1.0.115"
+reqwest = { version = "0.12.3", features = ["json"] }
 dotenvy = "0.15"
 tokio = "1.36.0"
 rocket_okapi = "0.8.0"
@@ -18,20 +18,20 @@ bcrypt = "0.15.1"
 rand = "0.8.4"
 rocket = { version = "0.5.0", features = ["secrets"] }
 sqlx = {version =  "0.7.4", features = ["postgres"] }
-chrono = "0.4.35"
+chrono = "0.4.37"
 strum = "0.26.2"
 strum_macros = "0.26.2"
 log = "0.4.21"
 dateparser = "0.2.1"
 rtz = {version= "0.5.3", default-features = false, features = ["tz-osm", "tz-ned"] }
-geocoding = { version = "*", default-features = false, features = ["rustls-tls"] }
-chrono-tz = "0.8.5"
-cached = {version= "0.49.2", features = ["async"] }
+geocoding = { version = "0.4.0", default-features = false, features = ["rustls-tls"] }
+chrono-tz = "0.9.0"
+cached = {version= "0.49.3", features = ["async"] }
 serde_with = "3.7.0"
-rayon = "1.9.0"
+rayon = "1.10.0"
 
 [dependencies.sea-orm]
-version = "0.12.14" # sea-orm version
+version = "0.12.15" # sea-orm version
 features = [
     "debug-print",
     "runtime-tokio-native-tls",
@@ -42,5 +42,5 @@ version = "*"
 features = ["chrono"]
 
 [dev-dependencies]
-tokio = { version = "1.36.0", features = ["macros", "rt"] }
+tokio = { version = "1.37.0", features = ["macros", "rt"] }
 

@@ -2,7 +2,7 @@ use crate::query::get_fantasy_tournament_model;
 use crate::{
     error::GenericError, get_competitions_in_fantasy_tournament, get_user_participants_in_tournament,
 };
-use chrono::{DateTime, Duration, FixedOffset, Local, Timelike};
+use chrono::{DateTime, Duration, FixedOffset, Timelike};
 use chrono_tz::Tz;
 use entity::sea_orm_active_enums::CompetitionStatus;
 use rocket::error;

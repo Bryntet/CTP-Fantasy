@@ -1,17 +1,9 @@
-use rocket_okapi::okapi::schemars::JsonSchema;
-
 use sea_orm::{sea_query, ConnectionTrait, EntityTrait};
 
 use serde::Deserialize;
 
 use crate::dto::pdga::player_scoring::{PlayerScore, PlayerStatus};
 use crate::dto::Division;
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct CompetitionInfoInput {
-    pub id: u32,
-    pub division: Division,
-}
 
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "PascalCase")]
