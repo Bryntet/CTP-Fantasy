@@ -1,7 +1,7 @@
 use chrono::{TimeZone, Utc};
-use log::error;
+use rocket::error;
 use sea_orm::ActiveValue::Set;
-use sea_orm::{EntityTrait, NotSet};
+use sea_orm::{EntityTrait, IntoActiveModel, NotSet};
 
 use crate::dto::pdga::{PlayerScore, RoundStatus};
 
@@ -62,18 +62,32 @@ impl CreateTournament {
 }
 
 impl CompetitionInfo {
-    pub(crate) fn active_model(
+    pub(crate) async fn active_model(
         &self,
-        level: sea_orm_active_enums::CompetitionLevel,
-    ) -> competition::ActiveModel {
-        competition::ActiveModel {
-            id: Set(self.competition_id as i32),
-            status: Set(self.status().into()),
-            name: Set(self.name.clone()),
-            rounds: Set(self.amount_of_rounds as i32),
-            level: Set(level),
-            ended_at: Set(self.status_to_finished()),
-            start_date: Set(self.date_range.start_date()),
+        db: &impl ConnectionTrait,
+        level: Option<sea_orm_active_enums::CompetitionLevel>,
+    ) -> Result<competition::ActiveModel, GenericError> {
+        if let Ok(Some(model)) = competition::Entity::find_by_id(self.competition_id as i32)
+            .one(db)
+            .await
+        {
+            let mut model = model.into_active_model();
+            model.status = Set(self.status().into());
+            Ok(model)
+        } else if let Some(level) = level {
+            Ok(competition::ActiveModel {
+                id: Set(self.competition_id as i32),
+                status: Set(self.status().into()),
+                name: Set(self.name.clone()),
+                rounds: Set(self.amount_of_rounds as i32),
+                level: Set(level),
+                ended_at: Set(self.status_to_finished()),
+                start_date: Set(self.date_range.start_date()),
+            })
+        } else {
+            Err(GenericError::UnknownError(
+                "Somehow, called active model without level when model not in DB",
+            ))
         }
     }
 

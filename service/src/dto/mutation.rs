@@ -271,7 +271,7 @@ impl InsertCompetition for CompetitionInfo {
         db: &impl ConnectionTrait,
         level: sea_orm_active_enums::CompetitionLevel,
     ) -> Result<(), GenericError> {
-        self.insert_competition_in_db(db, level).await?;
+        self.save_competition_in_db(db, Some(level)).await?;
         self.insert_rounds(db).await?;
         Ok(())
     }
@@ -435,16 +435,16 @@ impl CompetitionInfo {
         }
     }
 
-    async fn insert_competition_in_db(
+    pub async fn save_competition_in_db(
         &self,
         db: &impl ConnectionTrait,
-        level: sea_orm_active_enums::CompetitionLevel,
+        level: Option<sea_orm_active_enums::CompetitionLevel>,
     ) -> Result<(), GenericError> {
-        let active = self.active_model(level);
-        active
-            .insert(db)
+        self.active_model(db, level)
+            .await?
+            .save(db)
             .await
-            .map_err(|_| GenericError::UnknownError("Unable to insert competition in database"))?;
+            .map_err(|_| GenericError::UnknownError("Unable to save competition in database"))?;
         Ok(())
     }
 

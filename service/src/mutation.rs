@@ -119,6 +119,7 @@ pub async fn update_active_competitions(db: &DatabaseConnection) -> Result<(), G
             warn!("Unable to start transaction: {:#?}", e);
         }) {
             let _ = competition.save_round_scores(&txn).await;
+            let _ = competition.save_competition_in_db(&txn, None).await;
             let _ = txn.commit().await.map_err(|e| {
                 warn!("Unable to commit transaction: {:#?}", e);
             });
