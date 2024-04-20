@@ -64,6 +64,10 @@ impl PlayerCompetitionScore {
                     })?;
             players.sort_by(|a, b| a.round.cmp(&b.round));
 
+            if players.is_empty() {
+                warn!("Player does not have any round scores");
+                return Ok(None);
+            }
             Ok(Some(Self {
                 player: Player::from(player_model),
                 score: score_model.score as u8,
