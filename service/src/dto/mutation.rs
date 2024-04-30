@@ -5,7 +5,7 @@ use log::error;
 use rocket::http::CookieJar;
 use rocket::warn;
 use sea_orm::sea_query::OnConflict;
-use sea_orm::ActiveValue::Set;
+use sea_orm::ActiveValue::{Set, Unchanged};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, DbErr, EntityTrait, ModelTrait, NotSet, QueryFilter,
     SqlErr, TransactionTrait,
@@ -440,11 +440,18 @@ impl CompetitionInfo {
         db: &impl ConnectionTrait,
         level: Option<sea_orm_active_enums::CompetitionLevel>,
     ) -> Result<(), GenericError> {
-        self.active_model(db, level)
-            .await?
-            .save(db)
-            .await
-            .map_err(|_| GenericError::UnknownError("Unable to save competition in database"))?;
+        if let Some(model) = self.active_model(db, level).await? {
+            let block = |e| {
+                warn!("{:#?}", e);
+                GenericError::UnknownError("Unable to save competition in database")
+            };
+            if matches!(model.id, Unchanged(_)) {
+                model.save(db).await.map_err(block)?;
+            } else {
+                model.insert(db).await.map_err(block)?;
+            };
+        }
+
         Ok(())
     }
 

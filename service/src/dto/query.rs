@@ -66,16 +66,24 @@ impl CompetitionInfo {
         &self,
         db: &impl ConnectionTrait,
         level: Option<sea_orm_active_enums::CompetitionLevel>,
-    ) -> Result<competition::ActiveModel, GenericError> {
+    ) -> Result<Option<competition::ActiveModel>, GenericError> {
         if let Ok(Some(model)) = competition::Entity::find_by_id(self.competition_id as i32)
             .one(db)
             .await
         {
+            let status = model.status.clone();
             let mut model = model.into_active_model();
-            model.status = Set(self.status().into());
-            Ok(model)
+
+            Ok(
+                if status != entity::sea_orm_active_enums::CompetitionStatus::from(self.status()) {
+                    model.status = Set(self.status().into());
+                    Some(model)
+                } else {
+                    None
+                },
+            )
         } else if let Some(level) = level {
-            Ok(competition::ActiveModel {
+            Ok(Some(competition::ActiveModel {
                 id: Set(self.competition_id as i32),
                 status: Set(self.status().into()),
                 name: Set(self.name.clone()),
@@ -83,7 +91,7 @@ impl CompetitionInfo {
                 level: Set(level),
                 ended_at: Set(self.status_to_finished()),
                 start_date: Set(self.date_range.start_date()),
-            })
+            }))
         } else {
             Err(GenericError::UnknownError(
                 "Somehow, called active model without level when model not in DB",
