@@ -1,9 +1,8 @@
 use api::launch;
 use dotenvy::dotenv;
 use sea_orm::DatabaseConnection;
-use std::ops::Add;
 
-use chrono::{Days, TimeDelta};
+use chrono::Days;
 use rocket::error;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use service::dto::CompetitionInfo;
