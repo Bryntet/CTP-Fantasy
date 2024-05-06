@@ -260,7 +260,8 @@ impl PlayerScore {
     }
 }
 
-use crate::dto::pdga::get_competition::RoundLabelInfo;
+use crate::dto::pdga::get_competition::{RoundLabel, RoundLabelInfo};
+use entity::sea_orm_active_enums::RoundTypeEnum;
 use serde_with::VecSkipError;
 
 #[serde_as]
@@ -507,6 +508,27 @@ impl RoundInformation {
             competition_id: Set(self.competition_id as i32),
             status: Set(self.status().into()),
             date: Set(date),
+            round_type: Set(Some(RoundTypeEnum::from(&self.label))),
+        }
+    }
+}
+impl From<&RoundLabelInfo> for RoundTypeEnum {
+    fn from(value: &RoundLabelInfo) -> Self {
+        match value.label {
+            RoundLabel::Final => RoundTypeEnum::Final,
+            RoundLabel::Playoff => RoundTypeEnum::Playoff,
+            RoundLabel::Round(_) => RoundTypeEnum::Round,
+            RoundLabel::Other => RoundTypeEnum::Unknown,
+        }
+    }
+}
+
+impl From<RoundTypeEnum> for RoundLabel {
+    fn from(value: RoundTypeEnum) -> Self {
+        match value {
+            RoundTypeEnum::Final => RoundLabel::Final,
+            RoundTypeEnum::Playoff => RoundLabel::Playoff,
+            RoundTypeEnum::Unknown | RoundTypeEnum::Round => RoundLabel::Other,
         }
     }
 }
