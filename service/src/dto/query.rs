@@ -256,7 +256,10 @@ impl CompetitionInfo {
     }
 
     pub fn status(&self) -> CompetitionStatus {
-        if self.rounds.iter().all(|r| r.status() == RoundStatus::Finished) {
+        // Add so that it has to be 6 in the morning, day after competition should end, to count as finished.
+        if self.rounds.iter().all(|r| r.status() == RoundStatus::Finished)
+            && self.date_range.competition_allowed_to_end()
+        {
             CompetitionStatus::Finished
         } else if let Some(round) = self.rounds.iter().find(|r| r.status() == RoundStatus::Started) {
             CompetitionStatus::Active(round.round_number - 1)

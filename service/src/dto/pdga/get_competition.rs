@@ -1,5 +1,5 @@
 use cached::proc_macro::cached;
-use chrono::{DateTime, NaiveDate, NaiveTime, TimeZone};
+use chrono::{DateTime, Days, NaiveDate, NaiveTime, TimeZone, Timelike};
 use itertools::Itertools;
 use rocket::form::validate::Contains;
 use rocket::{error, warn};
@@ -177,6 +177,21 @@ impl DateRange {
 
     pub(crate) fn start_date(&self) -> NaiveDate {
         self.start.naive_local().date()
+    }
+
+    /// This is a temporary function until we find a reliable way to
+    /// Know when a competition has ended
+    pub fn competition_allowed_to_end(&self) -> bool {
+        let current_time = chrono::Local::now().naive_local();
+        // 6 in the morning, day after competition should end, local time!
+        let earliest_end_time = self
+            .end
+            .checked_add_days(Days::new(1))
+            .unwrap()
+            .with_hour(6)
+            .unwrap()
+            .naive_local();
+        current_time >= earliest_end_time
     }
 }
 

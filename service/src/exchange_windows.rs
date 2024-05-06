@@ -2,7 +2,7 @@ use crate::query::get_fantasy_tournament_model;
 use crate::{
     error::GenericError, get_competitions_in_fantasy_tournament, get_user_participants_in_tournament,
 };
-use chrono::{DateTime, Duration, FixedOffset, Timelike};
+use chrono::{DateTime, Days, Duration, FixedOffset, Timelike};
 use chrono_tz::Tz;
 use entity::sea_orm_active_enums::CompetitionStatus;
 use rocket::error;
@@ -80,10 +80,13 @@ async fn get_first_exchange_window_time(
     if comps.iter().any(|c| c.status == CompetitionStatus::Running) {
         Ok(None)
     } else if let Some(end_time) = comps.iter().filter_map(|c| c.ended_at).max() {
+        // If ends at hour 6, assume that it ended due to the time restriction!
+        let add_day = end_time.hour() != 6;
         let first_exchange_time: Option<DateTime<FixedOffset>> = end_time
             .with_timezone(&Tz::Europe__Stockholm)
             .fixed_offset()
-            .add(Duration::try_days(1).unwrap())
+            .checked_add_days(if add_day { Days::new(1) } else { Days::new(0) })
+            .expect("Able to add one day")
             .with_hour(8)
             .and_then(|x| x.with_minute(0).and_then(|x| x.with_second(0)));
         Ok(first_exchange_time)
