@@ -55,6 +55,12 @@ pub struct RoundLabelInfo {
     pub label: RoundLabel,
 }
 
+impl PartialEq<RoundLabel> for RoundLabelInfo {
+    fn eq(&self, other: &RoundLabel) -> bool {
+        self.label == *other
+    }
+}
+
 impl From<&ApiRoundLabelInfo> for RoundLabelInfo {
     fn from(info: &ApiRoundLabelInfo) -> Self {
         Self {

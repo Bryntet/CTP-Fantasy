@@ -20,7 +20,7 @@ mod pdga;
 mod player_trading;
 mod query;
 mod scoring_visualisation;
-
+pub use pdga::RoundLabel;
 pub mod traits {
     pub use super::mutation::InsertCompetition;
 }

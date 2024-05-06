@@ -461,7 +461,7 @@ impl CompetitionInfo {
         fantasy_tournament_id: Option<i32>,
     ) -> Result<(), GenericError> {
         let players = self.get_current_player_scores();
-        add_players(db, players, fantasy_tournament_id).await?;
+        add_players(db, players?, fantasy_tournament_id).await?;
         Ok(())
     }
 
@@ -488,10 +488,9 @@ impl CompetitionInfo {
                     error!("Unable to delete user scores from competition {:#?}", e);
                     GenericError::UnknownError("Unable to delete user scores from competition")
                 })?;
+
             user_scores.dedup_by(|a, b| a.pdga_num == b.pdga_num);
-            for score in &user_scores {
-                if score.pdga_num == 91249 {}
-            }
+
             let mut new_scores: Vec<UserScore> = Vec::new();
             for score in &user_scores {
                 if !new_scores

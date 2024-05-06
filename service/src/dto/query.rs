@@ -1,5 +1,4 @@
 use chrono::{TimeZone, Utc};
-use rocket::error;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{EntityTrait, IntoActiveModel, NotSet};
 
@@ -179,13 +178,30 @@ impl CompetitionInfo {
         }
     }
 
-    pub(super) fn get_current_player_scores(&self) -> Vec<&PlayerScore> {
+    pub(super) fn get_current_player_scores(&self) -> Result<Vec<&PlayerScore>, GenericError> {
         let current_round = self.current_round();
-        //dbg!(current_round);
-        if current_round >= self.rounds.len() {
-            error!("Current round is higher than rounds length");
+
+        let round = self
+            .rounds
+            .get(current_round)
+            .ok_or(GenericError::NotFound("Unable to find current round"))?;
+        if round.label == RoundLabel::Playoff {
+            let mut round_to_return = self.rounds[current_round - 1]
+                .players
+                .iter()
+                .dedup()
+                .collect_vec();
+            for player in &mut round_to_return {
+                for replacing_player in round.players.iter() {
+                    if replacing_player.pdga_number == player.pdga_number {
+                        *player = replacing_player;
+                    }
+                }
+            }
+            Ok(round_to_return)
+        } else {
+            Ok(round.players.iter().dedup().collect_vec())
         }
-        self.rounds[current_round].players.iter().dedup().collect_vec()
     }
 
     pub(super) async fn get_user_scores(
@@ -194,7 +210,7 @@ impl CompetitionInfo {
         fantasy_tournament_id: u32,
     ) -> Result<Vec<UserScore>, GenericError> {
         let mut user_scores: Vec<UserScore> = Vec::new();
-        let players = self.get_current_player_scores();
+        let players = self.get_current_player_scores()?;
 
         for player in players {
             let score = player
