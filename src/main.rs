@@ -1,7 +1,9 @@
 use api::launch;
 use dotenvy::dotenv;
 use sea_orm::DatabaseConnection;
+use std::ops::Add;
 
+use chrono::{Days, TimeDelta};
 use rocket::error;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use service::dto::CompetitionInfo;
@@ -38,8 +40,12 @@ async fn main() -> Result<(), rocket::Error> {
                 .await
             {
                 for comp in comps {
-                    let comp_info = CompetitionInfo::from_web(comp.id as u32).await.unwrap();
-                    comp_info.save_round_scores(&db).await.unwrap();
+                    if chrono::Local::now().naive_local().date()
+                        > comp.start_date.checked_sub_days(Days::new(2)).unwrap()
+                    {
+                        let comp_info = CompetitionInfo::from_web(comp.id as u32).await.unwrap();
+                        comp_info.save_round_scores(&db).await.unwrap();
+                    }
                 }
             };
             player_insert_interval.tick().await;
