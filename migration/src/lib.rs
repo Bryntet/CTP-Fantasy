@@ -7,6 +7,7 @@ mod m20240102_175842_add_authentication;
 mod m20240106_182527_make_usernames_more_unique;
 mod m20240106_191136_users_in_fantasy_tournament;
 mod m20240317_131336_log_exchanges;
+mod m20240506_172259_add_round_type;
 mod macros;
 
 pub struct Migrator;
@@ -22,6 +23,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20240106_182527_make_usernames_more_unique::Migration),
             Box::new(m20240106_191136_users_in_fantasy_tournament::Migration),
             Box::new(m20240317_131336_log_exchanges::Migration),
+            Box::new(m20240506_172259_add_round_type::Migration),
         ]
     }
 }

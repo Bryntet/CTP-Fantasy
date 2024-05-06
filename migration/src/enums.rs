@@ -90,6 +90,16 @@ pub(crate) enum Round {
     Date,
     Status,
 }
+#[derive(DeriveIden)]
+pub(crate) struct RoundTypeEnum;
+
+#[derive(DeriveIden, EnumIter)]
+pub(crate) enum RoundTypeVariants {
+    Round,
+    Unknown,
+    Final,
+    Playoff,
+}
 
 #[derive(Iden, EnumIter)]
 pub(crate) enum CompetitionStatus {

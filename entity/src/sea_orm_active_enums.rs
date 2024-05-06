@@ -50,3 +50,15 @@ pub enum FantasyTournamentInvitationStatus {
     #[sea_orm(string_value = "Pending")]
     Pending,
 }
+#[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum)]
+#[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "round_type_enum")]
+pub enum RoundTypeEnum {
+    #[sea_orm(string_value = "final")]
+    Final,
+    #[sea_orm(string_value = "playoff")]
+    Playoff,
+    #[sea_orm(string_value = "round")]
+    Round,
+    #[sea_orm(string_value = "unknown")]
+    Unknown,
+}
