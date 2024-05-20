@@ -79,7 +79,8 @@ pub fn routes() -> Vec<Route> {
         get_competition_scores,
         change_passsword,
         get_exchange_window,
-        get_trade_log
+        get_trade_log,
+        get_all_picks
     ]
 }
 

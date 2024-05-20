@@ -26,7 +26,6 @@ pub struct FantasyPick {
     #[serde(default)]
     pub benched: bool,
 }
-
 impl FantasyPick {
     pub async fn change_or_insert(
         &self,
@@ -255,6 +254,7 @@ pub struct FantasyPicks {
     pub(crate) owner: bool,
     pub(crate) fantasy_tournament_id: i32,
 }
+
 #[derive(Debug)]
 struct PlayerTradeLog {
     user: i32,

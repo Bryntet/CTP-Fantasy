@@ -153,9 +153,14 @@ pub(crate) async fn add_picks(
         return Err(UserError::NotPermitted("You are not permitted to add picks for this user").into());
     }
 
-    let current_picks: FantasyPicks =
-        service::query::get_user_picks_in_tournament(db, user.id, user.id, fantasy_tournament_id, &division)
-            .await?;
+    let current_picks: FantasyPicks = service::query::get_user_picks_in_tournament_division(
+        db,
+        user.id,
+        user.id,
+        fantasy_tournament_id,
+        &division,
+    )
+    .await?;
 
     let picks = json_picks.into_inner();
     let all_picks_match = picks.iter().all(|p| {

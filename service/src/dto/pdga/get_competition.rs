@@ -191,6 +191,7 @@ impl DateRange {
             .with_hour(6)
             .unwrap()
             .naive_local();
+
         current_time >= earliest_end_time
     }
 }

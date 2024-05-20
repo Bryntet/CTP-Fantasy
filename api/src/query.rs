@@ -1,19 +1,20 @@
+use crate::authenticate;
 use crate::error::UserError;
 use crate::error::{GenericError, TournamentError};
 use dto::{FantasyPick, FantasyPicks};
+use itertools::Itertools;
 use rocket::fs::NamedFile;
 use rocket::serde::json::Json;
 use rocket::State;
 use rocket_okapi::openapi;
 use sea_orm::DatabaseConnection;
+use service::dto::Division;
+use service::dto::UserDataCombination;
+use service::{dto, make_dto_user_attribute, SimpleFantasyTournament};
+use std::collections::HashMap;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
-
-use crate::authenticate;
-use service::dto::{Division, UserWithCompetitionScores};
-use service::{dto, SimpleFantasyTournament};
 use uuid::Uuid;
-
 #[openapi(tag = "Fantasy Tournament")]
 #[get("/my-tournaments")]
 pub(crate) async fn see_tournaments(
@@ -48,14 +49,24 @@ pub(crate) async fn get_tournament(
     }
 }
 
+use rocket_okapi::okapi::schemars;
+make_dto_user_attribute!(Score, i32);
 #[openapi(tag = "Fantasy Tournament")]
 #[get("/fantasy-tournament/<id>/users")]
 pub(crate) async fn see_participants(
     db: &State<DatabaseConnection>,
     id: i32,
-) -> Result<Json<Vec<dto::UserWithScore>>, GenericError> {
+) -> Result<Json<Vec<UserDataCombination<AttributeScore>>>, GenericError> {
     match service::get_user_participants_in_tournament(db.inner(), id).await {
-        Ok(participants) => Ok(Json(participants)),
+        Ok(participants) => Ok(Json(
+            participants
+                .into_iter()
+                .map(|u| UserDataCombination::<AttributeScore> {
+                    user: u.user,
+                    data: u.score.into(),
+                })
+                .collect_vec(),
+        )),
         Err(_) => Err(UserError::InvalidUserId("Unknown user").into()),
     }
 }
@@ -96,7 +107,7 @@ pub(crate) async fn get_user_picks(
     user_id: i32,
     division: dto::Division,
 ) -> Result<Json<FantasyPicks>, GenericError> {
-    let res = service::get_user_picks_in_tournament(
+    let res = service::get_user_picks_in_tournament_division(
         db.inner(),
         requester.to_user_model()?.id,
         user_id,
@@ -109,6 +120,36 @@ pub(crate) async fn get_user_picks(
         Ok(picks) => Ok(Json(picks)),
         Err(_) => Err(UserError::InvalidUserId("Unknown user").into()),
     }
+}
+
+make_dto_user_attribute!(FantasyPick, Vec<FantasyPick>);
+#[openapi(tag = "Fantasy Tournament")]
+#[get("/fantasy-tournament/<tournament_id>/picks")]
+pub(crate) async fn get_all_picks(
+    db: &State<DatabaseConnection>,
+    tournament_id: i32,
+) -> Result<Json<Vec<UserDataCombination<AttributeFantasyPick>>>, GenericError> {
+    let picks = service::get_all_user_picks_in_fantasy_tournament(db.inner(), tournament_id)
+        .await
+        .map_err(|_| UserError::InvalidUserId("Unknown user"))?;
+
+    let mut map: HashMap<dto::User, AttributeFantasyPick> = HashMap::new();
+    for pick in picks {
+        if let Some(pick_things) = map.get_mut(&pick.0) {
+            pick_things.0.push(pick.1);
+        } else {
+            map.insert(pick.0, AttributeFantasyPick(vec![pick.1]));
+        }
+    }
+
+    Ok(Json(
+        map.into_iter()
+            .map(|(user_id, picks)| UserDataCombination {
+                user: user_id,
+                data: picks,
+            })
+            .collect_vec(),
+    ))
 }
 
 #[openapi(tag = "Fantasy Tournament")]
@@ -197,7 +238,7 @@ pub(crate) async fn get_competition_scores(
     db: &State<DatabaseConnection>,
     tournament_id: i32,
     competition_id: i32,
-) -> Result<Json<Vec<UserWithCompetitionScores>>, GenericError> {
+) -> Result<Json<Vec<UserDataCombination<service::dto::AttributeCompetitionScores>>>, GenericError> {
     dto::user_competition_scores(db.inner(), tournament_id, competition_id)
         .await
         .map(Json)

@@ -1,4 +1,5 @@
 use bcrypt::verify;
+use itertools::Itertools;
 
 use dto::InvitationStatus;
 use entity::prelude::*;
@@ -319,7 +320,7 @@ async fn get_player_name(db: &DatabaseConnection, player_id: i32) -> Result<Stri
     }
 }
 
-pub async fn get_user_picks_in_tournament(
+pub async fn get_user_picks_in_tournament_division(
     db: &impl ConnectionTrait,
     requester_id: i32,
     user_id: i32,
@@ -368,6 +369,39 @@ pub async fn get_user_picks_in_tournament(
         owner,
         fantasy_tournament_id: tournament_id,
     })
+}
+pub async fn get_all_user_picks_in_fantasy_tournament(
+    db: &impl ConnectionTrait,
+    tournament_id: i32,
+) -> Result<Vec<(dto::User, dto::FantasyPick)>, GenericError> {
+    let picks = FantasyPick::find()
+        .filter(fantasy_pick::Column::FantasyTournamentId.eq(tournament_id))
+        .all(db)
+        .await
+        .map_err(|e| {
+            warn!("Error while getting picks: {:#?}", e);
+            GenericError::UnknownError("Unknown error while getting picks")
+        })?;
+
+    let users = get_users_in_tournament(db, tournament_id)
+        .await?
+        .into_iter()
+        .map(dto::User::from)
+        .collect_vec();
+    Ok(picks
+        .into_iter()
+        .filter_map(|pick| {
+            Some((
+                users.iter().find(|u| u.id == pick.user)?.to_owned(),
+                dto::FantasyPick {
+                    benched: pick.benched,
+                    pdga_number: pick.player,
+                    slot: pick.pick_number,
+                    name: None,
+                },
+            ))
+        })
+        .collect_vec())
 }
 
 pub async fn max_picks(db: &impl ConnectionTrait, tournament_id: i32) -> Result<i32, GenericError> {

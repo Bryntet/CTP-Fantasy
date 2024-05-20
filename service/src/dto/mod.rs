@@ -6,11 +6,12 @@ use rocket::FromFormField;
 use rocket_okapi::okapi::schemars::JsonSchema;
 use sea_orm::prelude::DateTimeWithTimeZone;
 use sea_orm::ConnectionTrait;
+use std::fmt::Debug;
 use strum_macros::EnumIter;
 
 use entity::*;
 pub use pdga::{CompetitionInfo, RoundInformation};
-pub use scoring_visualisation::{user_competition_scores, UserWithCompetitionScores};
+pub use scoring_visualisation::{user_competition_scores, AttributeCompetitionScores, CompetitionScores};
 
 use crate::error::GenericError;
 
@@ -20,7 +21,9 @@ mod pdga;
 mod player_trading;
 mod query;
 mod scoring_visualisation;
+mod user_attribute;
 pub use pdga::RoundLabel;
+pub use user_attribute::{AttributeName, UserDataCombination};
 pub mod traits {
     pub use super::mutation::InsertCompetition;
 }
@@ -126,7 +129,7 @@ pub enum InvitationStatus {
     Declined,
 }
 
-#[derive(Serialize, Deserialize, JsonSchema, Debug)]
+#[derive(Serialize, Deserialize, JsonSchema, Debug, Clone, PartialEq, Hash, Eq)]
 pub struct User {
     pub id: i32,
     pub username: String,
@@ -136,6 +139,12 @@ pub struct User {
 pub struct UserWithScore {
     pub user: User,
     pub score: i32,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema, Debug)]
+pub struct UserWithPicks {
+    pub user: User,
+    pub picks: Vec<FantasyPick>,
 }
 
 #[derive(Deserialize, JsonSchema, Debug)]
@@ -157,7 +166,7 @@ pub enum Division {
 
 #[derive(Serialize, Deserialize, JsonSchema, Debug)]
 pub struct FantasyTournamentDivs {
-    pub(crate) division77146s: Vec<Division>,
+    pub(crate) divisions: Vec<Division>,
 }
 
 #[derive(Deserialize, JsonSchema, Debug)]

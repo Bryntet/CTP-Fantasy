@@ -1,9 +1,11 @@
-use super::User;
+use super::{User, UserDataCombination};
 use crate::error::GenericError;
+use crate::make_dto_user_attribute;
 use rocket::{error, warn};
-use rocket_okapi::okapi::schemars::JsonSchema;
+use rocket_okapi::JsonSchema;
 use sea_orm::{ColumnTrait, ConnectionTrait, EntityTrait, ModelTrait, QueryFilter};
-use serde_derive::Serialize;
+use serde::ser::SerializeStruct;
+use serde::Serialize;
 
 #[derive(Debug, Serialize, JsonSchema)]
 struct Player {
@@ -79,7 +81,7 @@ impl PlayerCompetitionScore {
     }
 }
 
-#[derive(Debug, Serialize, JsonSchema)]
+#[derive(Debug, JsonSchema)]
 pub struct CompetitionScores(Vec<PlayerCompetitionScore>);
 
 impl CompetitionScores {
@@ -120,6 +122,18 @@ impl CompetitionScores {
         self.0.iter().map(|x| x.score as u32).sum()
     }
 }
+impl Serialize for CompetitionScores {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut s = serializer.serialize_struct("CompetitionScores", 2)?;
+        s.serialize_field("scores", &self.0)?;
+        s.serialize_field("total_score", &self.total_score())?;
+        s.end()
+    }
+}
+
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct UserWithCompetitionScores {
     pub user: User,
@@ -135,8 +149,9 @@ impl From<entity::user::Model> for User {
         }
     }
 }
+make_dto_user_attribute!(CompetitionScores, CompetitionScores);
 
-impl UserWithCompetitionScores {
+impl UserDataCombination<AttributeCompetitionScores> {
     async fn new(
         db: &impl ConnectionTrait,
         user: entity::user::Model,
@@ -144,12 +159,11 @@ impl UserWithCompetitionScores {
         competition_id: i32,
     ) -> Result<Self, GenericError> {
         let user = User::from(user);
-        let competition_score = CompetitionScores::new(db, competition_id, user.id, tournament_id).await?;
-
         Ok(Self {
+            data: CompetitionScores::new(db, competition_id, user.id, tournament_id)
+                .await?
+                .into(),
             user,
-            total_score: competition_score.total_score(),
-            competition_scores: competition_score,
         })
     }
 }
@@ -158,7 +172,7 @@ pub async fn user_competition_scores(
     db: &impl ConnectionTrait,
     tournament_id: i32,
     competition_id: i32,
-) -> Result<Vec<UserWithCompetitionScores>, GenericError> {
+) -> Result<Vec<UserDataCombination<AttributeCompetitionScores>>, GenericError> {
     use entity::user::Entity as UserEnt;
     let user_fantasy_models = entity::user_in_fantasy_tournament::Entity::find()
         .filter(entity::user_in_fantasy_tournament::Column::FantasyTournamentId.eq(tournament_id))
@@ -178,7 +192,7 @@ pub async fn user_competition_scores(
 
     let mut users = Vec::new();
     for user in user_models.into_iter().flatten() {
-        users.push(UserWithCompetitionScores::new(db, user, tournament_id, competition_id).await?);
+        users.push(UserDataCombination::new(db, user, tournament_id, competition_id).await?);
     }
     Ok(users)
 }
