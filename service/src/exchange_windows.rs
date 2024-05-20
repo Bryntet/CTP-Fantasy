@@ -80,10 +80,10 @@ async fn get_first_exchange_window_time(
     if comps.iter().any(|c| c.status == CompetitionStatus::Running) {
         Ok(None)
     } else if let Some(end_time) = comps.iter().filter_map(|c| c.ended_at).max() {
+        let end_time = end_time.with_timezone(&Tz::Europe__Stockholm);
         // If ends at hour 6, assume that it ended due to the time restriction!
         let add_day = end_time.hour() != 6;
         let first_exchange_time: Option<DateTime<FixedOffset>> = end_time
-            .with_timezone(&Tz::Europe__Stockholm)
             .fixed_offset()
             .checked_add_days(if add_day { Days::new(1) } else { Days::new(0) })
             .expect("Able to add one day")
