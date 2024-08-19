@@ -15,12 +15,12 @@ sea-orm = "0.12.15"
 service = { path = "../service" }
 entity = { path = "../entity" }
 dotenvy = "0.15.7"
-sqlx = {version =  "0.7.4", features = ["postgres"] }
+sqlx = {version = "0.7.4", features = ["postgres"] }
 rocket_okapi = { version = "0.8.0", features = ["swagger", "rapidoc"] }
 serde = { version = "1.0.197", features = ["derive"] }
 tokio = "1.37.0"
 rocket_cors = "0.6.0"
 reqwest = { version = "0.12.3", features = ["stream"] }
 uuid = { version = "1.8.0", features = ["v4"] }
-itertools = "0.12.1"
+itertools = "0.13.0"
 paste = "1.0.15"

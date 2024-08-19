@@ -134,13 +134,6 @@ impl Serialize for CompetitionScores {
     }
 }
 
-#[derive(Debug, Serialize, JsonSchema)]
-pub struct UserWithCompetitionScores {
-    pub user: User,
-    pub competition_scores: CompetitionScores,
-    pub total_score: u32,
-}
-
 impl From<entity::user::Model> for User {
     fn from(model: entity::user::Model) -> Self {
         Self {

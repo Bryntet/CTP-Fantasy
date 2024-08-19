@@ -1,4 +1,5 @@
 use crate::dto::User;
+use lazy_static::lazy_static;
 use rocket_okapi::JsonSchema;
 use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
@@ -47,7 +48,7 @@ impl<Data: serde::Serialize + rocket_okapi::JsonSchema + Debug + AttributeName> 
                 properties: schemars::Map::new(),
                 required: std::collections::BTreeSet::from([
                     "user".to_string(),
-                    Data::FIELD_NAME.to_lowercase(),
+                    Data::FIELD_NAME.to_string(),
                 ]),
                 ..Default::default()
             })),
@@ -66,7 +67,7 @@ impl<Data: serde::Serialize + rocket_okapi::JsonSchema + Debug + AttributeName> 
             .as_mut()
             .unwrap()
             .properties
-            .insert(Data::FIELD_NAME.to_lowercase(), data_schema);
+            .insert(Data::FIELD_NAME.to_string(), data_schema);
 
         schemars::schema::Schema::Object(schema_object)
     }
@@ -78,10 +79,12 @@ macro_rules! make_dto_user_attribute {
             #[derive(Debug, serde::Serialize, rocket_okapi::okapi::schemars::JsonSchema)]
             pub struct [<Attribute $name>]($val);
         }
+
+        paste::paste! {
         impl crate::dto::AttributeName for paste::paste! {[<Attribute $name>]} {
             const NAME: &'static str = concat!("UserWith", stringify!($name));
-            const FIELD_NAME: &'static str = stringify!($name);
-        }
+            const FIELD_NAME: &'static str = stringify!([<$name:snake>]);
+        }}
 
         impl From<$val> for paste::paste! {[<Attribute $name>]} {
             fn from(value: $val) -> Self {

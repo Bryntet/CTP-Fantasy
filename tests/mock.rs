@@ -155,7 +155,7 @@ mod tests {
         create_tournament(&client).await;
         assert!(any_tournament(&db).await);
 
-        add_competition(&client, 77759, CompetitionLevel::ElitePlus).await;
+        add_competition(&client, 78195, CompetitionLevel::ElitePlus).await;
         assert!(any_competition(&db).await);
 
         assert!(!any_user_scores(&db).await);
@@ -169,7 +169,7 @@ mod tests {
         .await
         .unwrap();
 
-        let comp = entity::competition::Entity::find_by_id(77759)
+        let comp = entity::competition::Entity::find_by_id(78195)
             .one(&db)
             .await
             .unwrap()

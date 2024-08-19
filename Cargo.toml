@@ -11,7 +11,7 @@ reqwest = { version = "0.12.3", features = ["json"] }
 tokio = { version = "1.37.0", features = ["full"] }
 serde = "1.0.197"
 entity = { path = "entity" }
-itertools = "0.12.1"
+itertools = "0.13.0"
 api = { path = "api" }
 rocket = "0.5.0"
 service = {path = "service" }
@@ -23,7 +23,7 @@ version = "0.12.15"
 features = ["sqlx-postgres", "runtime-tokio-rustls", "macros"]
 
 [workspace]
-members = [".", "entity", "service", "api"]
+members = [".", "entity", "service", "api", ]
 
 [build-dependencies]
 dotenvy = "0.15.7"

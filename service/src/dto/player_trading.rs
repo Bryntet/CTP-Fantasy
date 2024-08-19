@@ -1,7 +1,9 @@
 use crate::dto::Division;
 use crate::error::{GenericError, PlayerError};
 use crate::player_exists;
+use chrono::TimeZone;
 use chrono::Utc;
+use chrono_tz::Tz;
 use entity::{
     fantasy_pick, player, player_division_in_fantasy_tournament, player_trade, sea_orm_active_enums,
 };
@@ -377,16 +379,18 @@ pub struct PlayerTradesLog(Vec<PlayerTradeLog>);
 
 impl PlayerTradesLog {
     pub async fn get(db: &impl ConnectionTrait, tournament_id: i32) -> Self {
-        let trades = player_trade::Entity::find()
+        let mut trades = player_trade::Entity::find()
             .filter(player_trade::Column::FantasyTournamentId.eq(tournament_id))
             .all(db)
             .await
             .unwrap_or_default();
+
         Self(
             trades
                 .into_iter()
                 .sorted_by(|a, b| b.timestamp.cmp(&a.timestamp))
                 .map(PlayerTradeLog::from)
+                .map(|mut trade| trade)
                 .collect_vec(),
         )
     }
